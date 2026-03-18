@@ -5,14 +5,14 @@ import User from "./src/models/User.model.js";
 import authRoutes from "./src/routes/auth.routes.js";// test dang ky va dang nhap
 import { protect } from "./src/middlewares/auth.middleware.js"; //test bao ve api
 import { authorizeRoles } from "./src/middlewares/role.middleware.js"; //test phan quyen
-
-
+import cors from "cors";
 
 dotenv.config();
 connectDB();
 
 const app = express();
 
+app.use(cors());
 app.use(express.json());
 
 app.get("/api", (req, res) => {
