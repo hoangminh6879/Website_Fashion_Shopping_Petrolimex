@@ -1,15 +1,37 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import cartService from "../services/cartService";
+import api from "../services/api";
 
 const Cart = () => {
   const [cart, setCart] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [user, setUser] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchCart();
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+
+    // Lấy thông tin user để check role
+    api.get('/auth/me')
+      .then(res => {
+        if (res.data.role !== 'user') {
+          alert("Chỉ tài khoản khách hàng mới có quyền truy cập giỏ hàng.");
+          navigate('/');
+        } else {
+          setUser(res.data);
+          fetchCart();
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        navigate('/login');
+      });
   }, []);
 
   const fetchCart = async () => {
@@ -70,8 +92,7 @@ const Cart = () => {
              <Link to="/" className="text-gray-300 hover:text-white text-sm">Tiếp tục mua sắm</Link>
           </div>
        </header>
-
-       <div className="container mx-auto px-4 py-8 max-w-5xl flex-grow">
+<div className="container mx-auto px-4 py-8 max-w-5xl flex-grow">
           <h1 className="text-3xl font-black mb-8 text-gray-900 uppercase">Giỏ hàng của bạn</h1>
 
           {items.length === 0 ? (
@@ -106,7 +127,7 @@ const Cart = () => {
                           {item.product?.name || "Sản phẩm"}
                        </Link>
                        <p className="text-xs text-gray-500 mt-1 uppercase font-bold tracking-tighter">
-                          {item.variant?.color} / {item.variant?.size}
+                          {item.color} / {item.size}
                        </p>
                        <div className="mt-auto flex justify-between items-center">
                           <div className="flex items-center gap-3">
@@ -114,7 +135,7 @@ const Cart = () => {
                                 <button onClick={() => handleUpdateQuantity(item._id, item.quantity - 1)} className="px-3 py-1 hover:bg-gray-200 transition">-</button>
                                 <span className="px-3 font-bold text-sm min-w-[30px] text-center">{item.quantity}</span>
                                 <button onClick={() => handleUpdateQuantity(item._id, item.quantity + 1)} className="px-3 py-1 hover:bg-gray-200 transition">+</button>
-                             </div>
+</div>
                              <button onClick={() => handleRemoveItem(item._id)} className="text-xs text-red-400 hover:text-red-600 font-bold uppercase tracking-tighter">Xóa</button>
                           </div>
                           <span className="font-black text-amber-600">{(item.price * item.quantity).toLocaleString()}đ</span>

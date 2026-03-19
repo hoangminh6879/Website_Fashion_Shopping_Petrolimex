@@ -22,6 +22,7 @@ export default function Home() {
   // User selection states
   const [selectedColor, setSelectedColor] = useState('');
   const [selectedSize, setSelectedSize] = useState('');
+  const [quantity, setQuantity] = useState(1);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -87,6 +88,7 @@ export default function Home() {
     setSelectedSize('');
     setProductVariants([]);
     setSelectedProduct(null);
+    setQuantity(1);
 
     try {
       const idsToFetch = productGroupMap[productInfo.name] || [productInfo._id];
@@ -135,19 +137,26 @@ export default function Home() {
       return;
     }
 
-    if (!currentVariant) {
-      alert("Biến thể này không tồn tại!");
+    if (!currentVariant && (productVariants.length > 0)) {
+      alert("Biến thể này không hợp lệ hoặc không có sẵn!");
       return;
     }
 
-    if (currentVariant.stock <= 0) {
+    const stock = getSelectedStock();
+    if (stock <= 0) {
       alert("Sản phẩm hết hàng!");
       return;
     }
 
     try {
       setAddingToCart(true);
-      await cartService.addToCart(selectedProduct._id, currentVariant._id, 1);
+      await cartService.addToCart(
+        selectedProduct._id,
+        currentVariant ? currentVariant._id : null,
+        quantity,
+        selectedColor,
+        selectedSize
+      );
       
       // Cập nhật số lượng giỏ hàng
       const data = await cartService.getCart();
@@ -189,11 +198,12 @@ export default function Home() {
   const getSelectedStock = () => {
     if (!selectedProduct) return 0;
     
-    // Nếu có productVariants (hệ thống cũ)
+    // Nếu có productVariants (hệ thống mới, dùng bảng ProductVariant)
     if (productVariants.length > 0) {
-      if (currentVariant) return currentVariant.stock;
-      return productVariants[0].stock;
+      return currentVariant ? currentVariant.stock : 0;
     }
+
+    // Nếu không có productVariants, kiểm tra xem product có mảng stock không (hệ thống cũ)
 
     // Hệ thống mới: stock là mảng trong product
     if (!Array.isArray(selectedProduct.stock) || selectedProduct.stock.length === 0) {
@@ -583,6 +593,43 @@ export default function Home() {
                       </div>
                     )}
 
+                    {/* Quantity Selector */}
+                    {getSelectedStock() > 0 && (
+                      <div className="mt-6 flex items-center gap-4">
+                        <h4 className="text-gray-700 font-semibold text-sm uppercase">Số Lượng</h4>
+                        <div className="flex items-center border border-gray-300 rounded-md overflow-hidden bg-white">
+                          <button
+                            onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
+                            className="px-3 py-1 bg-gray-50 hover:bg-gray-100 text-gray-600 font-bold transition border-r border-gray-300"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            value={quantity}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value);
+                              const stock = getSelectedStock();
+                              if (!isNaN(val)) {
+                                setQuantity(Math.min(stock, Math.max(1, val)));
+                              }
+                            }}
+                            className="w-12 text-center text-sm font-bold outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                          <button
+                            onClick={() => {
+                              const stock = getSelectedStock();
+                              setQuantity(prev => Math.min(stock, prev + 1));
+                            }}
+                            className="px-3 py-1 bg-gray-50 hover:bg-gray-100 text-gray-600 font-bold transition border-l border-gray-300"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <span className="text-xs text-gray-400">Tối đa {getSelectedStock()}</span>
+                      </div>
+                    )}
+
                     {/* Stock status */}
                     <div className="text-sm mt-4 text-gray-600 min-h-[1.5rem] font-medium">
                       <span>Tồn kho: <span className="font-bold text-gray-900">{getSelectedStock()}</span> sản phẩm</span>
@@ -590,22 +637,29 @@ export default function Home() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-4 mt-auto pt-4 border-t border-gray-100">
-                    <button
-                      className="flex-1 border-2 border-amber-500 bg-amber-50 text-amber-600 flex items-center justify-center gap-2 font-bold py-3 rounded-md hover:bg-amber-100 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={addingToCart || (uniqueColors.length > 0 && uniqueSizes.length > 0 && (!selectedColor || !selectedSize))}
-                      onClick={handleModalAddToCart}
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.35 5.4a1 1 0 00.97 1.25h11.76a1 1 0 00.97-1.25L17 13M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17" /></svg>
-                      {addingToCart ? "Đang thêm..." : "Thêm Vào Giỏ"}
-                    </button>
-                    <button
-                      className="flex-1 bg-amber-500 text-white font-bold py-3 rounded-md hover:bg-amber-600 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={uniqueColors.length > 0 && uniqueSizes.length > 0 && (!selectedColor || !selectedSize)}
-                      onClick={() => alert('Tiến hành thanh toán...')}
-                    >
-                      Mua Ngay
-                    </button>
+                  <div className="flex flex-col gap-4 mt-auto pt-4 border-t border-gray-100">
+                    {(!user || user.role !== 'user') && (
+                      <div className="bg-amber-50 border border-amber-200 p-2 rounded text-xs text-amber-700 text-center font-medium">
+                        Bạn cần đăng nhập bằng tài khoản khách hàng để mua sắm.
+                      </div>
+                    )}
+                    <div className="flex gap-4">
+                      <button
+                        className="flex-1 border-2 border-amber-500 bg-amber-50 text-amber-600 flex items-center justify-center gap-2 font-bold py-3 rounded-md hover:bg-amber-100 transition shadow-sm disabled:opacity-50 disabled:bg-gray-100 disabled:border-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
+                        disabled={addingToCart || getSelectedStock() <= 0 || !selectedColor || !selectedSize || !user || user.role !== 'user'}
+                        onClick={handleModalAddToCart}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.35 5.4a1 1 0 00.97 1.25h11.76a1 1 0 00.97-1.25L17 13M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17" /></svg>
+                        {getSelectedStock() <= 0 ? "Hết Hàng" : (addingToCart ? "Đang thêm..." : "Thêm Vào Giỏ")}
+                      </button>
+                      <button
+                        className="flex-1 bg-amber-500 text-white font-bold py-3 rounded-md hover:bg-amber-600 transition shadow-md disabled:opacity-50 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                        disabled={getSelectedStock() <= 0 || !selectedColor || !selectedSize || !user || user.role !== 'user'}
+                        onClick={() => alert('Tiến hành thanh toán...')}
+                      >
+                        {getSelectedStock() <= 0 ? "Hết Hàng" : "Mua Ngay"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </>
