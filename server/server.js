@@ -10,6 +10,7 @@ import shopRoutes from "./src/routes/shop.routes.js"; // test seller tao shop, c
 import productRoutes from "./src/routes/product.routes.js";// test seller tao san pham, chi seller moi tao duoc, va chi tao duoc san pham trong shop cua minh, neu khong se bao loi, admin va user khong tao duoc san pham, admin va user chi xem duoc san pham va chi tiet san pham, seller co the cap nhat va xoa san pham cua minh, khong cap nhat va xoa san pham cua nguoi khac, admin va user khong cap nhat va xoa san pham
 import categoryRoutes from "./src/routes/category.routes.js";
 import imageRoutes from "./src/routes/image.routes.js";
+import cartRoutes from "./src/routes/cart.routes.js";
 import path from "path";
 
 
@@ -86,6 +87,7 @@ app.use("/api/shops", shopRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/images", imageRoutes);
+app.use("/api/cart", cartRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import cartService from '../services/cartService';
 
 export default function Home() {
   const [categories, setCategories] = useState([]);
@@ -8,6 +9,9 @@ export default function Home() {
   const [productGroupMap, setProductGroupMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const [cartCount, setCartCount] = useState(0);
+  const [addingToCart, setAddingToCart] = useState(false);
+  const navigate = useNavigate();
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -58,6 +62,15 @@ export default function Home() {
             localStorage.removeItem('token');
           }
         });
+      
+      // Lấy số lượng giỏ hàng
+      cartService.getCart()
+        .then(data => {
+          if (data?.cart?.items) {
+            setCartCount(data.cart.items.length);
+          }
+        })
+        .catch(err => console.error("Error fetching cart:", err));
     }
   }, []);
 
@@ -113,6 +126,44 @@ export default function Home() {
       console.error("Error fetching product details:", error);
     } finally {
       setLoadingModal(false);
+    }
+  };
+
+  const handleModalAddToCart = async () => {
+    if (!selectedColor || !selectedSize) {
+      alert("Vui lòng chọn màu sắc và kích cỡ!");
+      return;
+    }
+
+    if (!currentVariant) {
+      alert("Biến thể này không tồn tại!");
+      return;
+    }
+
+    if (currentVariant.stock <= 0) {
+      alert("Sản phẩm hết hàng!");
+      return;
+    }
+
+    try {
+      setAddingToCart(true);
+      await cartService.addToCart(selectedProduct._id, currentVariant._id, 1);
+      
+      // Cập nhật số lượng giỏ hàng
+      const data = await cartService.getCart();
+      setCartCount(data.cart.items.length);
+      
+      if (window.confirm("Đã thêm vào giỏ! Xem giỏ hàng ngay?")) {
+        setIsModalOpen(false);
+        navigate("/cart");
+      }
+    } catch (err) {
+      alert(err.message || "Lỗi thêm giỏ hàng. Vui lòng đăng nhập.");
+      if (err.message?.includes("token") || err.status === 401) {
+        navigate("/login");
+      }
+    } finally {
+      setAddingToCart(false);
     }
   };
 
@@ -255,14 +306,16 @@ export default function Home() {
           </div>
 
           {/* Cart Icon */}
-          <div className="relative cursor-pointer hover:text-amber-500 transition p-2">
+          <Link to="/cart" className="relative cursor-pointer hover:text-amber-500 transition p-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.35 5.4a1 1 0 00.97 1.25h11.76a1 1 0 00.97-1.25L17 13M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17" />
             </svg>
-            <span className="absolute top-0 -right-1 bg-amber-500 text-gray-900 border-2 border-gray-900 text-[10px] font-extrabold px-1.5 py-0 rounded-full">
-              3
-            </span>
-          </div>
+            {cartCount > 0 && (
+              <span className="absolute top-0 -right-1 bg-amber-500 text-gray-900 border-2 border-gray-900 text-[10px] font-extrabold px-1.5 py-0 rounded-full">
+                {cartCount}
+              </span>
+            )}
+          </Link>
         </div>
       </header>
 
@@ -540,11 +593,11 @@ export default function Home() {
                   <div className="flex gap-4 mt-auto pt-4 border-t border-gray-100">
                     <button
                       className="flex-1 border-2 border-amber-500 bg-amber-50 text-amber-600 flex items-center justify-center gap-2 font-bold py-3 rounded-md hover:bg-amber-100 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={uniqueColors.length > 0 && uniqueSizes.length > 0 && (!selectedColor || !selectedSize)}
-                      onClick={() => alert('Đã thêm vào giỏ hàng!')}
+                      disabled={addingToCart || (uniqueColors.length > 0 && uniqueSizes.length > 0 && (!selectedColor || !selectedSize))}
+                      onClick={handleModalAddToCart}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.35 5.4a1 1 0 00.97 1.25h11.76a1 1 0 00.97-1.25L17 13M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17" /></svg>
-                      Thêm Vào Giỏ
+                      {addingToCart ? "Đang thêm..." : "Thêm Vào Giỏ"}
                     </button>
                     <button
                       className="flex-1 bg-amber-500 text-white font-bold py-3 rounded-md hover:bg-amber-600 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
