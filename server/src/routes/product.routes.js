@@ -5,6 +5,7 @@ import {
   getProductById,
   updateProduct,
   deleteProduct,
+  getSellerProducts,
   addVariant,
   updateVariant,
   deleteVariant,
@@ -17,6 +18,7 @@ const router = express.Router();
 
 // ================= PRODUCT =================
 router.post("/", protect, authorizeRoles("seller"), createProduct);
+router.get("/seller-products", protect, authorizeRoles("seller"), getSellerProducts);
 router.get("/", getProducts);
 router.get("/:id", getProductById);
 router.put("/:id", protect, authorizeRoles("seller"), updateProduct);
