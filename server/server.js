@@ -5,6 +5,8 @@ import User from "./src/models/User.model.js";
 import authRoutes from "./src/routes/auth.routes.js";// test dang ky va dang nhap
 import { protect } from "./src/middlewares/auth.middleware.js"; //test bao ve api
 import { authorizeRoles } from "./src/middlewares/role.middleware.js"; //test phan quyen
+import userRoutes from "./src/routes/user.routes.js"; // test user gui yeu cau len seller va admin duyệt yêu cầu đó
+import shopRoutes from "./src/routes/shop.routes.js"; // test seller tao shop, chi seller moi tao duoc va chi duoc tao 1 shop, neu da co shop roi thi bao loi
 import cors from "cors";
 
 dotenv.config();
@@ -69,6 +71,8 @@ app.get(
 
 app.use(express.json());
 app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/shops", shopRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
