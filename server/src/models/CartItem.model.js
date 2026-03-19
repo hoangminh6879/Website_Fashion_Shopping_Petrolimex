@@ -10,6 +10,9 @@ const cartItemSchema = new mongoose.Schema({
     ref: "ProductVariant",
   },
 
+  color: String,
+  size: String,
+
   quantity: Number,
 });
 

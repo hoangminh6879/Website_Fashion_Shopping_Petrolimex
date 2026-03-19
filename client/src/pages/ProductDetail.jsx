@@ -12,6 +12,8 @@ export default function ProductDetail() {
   const [selectedSize, setSelectedSize] = useState(null);
   const [loading, setLoading] = useState(true);
   const [addingToCart, setAddingToCart] = useState(false);
+  const [quantity, setQuantity] = useState(1);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     setLoading(true);
@@ -24,6 +26,13 @@ export default function ProductDetail() {
       })
       .catch(err => console.error(err))
       .finally(() => setLoading(false));
+
+    const token = localStorage.getItem('token');
+    if (token) {
+      api.get('/auth/me')
+        .then(res => setUser(res.data))
+        .catch(err => console.error("Error fetching user profile:", err));
+    }
   }, [id]);
 
   const handleAddToCart = async () => {
@@ -32,23 +41,26 @@ export default function ProductDetail() {
       return;
     }
 
-    const currentVariant = (product.variants || []).find(
-      v => v.color === selectedColor && v.size === selectedSize
-    );
-
-    if (!currentVariant) {
-      alert("Biến thể này không tồn tại!");
+    if (!currentVariant && (product.variants?.length > 0)) {
+      alert("Biến thể này không hợp lệ hoặc không có sẵn!");
       return;
     }
 
-    if (currentVariant.stock <= 0) {
+    const stock = getSelectedStock();
+    if (stock <= 0) {
       alert("Sản phẩm hết hàng!");
       return;
     }
 
     try {
       setAddingToCart(true);
-      await cartService.addToCart(product._id, currentVariant._id, 1);
+      await cartService.addToCart(
+        product._id,
+        currentVariant ? currentVariant._id : null,
+        quantity,
+        selectedColor,
+        selectedSize
+      );
       
       if (window.confirm("Đã thêm vào giỏ! Xem giỏ hàng ngay?")) {
         navigate("/cart");
@@ -129,6 +141,10 @@ export default function ProductDetail() {
   const mainImageSrc = variantImage
     ? `http://localhost:5000${variantImage}`
     : (product.images?.[activeImage]?.url ? `http://localhost:5000${product.images[activeImage].url}` : "https://via.placeholder.com/800");
+
+  const currentVariant = (product?.variants || []).find(
+    v => v.color === selectedColor && v.size === selectedSize
+  );
 
   return (
     <div className="bg-gray-50 min-h-screen font-sans pb-20">
@@ -216,16 +232,58 @@ export default function ProductDetail() {
             </div>
 
             <div className="pt-8 border-t border-gray-100 mt-auto flex flex-col gap-4">
+              {(!user || user.role !== 'user') && (
+                <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-sm text-amber-700 text-center font-medium">
+                  Bạn cần đăng nhập bằng tài khoản khách hàng để mua sắm.
+                </div>
+              )}
+              {/* Quantity Selector */}
+              {getSelectedStock() > 0 && (
+                <div className="flex items-center gap-6 mb-4">
+                  <label className="text-xs font-black uppercase text-gray-400 tracking-widest">Số lượng</label>
+                  <div className="flex items-center border-2 border-gray-100 rounded-xl overflow-hidden bg-white">
+                    <button
+                      onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
+                      className="px-4 py-2 hover:bg-gray-50 text-gray-900 font-black transition border-r-2 border-gray-100"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      value={quantity}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        const stock = getSelectedStock();
+                        if (!isNaN(val)) {
+                          setQuantity(Math.min(stock, Math.max(1, val)));
+                        }
+                      }}
+                      className="w-16 text-center text-sm font-black outline-none border-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <button
+                      onClick={() => {
+                        const stock = getSelectedStock();
+                        setQuantity(prev => Math.min(stock, prev + 1));
+                      }}
+                      className="px-4 py-2 hover:bg-gray-50 text-gray-900 font-black transition border-l-2 border-gray-100"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <span className="text-xs text-gray-400 font-bold uppercase tracking-tight">Tối đa {getSelectedStock()}</span>
+                </div>
+              )}
+
               <div className="flex items-center gap-2 text-gray-500 text-sm mb-4">
                 <span>Tồn kho: <span className="font-bold text-gray-800">{getSelectedStock()}</span> sản phẩm</span>
               </div>
               <div className="flex gap-4">
                 <button 
                   onClick={handleAddToCart}
-                  disabled={addingToCart}
-                  className={`flex-1 py-5 rounded-2xl font-black uppercase tracking-widest transition-all shadow-xl active:scale-[0.98] ${addingToCart ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-amber-500 hover:text-gray-900'}`}
+                  disabled={addingToCart || getSelectedStock() <= 0 || !selectedColor || !selectedSize || !user || user.role !== 'user'}
+                  className={`flex-1 py-5 rounded-2xl font-black uppercase tracking-widest transition-all shadow-xl active:scale-[0.98] ${addingToCart || getSelectedStock() <= 0 || !selectedColor || !selectedSize || !user || user.role !== 'user' ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none' : 'bg-gray-900 text-white hover:bg-amber-500 hover:text-gray-900'}`}
                 >
-                  {addingToCart ? 'ĐANG THÊM...' : 'THÊM VÀO GIỎ HÀNG'}
+                  {addingToCart ? 'ĐANG THÊM...' : (getSelectedStock() <= 0 ? 'HẾT HÀNG' : 'THÊM VÀO GIỎ HÀNG')}
                 </button>
                 <button className="p-5 border-2 border-gray-100 rounded-2xl hover:bg-red-50 hover:border-red-100 group transition-all">
                   <svg className="w-6 h-6 text-gray-400 group-hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>

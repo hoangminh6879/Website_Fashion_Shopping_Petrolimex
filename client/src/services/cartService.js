@@ -12,12 +12,14 @@ const cartService = {
   },
 
   // Thêm vào giỏ hàng
-  addToCart: async (productId, variantId, quantity) => {
+  addToCart: async (productId, variantId, quantity, color, size) => {
     try {
       const response = await api.post("/cart/add", {
         productId,
         variantId,
         quantity,
+        color,
+        size,
       });
       return response.data;
     } catch (error) {
