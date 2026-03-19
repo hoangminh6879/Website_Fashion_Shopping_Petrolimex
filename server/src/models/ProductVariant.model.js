@@ -6,6 +6,7 @@ const productVariantSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Product",
       required: true,
+      index: true, // 🔥 query nhanh
     },
 
     size: {
@@ -36,14 +37,19 @@ const productVariantSchema = new mongoose.Schema(
     sku: {
       type: String,
       unique: true,
-      sparse: true, // 🔥 FIX LỖI duplicate null
+      sparse: true,
+    },
+
+    // 🔥 optional
+    image: {
+      type: String,
+      default: "",
     },
   },
   { timestamps: true }
 );
 
-
-// 🔥 đảm bảo 1 product không bị trùng size + color
+// 🔥 unique combo
 productVariantSchema.index(
   { product: 1, size: 1, color: 1 },
   { unique: true }

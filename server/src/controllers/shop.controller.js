@@ -22,3 +22,31 @@ export const createShop = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+export const getMyShop = async (req, res) => {
+  try {
+    const shop = await Shop.findOne({ owner: req.user.id });
+    if (!shop) {
+      return res.status(404).json({ message: "Không tìm thấy shop" });
+    }
+    res.json(shop);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+export const updateShop = async (req, res) => {
+  try {
+    const { name, description, address, phone, fanpage } = req.body;
+    const shop = await Shop.findOneAndUpdate(
+      { owner: req.user.id },
+      { name, description, address, phone, fanpage },
+      { new: true }
+    );
+    if (!shop) {
+      return res.status(404).json({ message: "Không tìm thấy shop" });
+    }
+    res.json(shop);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

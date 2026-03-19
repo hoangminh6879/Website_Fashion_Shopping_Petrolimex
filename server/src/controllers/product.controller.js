@@ -2,16 +2,9 @@ import Shop from "../models/Shop.model.js";
 import Product from "../models/Product.model.js";
 import ProductVariant from "../models/ProductVariant.model.js";
 
-// 🔥 CREATE PRODUCT
 export const createProduct = async (req, res) => {
   try {
-    const { name, description, category, images, variants } = req.body;
-
-    if (!variants || variants.length === 0) {
-      return res.status(400).json({
-        message: "Sản phẩm phải có ít nhất 1 variant",
-      });
-    }
+    const { name, description, category, images, price, colors, sizes, stock } = req.body;
 
     const shop = await Shop.findOne({ owner: req.user.id });
 
@@ -26,16 +19,12 @@ export const createProduct = async (req, res) => {
       description,
       category,
       images,
+      price: price || 0,
+      colors: colors || [],
+      sizes: sizes || [],
+      stock: Array.isArray(stock) ? stock : [Number(stock) || 0],
       shop: shop._id,
     });
-
-    const variantDocs = variants.map((v) => ({
-      ...v,
-      product: product._id,
-      sku: `${product._id}-${v.size}-${v.color}`,
-    }));
-
-    await ProductVariant.insertMany(variantDocs);
 
     res.status(201).json({
       message: "Tạo sản phẩm thành công",
@@ -51,7 +40,8 @@ export const getProducts = async (req, res) => {
   try {
     const products = await Product.find()
       .populate("shop")
-      .populate("category");
+      .populate("category")
+      .populate("images");
 
     res.json(products);
   } catch (err) {
@@ -64,7 +54,8 @@ export const getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
       .populate("shop")
-      .populate("category");
+      .populate("category")
+      .populate("images");
 
     if (!product) {
       return res.status(404).json({ message: "Không tìm thấy sản phẩm" });
@@ -103,7 +94,7 @@ export const updateProduct = async (req, res) => {
 
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      { ...req.body, stock: Array.isArray(req.body.stock) ? req.body.stock : [Number(req.body.stock) || 0] },
       { new: true }
     );
 
@@ -133,13 +124,26 @@ export const deleteProduct = async (req, res) => {
       });
     }
 
+    // Tìm và xóa tất cả ảnh liên quan
+    const Image = (await import("../models/Image.model.js")).default;
+    const images = await Image.find({ product: req.params.id });
+    
+    for (const img of images) {
+      const filePath = (await import("path")).join(process.cwd(), "public", img.url);
+      const fs = (await import("fs")).default;
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+      await Image.findByIdAndDelete(img._id);
+    }
+
     await Product.findByIdAndDelete(req.params.id);
 
     await ProductVariant.deleteMany({
       product: req.params.id,
     });
 
-    res.json({ message: "Đã xóa sản phẩm" });
+    res.json({ message: "Đã xóa sản phẩm và các ảnh liên quan" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -190,6 +194,23 @@ export const deleteVariant = async (req, res) => {
   try {
     await ProductVariant.findByIdAndDelete(req.params.id);
     res.json({ message: "Đã xóa variant" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// 🔥 LẤY SẢN PHẨM RIÊNG CỦA SELLER
+export const getSellerProducts = async (req, res) => {
+  try {
+    const shop = await Shop.findOne({ owner: req.user.id });
+    if (!shop) {
+      return res.status(404).json({ message: "Bạn chưa có shop" });
+    }
+    const products = await Product.find({ shop: shop._id })
+      .populate("category")
+      .populate("images")
+      .sort("-createdAt");
+    res.json(products);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
