@@ -1,0 +1,53 @@
+{
+  "category": null,
+  "sold": 0,
+  "isActive": true,
+  "_id": "69bb7c70901cbf12ce4c2a70",
+  "name": "Áo thun nam",
+  "description": "Đẹp xịn",
+  "images": [
+    "img1.jpg"
+  ],
+  "shop": {
+    "_id": "69bb76024fa108e4d131f4f1",
+    "name": "Shop Minh Fashion",
+    "owner": "69ba2e88de046c059efa329d",
+    "description": "Chuyên bán đồ đẹp giá rẻ",
+    "isApproved": false,
+    "followersCount": 0,
+    "rating": 0,
+    "createdAt": "2026-03-19T04:05:22.097Z",
+    "updatedAt": "2026-03-19T04:05:22.097Z",
+    "__v": 0
+  },
+  "rating": 0,
+  "createdAt": "2026-03-19T04:32:48.580Z",
+  "updatedAt": "2026-03-19T04:32:48.580Z",
+  "__v": 0,
+  "variants": [
+    {
+      "_id": "69bb7c70901cbf12ce4c2a73",
+      "product": "69bb7c70901cbf12ce4c2a70",
+      "size": "L",
+      "color": "Xanh",
+      "price": 120,
+      "stock": 5,
+      "sku": "69bb7c70901cbf12ce4c2a70-L-Xanh",
+      "__v": 0,
+      "createdAt": "2026-03-19T04:32:48.588Z",
+      "updatedAt": "2026-03-19T04:32:48.588Z"
+    },
+    {
+      "_id": "69bb7c70901cbf12ce4c2a72",
+      "product": "69bb7c70901cbf12ce4c2a70",
+      "size": "M",
+      "color": "Đỏ",
+      "price": 100,
+      "stock": 10,
+      "sku": "69bb7c70901cbf12ce4c2a70-M-Đỏ",
+      "__v": 0,
+      "createdAt": "2026-03-19T04:32:48.587Z",
+      "updatedAt": "2026-03-19T04:32:48.587Z"
+    }
+  ]
+}
