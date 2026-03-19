@@ -13,10 +13,12 @@ const productSchema = new mongoose.Schema(
       default: "",
     },
 
-    images: {
-      type: [String],
-      default: [],
-    },
+    images: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Image",
+      },
+    ],
 
     shop: {
       type: mongoose.Schema.Types.ObjectId,
@@ -48,19 +50,44 @@ const productSchema = new mongoose.Schema(
     slug: {
       type: String,
     },
+
+    price: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+
+    colors: {
+      type: [String],
+      default: [],
+    },
+
+    sizes: {
+      type: [String],
+      default: [],
+    },
+
+    stock: {
+      type: [Number],
+      default: [],
+    },
+    variantImages: {
+      type: [String],
+      default: [],
+    },
   },
   { timestamps: true }
 );
 
 // 🔥 tự tạo slug
-productSchema.pre("save", function (next) {
+productSchema.pre("save", async function () {
   if (this.name) {
     this.slug = this.name
       .toLowerCase()
+      .trim()
       .replace(/\s+/g, "-")
       .replace(/[^\w-]+/g, "");
   }
-  next();
 });
 
 export default mongoose.model("Product", productSchema);

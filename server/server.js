@@ -8,7 +8,9 @@ import { authorizeRoles } from "./src/middlewares/role.middleware.js"; //test ph
 import userRoutes from "./src/routes/user.routes.js"; // test user gui yeu cau len seller va admin duyệt yêu cầu đó
 import shopRoutes from "./src/routes/shop.routes.js"; // test seller tao shop, chi seller moi tao duoc va chi duoc tao 1 shop, neu da co shop roi thi bao loi
 import productRoutes from "./src/routes/product.routes.js";// test seller tao san pham, chi seller moi tao duoc, va chi tao duoc san pham trong shop cua minh, neu khong se bao loi, admin va user khong tao duoc san pham, admin va user chi xem duoc san pham va chi tiet san pham, seller co the cap nhat va xoa san pham cua minh, khong cap nhat va xoa san pham cua nguoi khac, admin va user khong cap nhat va xoa san pham
-import categoryRoutes from "./src/routes/category.routes.js";// test admin tao category, chi admin moi tao duoc, admin cap nhat va xoa category, user va seller chi xem duoc category va chi tiet category, user va seller khong cap nhat va xoa category
+import categoryRoutes from "./src/routes/category.routes.js";
+import imageRoutes from "./src/routes/image.routes.js";
+import path from "path";
 
 
 
@@ -21,6 +23,9 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+// Serve static files
+app.use("/uploads", express.static(path.join(process.cwd(), "public/uploads")));
 
 app.get("/api", (req, res) => {
   res.send("API OK");
@@ -80,6 +85,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/shops", shopRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
+app.use("/api/images", imageRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
