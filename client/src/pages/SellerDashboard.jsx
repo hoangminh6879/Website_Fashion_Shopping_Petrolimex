@@ -26,7 +26,7 @@ export default function SellerDashboard() {
   const [coupons, setCoupons] = useState([]);
   const [couponTypes, setCouponTypes] = useState([]);
   const [showCouponModal, setShowCouponModal] = useState(false);
-  const [newCoupon, setNewCoupon] = useState({ code: '', discount: '', couponType: '', expiryDate: '' });
+  const [newCoupon, setNewCoupon] = useState({ code: '', discount: '', couponType: '', expiryDate: '', quantity: '' });
   const [shopForm, setShopForm] = useState({
     name: '',
     description: '',
@@ -107,7 +107,7 @@ export default function SellerDashboard() {
       await api.post('/coupons', newCoupon);
       Swal.fire('Thành công', 'Đã tạo coupon mới', 'success');
       setShowCouponModal(false);
-      setNewCoupon({ code: '', discount: '', couponType: '', expiryDate: '' });
+      setNewCoupon({ code: '', discount: '', couponType: '', expiryDate: '', quantity: '' });
       fetchCoupons();
     } catch (err) {
       Swal.fire('Lỗi', err.response?.data?.message || 'Lỗi tạo coupon', 'error');
@@ -760,111 +760,197 @@ export default function SellerDashboard() {
             </div>
           )}
 
+          {/* TAB: Quản lý Mã Giảm Giá */}
+          {activeTab === 'coupons' && (
+            <div className="space-y-6 animate-fadeIn">
+              <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6">
+                <div>
+                  <h2 className="text-2xl font-black text-gray-900 tracking-tight uppercase italic">Quản lý Mã Giảm Giá</h2>
+                  <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-1">Tạo và quản lý các chương trình ưu đãi của Shop</p>
+                </div>
+                <button 
+                  onClick={() => setShowCouponModal(true)}
+                  className="bg-gray-900 text-white px-8 py-4 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-amber-500 hover:text-gray-900 transition-all shadow-xl shadow-gray-200 hover:shadow-amber-500/30 flex items-center gap-2 group"
+                >
+                  <span className="group-hover:rotate-90 transition-transform duration-300">+</span>
+                  Tạo Coupon Mới
+                </button>
+              </div>
+              
+              <div className="bg-white rounded-3xl shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50/50 text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] border-b border-gray-100">
+                        <th className="p-6">Mã</th>
+                        <th className="p-6">Loại Ưu Đãi</th>
+                        <th className="p-6">Mức giảm</th>
+                        <th className="p-6">Số lượng</th>
+                        <th className="p-6">Đã dùng</th>
+                        <th className="p-6">Hết hạn</th>
+                        <th className="p-6 text-right">Thao Tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {coupons.length > 0 ? coupons.map(cp => (
+                        <tr key={cp._id} className="group hover:bg-amber-50/30 transition-all duration-300">
+                          <td className="p-6">
+                            <span className="px-3 py-1.5 bg-amber-50 text-amber-600 rounded-lg font-black text-xs border border-amber-100 group-hover:bg-amber-500 group-hover:text-gray-900 transition-colors">
+                              {cp.code}
+                            </span>
+                          </td>
+                          <td className="p-6">
+                            <div className="font-bold text-gray-800 text-sm uppercase italic">{cp.couponType?.name || 'Phổ thông'}</div>
+                          </td>
+                          <td className="p-6 text-sm font-black text-gray-900">
+                            {cp.discount.toLocaleString()} <span className="text-[10px] text-gray-400 ml-1">VND</span>
+                          </td>
+                          <td className="p-6">
+                            <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center font-black text-blue-600 border border-gray-100">
+                              {cp.quantity || 0}
+                            </div>
+                          </td>
+                          <td className="p-6">
+                            <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center font-black text-green-600 border border-gray-100">
+                              {cp.usedCount || 0}
+                            </div>
+                          </td>
+                          <td className="p-6">
+                            <div className="flex flex-col">
+                              <span className="text-xs font-bold text-gray-700">{new Date(cp.expiryDate).toLocaleDateString('vi-VN')}</span>
+                              <span className="text-[10px] font-medium text-gray-400">{new Date(cp.expiryDate).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}</span>
+                            </div>
+                          </td>
+                          <td className="p-6 text-right">
+                            <button 
+                              onClick={() => handleDeleteCoupon(cp._id)}
+                              className="p-3 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all group/btn"
+                              title="Xóa mã giảm giá"
+                            >
+                              <svg className="w-5 h-5 group-hover/btn:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                              </svg>
+                            </button>
+                          </td>
+                        </tr>
+                      )) : (
+                        <tr>
+                          <td colSpan="7" className="p-20 text-center">
+                            <div className="flex flex-col items-center gap-4">
+                              <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-3xl grayscale opacity-30">🧧</div>
+                              <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em]">Shop chưa có mã giảm giá nào</p>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </main>
       </div>
 
-      {/* TAB: Quản lý Mã Giảm Giá */}
-      {activeTab === 'coupons' && (
-        <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-              <h2 className="font-bold text-gray-700">Tất cả mã giảm giá của Shop</h2>
-              <button 
-                onClick={() => setShowCouponModal(true)}
-                className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-md font-medium text-sm transition shadow-sm"
-              >
-                + Tạo Coupon Mới
-              </button>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-gray-50 text-gray-600 text-sm border-b border-gray-200">
-                    <th className="p-4 font-semibold">Mã</th>
-                    <th className="p-4 font-semibold">Loại</th>
-                    <th className="p-4 font-semibold">Mức giảm</th>
-                    <th className="p-4 font-semibold">Hết hạn</th>
-                    <th className="p-4 font-semibold text-right">Thao Tác</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {coupons.length > 0 ? coupons.map(cp => (
-                    <tr key={cp._id} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                      <td className="p-4 font-bold text-amber-600">{cp.code}</td>
-                      <td className="p-4">{cp.couponType?.name}</td>
-                      <td className="p-4 font-bold">{cp.discount.toLocaleString()} VNĐ</td>
-                      <td className="p-4">{new Date(cp.expiryDate).toLocaleDateString('vi-VN')}</td>
-                      <td className="p-4 text-right">
-                        <button 
-                          onClick={() => handleDeleteCoupon(cp._id)}
-                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                        </button>
-                      </td>
-                    </tr>
-                  )) : (
-                    <tr><td colSpan="5" className="p-8 text-center text-gray-500">Chưa có mã giảm giá nào.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* MODAL TẠO COUPON (SELLER) */}
       {showCouponModal && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl relative">
-            <h2 className="text-xl font-black text-gray-900 mb-6 uppercase">Tạo Coupon Shop Mới</h2>
-            <form onSubmit={handleCreateCoupon} className="space-y-4">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-white rounded-[2rem] w-full max-w-lg overflow-hidden shadow-2xl border border-gray-100 relative">
+            {/* Modal Header */}
+            <div className="bg-gray-900 p-8 text-white relative overflow-hidden">
+               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+               <div className="relative z-10">
+                  <h2 className="text-2xl font-black uppercase tracking-tight italic">Tạo Coupon Mới</h2>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-500 mt-1">Thiết lập chương trình ưu đãi cho Shop</p>
+               </div>
+               <button 
+                onClick={() => setShowCouponModal(false)}
+                className="absolute top-6 right-6 text-gray-400 hover:text-white transition-colors"
+               >
+                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+               </button>
+            </div>
+
+            <form onSubmit={handleCreateCoupon} className="p-8 space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="col-span-2 md:col-span-1">
+                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block leading-none">Mã Coupon</label>
+                  <input 
+                    required
+                    type="text"
+                    placeholder="VD: SUMMERSALE"
+                    value={newCoupon.code}
+                    onChange={(e) => setNewCoupon({ ...newCoupon, code: e.target.value.toUpperCase() })}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-800 focus:border-amber-500 focus:bg-white transition outline-none shadow-inner"
+                  />
+                </div>
+                <div className="col-span-2 md:col-span-1">
+                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block leading-none">Loại Coupon</label>
+                  <select 
+                    required
+                    value={newCoupon.couponType}
+                    onChange={(e) => setNewCoupon({ ...newCoupon, couponType: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-800 focus:border-amber-500 focus:bg-white transition outline-none shadow-inner"
+                  >
+                    <option value="">-- Chọn loại --</option>
+                    {couponTypes.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div className="col-span-2 md:col-span-1">
+                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block leading-none">Mức giảm (VNĐ)</label>
+                  <input 
+                    required
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={newCoupon.discount}
+                    onChange={(e) => setNewCoupon({ ...newCoupon, discount: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-800 focus:border-amber-500 focus:bg-white transition outline-none shadow-inner"
+                  />
+                </div>
+                <div className="col-span-2 md:col-span-1">
+                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block leading-none">Số lượng</label>
+                  <input 
+                    required
+                    type="number"
+                    min="1"
+                    placeholder="100"
+                    value={newCoupon.quantity}
+                    onChange={(e) => setNewCoupon({ ...newCoupon, quantity: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-800 focus:border-amber-500 focus:bg-white transition outline-none shadow-inner"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Mã Coupon</label>
+                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block leading-none">Ngày & Giờ hết hạn</label>
                 <input 
                   required
-                  type="text"
-                  value={newCoupon.code}
-                  onChange={(e) => setNewCoupon({ ...newCoupon, code: e.target.value.toUpperCase() })}
-                  className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Loại Coupon</label>
-                <select 
-                  required
-                  value={newCoupon.couponType}
-                  onChange={(e) => setNewCoupon({ ...newCoupon, couponType: e.target.value })}
-                  className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold"
-                >
-                  <option value="">-- Chọn loại --</option>
-                  {couponTypes.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Mức giảm (VNĐ)</label>
-                <input 
-                  required
-                  type="number"
-                  value={newCoupon.discount}
-                  onChange={(e) => setNewCoupon({ ...newCoupon, discount: e.target.value })}
-                  className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Ngày hết hạn</label>
-                <input 
-                  required
-                  type="date"
+                  type="datetime-local"
                   value={newCoupon.expiryDate}
                   onChange={(e) => setNewCoupon({ ...newCoupon, expiryDate: e.target.value })}
-                  className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold"
+                  className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-800 focus:border-amber-500 focus:bg-white transition outline-none shadow-inner"
                 />
               </div>
-              <div className="flex gap-4 pt-4">
-                <button type="button" onClick={() => setShowCouponModal(false)} className="flex-1 bg-gray-100 py-3 rounded-xl font-bold">Hủy</button>
-                <button type="submit" className="flex-1 bg-amber-500 text-white py-3 rounded-xl font-bold shadow-lg shadow-amber-500/30">Tạo Coupon</button>
+
+              <div className="flex gap-4 pt-4 border-t border-gray-50">
+                <button 
+                  type="button" 
+                  onClick={() => setShowCouponModal(false)} 
+                  className="flex-1 px-6 py-4 bg-gray-100 border-2 border-transparent text-gray-400 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-gray-200 hover:text-gray-600 transition-all active:scale-95"
+                >
+                  HỦY BỎ
+                </button>
+                <button 
+                  type="submit" 
+                  className="flex-1 px-6 py-4 bg-gray-900 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-amber-500 hover:text-gray-900 transition-all shadow-xl shadow-gray-200 hover:shadow-amber-500/30 active:scale-95"
+                >
+                  XÁC NHẬN TẠO
+                </button>
               </div>
             </form>
           </div>
