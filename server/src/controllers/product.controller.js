@@ -14,6 +14,12 @@ export const createProduct = async (req, res) => {
       });
     }
 
+    if (shop.status !== "active") {
+      return res.status(403).json({
+        message: "Chỉ shop đã được duyệt mới có thể đăng sản phẩm",
+      });
+    }
+
     const product = await Product.create({
       name,
       description,
@@ -92,6 +98,12 @@ export const updateProduct = async (req, res) => {
       });
     }
 
+    if (shop.status !== "active") {
+      return res.status(403).json({
+        message: "Shop của bạn chưa được duyệt hoạt động",
+      });
+    }
+
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
       { ...req.body, stock: Array.isArray(req.body.stock) ? req.body.stock : [Number(req.body.stock) || 0] },
@@ -121,6 +133,12 @@ export const deleteProduct = async (req, res) => {
     if (!shop || product.shop.toString() !== shop._id.toString()) {
       return res.status(403).json({
         message: "Không có quyền",
+      });
+    }
+
+    if (shop.status !== "active") {
+      return res.status(403).json({
+        message: "Shop của bạn chưa được duyệt hoạt động",
       });
     }
 
@@ -159,6 +177,12 @@ export const addVariant = async (req, res) => {
     if (!shop || product.shop.toString() !== shop._id.toString()) {
       return res.status(403).json({
         message: "Không có quyền",
+      });
+    }
+
+    if (shop.status !== "active") {
+      return res.status(403).json({
+        message: "Shop của bạn chưa được duyệt hoạt động",
       });
     }
 

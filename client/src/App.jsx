@@ -5,6 +5,8 @@ import Home from "./pages/Home";
 import ProductDetail from "./pages/ProductDetail"; // 🔥 thêm
 import SellerDashboard from "./pages/SellerDashboard";
 import Profile from "./pages/Profile";
+import Cart from "./pages/Cart";
+import AdminDashboard from "./pages/AdminDashboard";
 
 function App() {
   return (
@@ -14,10 +16,12 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/cart" element={<Cart />} />
 
         {/* 🔥 QUAN TRỌNG */}
         <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/seller/dashboard" element={<SellerDashboard />} />
+        <Route path="/admin/dashboard" element={<AdminDashboard />} />
       </Routes>
     </BrowserRouter>
   );

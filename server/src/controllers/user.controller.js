@@ -8,10 +8,19 @@ export const requestSeller = async (req, res) => {
       return res.status(400).json({ message: "Bạn đã là seller" });
     }
 
-    user.isSellerRequested = true;
+    const { reason, proofImage } = req.body;
+    if (!reason || !proofImage) {
+      return res.status(400).json({ message: "Vui lòng cung cấp lý do và ảnh minh chứng" });
+    }
+
+    user.sellerRequest = {
+      status: "pending",
+      reason,
+      proofImage
+    };
     await user.save();
 
-    res.json({ message: "Đã gửi yêu cầu lên seller 🚀" });
+    res.json({ message: "Đã gửi yêu cầu lên seller 🚀", user });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -20,13 +29,18 @@ export const requestSeller = async (req, res) => {
 export const approveSeller = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
+    const { action } = req.body; // 'approve' hoặc 'reject'
 
-    user.role = "seller";
-    user.isSellerRequested = false;
+    if (action === 'approve') {
+      user.role = "seller";
+      if (user.sellerRequest) user.sellerRequest.status = "approved";
+    } else if (action === 'reject') {
+      if (user.sellerRequest) user.sellerRequest.status = "rejected";
+    }
 
     await user.save();
 
-    res.json({ message: "Duyệt thành công 🎉" });
+    res.json({ message: action === 'approve' ? "Duyệt thành công 🎉" : "Đã từ chối yêu cầu", user });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
