@@ -10,10 +10,14 @@ const cartItemSchema = new mongoose.Schema({
     ref: "ProductVariant",
   },
 
-  color: String,
-  size: String,
+  color: { type: String, default: "" },
+  size: { type: String, default: "" },
 
-  quantity: Number,
+  quantity: {
+    type: Number,
+    min: 0,
+    default: 1
+  },
 });
 
 export default mongoose.model("CartItem", cartItemSchema);

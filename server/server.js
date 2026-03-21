@@ -11,6 +11,7 @@ import productRoutes from "./src/routes/product.routes.js";// test seller tao sa
 import categoryRoutes from "./src/routes/category.routes.js";
 import imageRoutes from "./src/routes/image.routes.js";
 import cartRoutes from "./src/routes/cart.routes.js";
+import adminRoutes from "./src/routes/admin.routes.js";
 import path from "path";
 
 
@@ -88,6 +89,7 @@ app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/images", imageRoutes);
 app.use("/api/cart", cartRoutes);
+app.use("/api/admin", adminRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

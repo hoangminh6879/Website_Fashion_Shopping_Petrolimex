@@ -25,6 +25,7 @@ const userSchema = new mongoose.Schema(
     },
 
     phone: String,
+    address: String,
     avatar: String,
 
     shopId: {
@@ -32,9 +33,10 @@ const userSchema = new mongoose.Schema(
       ref: "Shop",
     },
 
-    isSellerRequested: {
-      type: Boolean,
-      default: false,
+    sellerRequest: {
+      status: { type: String, enum: ["none", "pending", "approved", "rejected"], default: "none" },
+      reason: { type: String, default: "" },
+      proofImage: { type: String, default: "" }
     },
 
     isVerified: {

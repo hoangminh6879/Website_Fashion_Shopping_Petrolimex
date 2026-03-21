@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import cartService from '../services/cartService';
+import { useCart } from '../context/CartContext';
 
 export default function Home() {
+  const { addToCart, getCartCount, userRole } = useCart();
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [productGroupMap, setProductGroupMap] = useState({});
@@ -316,16 +317,16 @@ export default function Home() {
           </div>
 
           {/* Cart Icon */}
-          <Link to="/cart" className="relative cursor-pointer hover:text-amber-500 transition p-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.35 5.4a1 1 0 00.97 1.25h11.76a1 1 0 00.97-1.25L17 13M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17" />
-            </svg>
-            {cartCount > 0 && (
+          {userRole === 'user' && (
+            <Link to="/cart" className="relative cursor-pointer hover:text-amber-500 transition p-2 block">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.35 5.4a1 1 0 00.97 1.25h11.76a1 1 0 00.97-1.25L17 13M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17" />
+              </svg>
               <span className="absolute top-0 -right-1 bg-amber-500 text-gray-900 border-2 border-gray-900 text-[10px] font-extrabold px-1.5 py-0 rounded-full">
-                {cartCount}
+                {getCartCount()}
               </span>
-            )}
-          </Link>
+            </Link>
+          )}
         </div>
       </header>
 
@@ -637,29 +638,34 @@ export default function Home() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex flex-col gap-4 mt-auto pt-4 border-t border-gray-100">
-                    {(!user || user.role !== 'user') && (
-                      <div className="bg-amber-50 border border-amber-200 p-2 rounded text-xs text-amber-700 text-center font-medium">
-                        Bạn cần đăng nhập bằng tài khoản khách hàng để mua sắm.
+                  <div className="flex gap-4 mt-auto pt-4 border-t border-gray-100">
+                    {userRole === 'admin' || userRole === 'seller' ? (
+                      <div className="w-full text-center py-3 bg-red-50 text-red-500 font-bold rounded-md border border-red-200">
+                        🛒 Tính năng mua sắm chỉ dành cho khách hàng.
                       </div>
+                    ) : (
+                      <>
+                        <button
+                          className="flex-1 border-2 border-amber-500 bg-amber-50 text-amber-600 flex items-center justify-center gap-2 font-bold py-3 rounded-md hover:bg-amber-100 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={uniqueColors.length > 0 && uniqueSizes.length > 0 && (!selectedColor || !selectedSize)}
+                          onClick={() => {
+                            addToCart(selectedProduct, selectedColor, selectedSize, 1);
+                            alert('Đã thêm vào giỏ hàng!');
+                            setIsModalOpen(false);
+                          }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.35 5.4a1 1 0 00.97 1.25h11.76a1 1 0 00.97-1.25L17 13M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17" /></svg>
+                          Thêm Vào Giỏ
+                        </button>
+                        <button
+                          className="flex-1 bg-amber-500 text-white font-bold py-3 rounded-md hover:bg-amber-600 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={uniqueColors.length > 0 && uniqueSizes.length > 0 && (!selectedColor || !selectedSize)}
+                          onClick={() => alert('Tiến hành thanh toán...')}
+                        >
+                          Mua Ngay
+                        </button>
+                      </>
                     )}
-                    <div className="flex gap-4">
-                      <button
-                        className="flex-1 border-2 border-amber-500 bg-amber-50 text-amber-600 flex items-center justify-center gap-2 font-bold py-3 rounded-md hover:bg-amber-100 transition shadow-sm disabled:opacity-50 disabled:bg-gray-100 disabled:border-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
-                        disabled={addingToCart || getSelectedStock() <= 0 || !selectedColor || !selectedSize || !user || user.role !== 'user'}
-                        onClick={handleModalAddToCart}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.35 5.4a1 1 0 00.97 1.25h11.76a1 1 0 00.97-1.25L17 13M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17" /></svg>
-                        {getSelectedStock() <= 0 ? "Hết Hàng" : (addingToCart ? "Đang thêm..." : "Thêm Vào Giỏ")}
-                      </button>
-                      <button
-                        className="flex-1 bg-amber-500 text-white font-bold py-3 rounded-md hover:bg-amber-600 transition shadow-md disabled:opacity-50 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                        disabled={getSelectedStock() <= 0 || !selectedColor || !selectedSize || !user || user.role !== 'user'}
-                        onClick={() => alert('Tiến hành thanh toán...')}
-                      >
-                        {getSelectedStock() <= 0 ? "Hết Hàng" : "Mua Ngay"}
-                      </button>
-                    </div>
                   </div>
                 </div>
               </>
