@@ -32,7 +32,7 @@ export const getCoupons = async (req, res) => {
 // @access  Private (Admin/Seller)
 export const createCoupon = async (req, res) => {
   try {
-    const { code, discount, couponType, expiryDate } = req.body;
+    const { code, discount, couponType, expiryDate, quantity } = req.body;
 
     const existingCoupon = await Coupon.findOne({ code });
     if (existingCoupon) {
@@ -44,6 +44,7 @@ export const createCoupon = async (req, res) => {
       discount,
       couponType,
       expiryDate,
+      quantity: Number(quantity) || 0,
       createdBy: req.user.role,
     };
 
