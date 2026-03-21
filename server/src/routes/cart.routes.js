@@ -6,7 +6,8 @@ import {
   addToCart, 
   updateCartItem, 
   removeFromCart, 
-  clearCart 
+  clearCart,
+  updateVariant
 } from "../controllers/cart.controller.js";
 
 const router = express.Router();
@@ -17,6 +18,7 @@ router.use(protect, authorizeRoles("user"));
 router.get("/", getCart);
 router.post("/add", addToCart);
 router.put("/update", updateCartItem);
+router.put("/update-variant", updateVariant);
 router.delete("/remove", removeFromCart);
 router.delete("/clear", clearCart);
 

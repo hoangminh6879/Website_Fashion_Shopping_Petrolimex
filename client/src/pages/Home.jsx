@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useCart } from '../context/CartContext';
+import ProductModal from '../components/ProductModal';
 
 export default function Home() {
   const { addToCart, getCartCount, userRole } = useCart();
@@ -13,16 +14,9 @@ export default function Home() {
   const [addingToCart, setAddingToCart] = useState(false);
   const navigate = useNavigate();
 
-  // Modal states
+  const [quantity, setQuantity] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [productVariants, setProductVariants] = useState([]);
-  const [loadingModal, setLoadingModal] = useState(false);
-
-  // User selection states
-  const [selectedColor, setSelectedColor] = useState('');
-  const [selectedSize, setSelectedSize] = useState('');
-  const [quantity, setQuantity] = useState(1);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -73,100 +67,14 @@ export default function Home() {
     window.location.reload();
   };
 
-  const openProductModal = async (productInfo) => {
+  const openProductModal = (productInfo) => {
+    setSelectedProduct(productInfo);
     setIsModalOpen(true);
-    setLoadingModal(true);
-    setSelectedColor('');
-    setSelectedSize('');
-    setProductVariants([]);
-    setSelectedProduct(null);
-    setQuantity(1);
-
-    try {
-      const idsToFetch = productGroupMap[productInfo.name] || [productInfo._id];
-      const promises = idsToFetch.map(id => api.get(`/products/${id}`));
-      const responses = await Promise.all(promises);
-
-      let allVariants = [];
-      let mainProduct = null;
-      responses.forEach(res => {
-        const prodData = res.data.product || res.data;
-        if (!mainProduct) mainProduct = prodData;
-
-        const vars = res.data.variants || [];
-        if (vars.length > 0) {
-          allVariants = [...allVariants, ...vars];
-        }
-      });
-
-      const uniqueVariants = [];
-      const seenVariant = new Set();
-      allVariants.forEach(v => {
-        const key = `${v.color}-${v.size}`;
-        if (!seenVariant.has(key)) {
-          seenVariant.add(key);
-          uniqueVariants.push(v);
-        }
-      });
-
-      setSelectedProduct(mainProduct);
-      setProductVariants(uniqueVariants);
-
-      if (uniqueVariants.length > 0) {
-        setSelectedColor(uniqueVariants[0].color);
-        setSelectedSize(uniqueVariants[0].size);
-      }
-    } catch (error) {
-      console.error("Error fetching product details:", error);
-    } finally {
-      setLoadingModal(false);
-    }
   };
 
-
-  const currentVariant = productVariants.find(v => v.color === selectedColor && v.size === selectedSize);
-
-  const displayPrice = selectedProduct?.price > 0
-    ? selectedProduct.price
-    : (currentVariant ? currentVariant.price : (productVariants.length > 0 ? productVariants[0].price : 0));
-
-  const uniqueColors = selectedProduct?.colors?.length > 0
-    ? selectedProduct.colors
-    : [...new Set(productVariants.map(v => v.color))];
-
-  const uniqueSizes = selectedProduct?.sizes?.length > 0
-    ? selectedProduct.sizes
-    : [...new Set(productVariants.map(v => v.size))];
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
-  };
-
-  // Tính toán số lượng tồn kho theo biến thể
-  const getSelectedStock = () => {
-    if (!selectedProduct) return 0;
-    
-    // Nếu có productVariants (hệ thống mới, dùng bảng ProductVariant)
-    if (productVariants.length > 0) {
-      return currentVariant ? currentVariant.stock : 0;
-    }
-
-    // Nếu không có productVariants, kiểm tra xem product có mảng stock không (hệ thống cũ)
-
-    // Hệ thống mới: stock là mảng trong product
-    if (!Array.isArray(selectedProduct.stock) || selectedProduct.stock.length === 0) {
-      return Number(selectedProduct.stock) || 0;
-    }
-
-    if (!selectedColor || !selectedSize) return selectedProduct.stock[0] || 0;
-    
-    const colorIdx = (selectedProduct.colors || []).indexOf(selectedColor);
-    const sizeIdx = (selectedProduct.sizes || []).indexOf(selectedSize);
-    
-    if (colorIdx === -1 || sizeIdx === -1) return selectedProduct.stock[0] || 0;
-    
-    const index = colorIdx * (selectedProduct.sizes?.length || 0) + sizeIdx;
-    return selectedProduct.stock[index] || 0;
   };
 
   if (loading) {
@@ -208,6 +116,7 @@ export default function Home() {
                 <div className="absolute right-0 top-full pt-1 w-44 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[60]">
                   <div className="bg-white rounded-lg shadow-xl border border-gray-100 py-1.5 text-gray-800 overflow-hidden mt-1">
                     <Link to="/profile" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest">Tài khoản</Link>
+                    <Link to="/followed-shops" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50">Shop Đang Theo Dõi</Link>
                     {user.role === 'seller' && (
                       <Link to="/seller/dashboard" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50 text-amber-600">Quản lý Shop</Link>
                     )}
@@ -347,12 +256,27 @@ export default function Home() {
 
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 lg:gap-4">
           {products.length > 0 ? products.map((product) => (
-            <div key={product._id} onClick={() => openProductModal(product)} className="bg-white rounded-lg border border-gray-100 hover:border-amber-400 hover:shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all duration-300 group cursor-pointer flex flex-col overflow-hidden relative">
+            <div 
+              key={product._id} 
+              onClick={() => openProductModal(product)}
+              className="group bg-white rounded-sm shadow-sm hover:shadow-md transition-all duration-300 relative border border-gray-100 flex flex-col h-full cursor-pointer"
+            >
               <div className="w-full aspect-square bg-gray-50 overflow-hidden relative">
                 <img src={product.images && product.images.length > 0 ? `http://localhost:5000${product.images[0].url}` : `https://picsum.photos/seed/${product._id}/400/400`} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                 {/* Find similar overlay */}
-                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-end pb-3 z-20">
-                  <button className="bg-amber-500 text-gray-900 font-semibold py-1.5 px-6 rounded-full text-sm shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-all border border-amber-400 hover:bg-amber-400">Chọn Loại</button>
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 z-20">
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); openProductModal(product); }}
+                    className="w-4/5 bg-amber-500 text-gray-900 font-bold py-2 rounded-lg text-[10px] uppercase tracking-widest shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-all border border-amber-400 hover:bg-amber-400 active:scale-95"
+                  >
+                    Thêm vào giỏ
+                  </button>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); openProductModal(product); }}
+                    className="w-4/5 bg-white text-gray-900 font-bold py-2 rounded-lg text-[10px] uppercase tracking-widest shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-all border border-gray-200 hover:bg-gray-100 active:scale-95"
+                  >
+                    Mua Ngay
+                  </button>
                 </div>
 
                 {/* Badges top */}
@@ -379,13 +303,9 @@ export default function Home() {
                   {product.name}
                 </h3>
 
-                <div className="flex items-center gap-1 mb-2 mt-auto">
-                  <span className="text-[10px] border border-amber-500 text-amber-500 px-1 rounded-sm leading-tight">Hoàn Xu</span>
-                </div>
-
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-baseline text-amber-600">
-                    <span className="text-sm font-bold">Tùy Chọn</span>
+                    <span className="text-sm font-black tracking-tight">{formatPrice(product.price)}</span>
                   </div>
                 </div>
 
@@ -456,170 +376,12 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* QUICK VIEW & ADD TO CART MODAL */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto relative flex flex-col md:flex-row animate-[fadeIn_0.3s_ease-out]">
-            <button
-              onClick={() => setIsModalOpen(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-900 z-10 bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-
-            {loadingModal ? (
-              <div className="p-20 w-full flex justify-center items-center h-96">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500"></div>
-              </div>
-            ) : selectedProduct && (
-              <>
-                {/* Left: Image */}
-                <div className="w-full md:w-1/2 bg-gray-100 flex flex-col items-center justify-center p-8 border-r border-gray-100">
-                  <img
-                    src={selectedProduct.images && selectedProduct.images.length > 0 ? `http://localhost:5000${selectedProduct.images[0].url}` : `https://picsum.photos/seed/${selectedProduct._id}/400/400`}
-                    alt={selectedProduct.name}
-                    className="w-full max-w-sm aspect-square object-cover rounded-lg shadow-sm bg-white"
-                  />
-                  <div className="mt-4 text-gray-500 text-sm px-4 text-center">
-                    {selectedProduct.description}
-                  </div>
-                </div>
-                {/* Right: Details */}
-                <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col">
-                  <div className="mb-3 flex items-center gap-2">
-                    <span className="bg-[#d0011b] text-white text-[10px] font-bold px-2 py-0.5 rounded-sm">MALL</span>
-                    <span className="text-gray-500 text-sm">Cung cấp bởi: <span className="text-amber-600 font-semibold">{selectedProduct.shop?.name || 'Shop Của Tôi'}</span></span>
-                  </div>
-                  <h2 className="text-2xl font-bold text-gray-800 mb-4 leading-tight">{selectedProduct.name}</h2>
-
-                  <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-100">
-                    <div className="flex items-end gap-3">
-                      <span className="text-3xl font-bold text-amber-600">
-                        {formatPrice(displayPrice)}
-                      </span>
-                      {!currentVariant && productVariants.length > 0 && (
-                        <span className="text-sm text-gray-500 pb-1"> (Chọn loại để xem chi tiết)</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Options */}
-                  <div className="mb-6 flex-1">
-                    {/* Color */}
-                    {uniqueColors.length > 0 && (
-                      <div className="mb-4">
-                        <h4 className="text-gray-700 font-semibold mb-2 text-sm uppercase">Màu Sắc</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {uniqueColors.map(color => (
-                            <button
-                              key={color}
-                              onClick={() => setSelectedColor(color)}
-                              className={`px-4 py-2 border rounded-md text-sm transition-all ${selectedColor === color ? 'border-amber-500 text-amber-600 bg-amber-50 font-bold shadow-sm' : 'border-gray-200 text-gray-700 hover:border-amber-300'}`}
-                            >
-                              {color}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Size */}
-                    {uniqueSizes.length > 0 && (
-                      <div className="mb-4">
-                        <h4 className="text-gray-700 font-semibold mb-2 text-sm uppercase">Kích Cỡ</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {uniqueSizes.map(size => (
-                            <button
-                              key={size}
-                              onClick={() => setSelectedSize(size)}
-                              className={`px-4 py-2 border rounded-md text-sm transition-all ${selectedSize === size ? 'border-amber-500 text-amber-600 bg-amber-50 font-bold shadow-sm' : 'border-gray-200 text-gray-700 hover:border-amber-300'}`}
-                            >
-                              {size}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Quantity Selector */}
-                    {getSelectedStock() > 0 && (
-                      <div className="mt-6 flex items-center gap-4">
-                        <h4 className="text-gray-700 font-semibold text-sm uppercase">Số Lượng</h4>
-                        <div className="flex items-center border border-gray-300 rounded-md overflow-hidden bg-white">
-                          <button
-                            onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
-                            className="px-3 py-1 bg-gray-50 hover:bg-gray-100 text-gray-600 font-bold transition border-r border-gray-300"
-                          >
-                            -
-                          </button>
-                          <input
-                            type="number"
-                            value={quantity}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value);
-                              const stock = getSelectedStock();
-                              if (!isNaN(val)) {
-                                setQuantity(Math.min(stock, Math.max(1, val)));
-                              }
-                            }}
-                            className="w-12 text-center text-sm font-bold outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          />
-                          <button
-                            onClick={() => {
-                              const stock = getSelectedStock();
-                              setQuantity(prev => Math.min(stock, prev + 1));
-                            }}
-                            className="px-3 py-1 bg-gray-50 hover:bg-gray-100 text-gray-600 font-bold transition border-l border-gray-300"
-                          >
-                            +
-                          </button>
-                        </div>
-                        <span className="text-xs text-gray-400">Tối đa {getSelectedStock()}</span>
-                      </div>
-                    )}
-
-                    {/* Stock status */}
-                    <div className="text-sm mt-4 text-gray-600 min-h-[1.5rem] font-medium">
-                      <span>Tồn kho: <span className="font-bold text-gray-900">{getSelectedStock()}</span> sản phẩm</span>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-4 mt-auto pt-4 border-t border-gray-100">
-                    {userRole === 'admin' || userRole === 'seller' ? (
-                      <div className="w-full text-center py-3 bg-red-50 text-red-500 font-bold rounded-md border border-red-200">
-                        🛒 Tính năng mua sắm chỉ dành cho khách hàng.
-                      </div>
-                    ) : (
-                      <>
-                        <button
-                          className="flex-1 border-2 border-amber-500 bg-amber-50 text-amber-600 flex items-center justify-center gap-2 font-bold py-3 rounded-md hover:bg-amber-100 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                          disabled={uniqueColors.length > 0 && uniqueSizes.length > 0 && (!selectedColor || !selectedSize)}
-                          onClick={() => {
-                            addToCart(selectedProduct, selectedColor, selectedSize, 1);
-                            alert('Đã thêm vào giỏ hàng!');
-                            setIsModalOpen(false);
-                          }}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.35 5.4a1 1 0 00.97 1.25h11.76a1 1 0 00.97-1.25L17 13M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17" /></svg>
-                          Thêm Vào Giỏ
-                        </button>
-                        <button
-                          className="flex-1 bg-amber-500 text-white font-bold py-3 rounded-md hover:bg-amber-600 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                          disabled={uniqueColors.length > 0 && uniqueSizes.length > 0 && (!selectedColor || !selectedSize)}
-                          onClick={() => alert('Tiến hành thanh toán...')}
-                        >
-                          Mua Ngay
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      <ProductModal 
+        product={selectedProduct}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        productGroupMap={productGroupMap}
+      />
     </div>
   );
 }
