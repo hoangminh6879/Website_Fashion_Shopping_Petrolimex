@@ -17,6 +17,8 @@ export default function AdminDashboard() {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [categoryName, setCategoryName] = useState("");
+  const [categoryImage, setCategoryImage] = useState(null);
+  const [categoryImagePreview, setCategoryImagePreview] = useState("");
 
   // CouponType Form State
   const [showCouponTypeModal, setShowCouponTypeModal] = useState(false);
@@ -106,17 +108,38 @@ export default function AdminDashboard() {
       Swal.fire("Lỗi", "Vui lòng nhập tên danh mục", "warning");
       return;
     }
+    
+    let imageUrl = editingCategory?.image || null;
+
     try {
+      // Nếu có chọn ảnh mới, upload trước
+      if (categoryImage) {
+        const formData = new FormData();
+        formData.append("image", categoryImage);
+        const uploadRes = await api.post("/images/upload", formData, {
+          headers: { "Content-Type": "multipart/form-data" }
+        });
+        imageUrl = uploadRes.data.image.url;
+      }
+
       if (editingCategory) {
-        await api.put(`/categories/${editingCategory._id}`, { name: categoryName });
+        await api.put(`/categories/${editingCategory._id}`, { 
+          name: categoryName,
+          image: imageUrl 
+        });
         Swal.fire("Thành công", "Đã cập nhật danh mục", "success");
       } else {
-        await api.post("/categories", { name: categoryName });
+        await api.post("/categories", { 
+          name: categoryName,
+          image: imageUrl 
+        });
         Swal.fire("Thành công", "Đã thêm danh mục mới", "success");
       }
       setShowCategoryModal(false);
       setEditingCategory(null);
       setCategoryName("");
+      setCategoryImage(null);
+      setCategoryImagePreview("");
       fetchData("categories");
     } catch (err) {
       Swal.fire("Lỗi", err.response?.data?.message || "Lỗi lưu danh mục", "error");
@@ -501,6 +524,7 @@ export default function AdminDashboard() {
                 <table className="w-full text-left bg-white text-sm">
                   <thead className="bg-gray-50 text-gray-500 font-bold uppercase">
                     <tr>
+                      <th className="px-6 py-4">Ảnh</th>
                       <th className="px-6 py-4">Tên danh mục</th>
                       <th className="px-6 py-4">Slug (Đường dẫn)</th>
                       <th className="px-6 py-4">Cấp quản lý</th>
@@ -510,6 +534,13 @@ export default function AdminDashboard() {
                   <tbody className="divide-y divide-gray-100">
                     {Array.isArray(categories) && categories.map(cat => (
                       <tr key={cat._id} className="hover:bg-gray-50 transition">
+                        <td className="px-6 py-4">
+                          <img 
+                            src={cat.image ? `http://localhost:5000${cat.image}` : "https://picsum.photos/50"} 
+                            alt={cat.name} 
+                            className="w-12 h-12 object-cover rounded-lg border border-gray-200"
+                          />
+                        </td>
                         <td className="px-6 py-4 font-bold text-gray-900">{cat.name}</td>
                         <td className="px-6 py-4 text-gray-500 font-mono text-xs">{cat.slug}</td>
                         <td className="px-6 py-4 text-gray-500">
@@ -518,7 +549,12 @@ export default function AdminDashboard() {
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-center gap-2">
                             <button 
-                              onClick={() => { setEditingCategory(cat); setCategoryName(cat.name); setShowCategoryModal(true); }}
+                              onClick={() => { 
+                                setEditingCategory(cat); 
+                                setCategoryName(cat.name); 
+                                setCategoryImagePreview(cat.image ? `http://localhost:5000${cat.image}` : "");
+                                setShowCategoryModal(true); 
+                              }}
                               className="bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-1 rounded shadow-sm text-xs font-bold transition border border-blue-200"
                             >
                               Sửa
@@ -678,6 +714,31 @@ export default function AdminDashboard() {
                   placeholder="Nhập tên danh mục (vd: Áo thun)"
                   className="w-full bg-gray-50 p-4 rounded-xl border border-gray-200 focus:border-amber-500 focus:bg-white outline-none transition font-bold"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Ảnh danh mục</label>
+                <div className="flex flex-col gap-4">
+                  {categoryImagePreview && (
+                    <img 
+                      src={categoryImagePreview} 
+                      alt="Preview" 
+                      className="w-full h-32 object-cover rounded-xl border border-gray-200"
+                    />
+                  )}
+                  <input 
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        setCategoryImage(file);
+                        setCategoryImagePreview(URL.createObjectURL(file));
+                      }
+                    }}
+                    className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
+                  />
+                </div>
               </div>
             </div>
             

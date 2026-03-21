@@ -16,6 +16,10 @@ const categorySchema = new mongoose.Schema(
       ref: "Category",
       default: null, // hỗ trợ category cha - con
     },
+    image: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true }
 );

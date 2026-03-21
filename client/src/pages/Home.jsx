@@ -233,7 +233,11 @@ export default function Home() {
               <a href="#" key={cat._id} className="flex flex-col items-center gap-3 p-5 border-r border-b border-gray-100 hover:bg-gray-50 hover:shadow-[inset_0_0_10px_rgba(0,0,0,0.02)] transition-all duration-300 group">
                 <div className="w-[85px] h-[85px] rounded-full overflow-hidden bg-gray-50 border-2 border-transparent group-hover:border-amber-400 p-0.5 transition-all duration-300 group-hover:shadow-md transform group-hover:-translate-y-1">
                   <div className="w-full h-full rounded-full overflow-hidden">
-                    <img src={`https://picsum.photos/seed/${cat._id}/150/150`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={cat.name} />
+                    <img 
+                      src={cat.image ? `http://localhost:5000${cat.image}` : `https://picsum.photos/seed/${cat._id}/150/150`} 
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                      alt={cat.name} 
+                    />
                   </div>
                 </div>
                 <span className="text-sm text-gray-700 text-center group-hover:text-amber-600 font-medium line-clamp-2 leading-tight h-10">{cat.name}</span>

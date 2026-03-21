@@ -3,12 +3,13 @@ import Product from "../models/Product.model.js";
 
 export const createCategory = async (req, res) => {
   try {
-    const { name, parent } = req.body;
+    const { name, parent, image } = req.body;
 
     const category = await Category.create({
       name,
       slug: name.toLowerCase().replace(/\s+/g, "-"),
       parent: parent || null,
+      image: image || null,
     });
 
     res.status(201).json(category);
@@ -42,7 +43,7 @@ export const getCategoryById = async (req, res) => {
 
 export const updateCategory = async (req, res) => {
   try {
-    const { name, parent } = req.body;
+    const { name, parent, image } = req.body;
 
     const category = await Category.findByIdAndUpdate(
       req.params.id,
@@ -50,6 +51,7 @@ export const updateCategory = async (req, res) => {
         name,
         slug: name.toLowerCase().replace(/\s+/g, "-"),
         parent: parent || null,
+        image: image || null,
       },
       { new: true }
     );
