@@ -10,7 +10,6 @@ export default function Home() {
   const [productGroupMap, setProductGroupMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
-  const [cartCount, setCartCount] = useState(0);
   const [addingToCart, setAddingToCart] = useState(false);
   const navigate = useNavigate();
 
@@ -65,14 +64,6 @@ export default function Home() {
           }
         });
       
-      // Lấy số lượng giỏ hàng
-      cartService.getCart()
-        .then(data => {
-          if (data?.cart?.items) {
-            setCartCount(data.cart.items.length);
-          }
-        })
-        .catch(err => console.error("Error fetching cart:", err));
     }
   }, []);
 
@@ -132,50 +123,6 @@ export default function Home() {
     }
   };
 
-  const handleModalAddToCart = async () => {
-    if (!selectedColor || !selectedSize) {
-      alert("Vui lòng chọn màu sắc và kích cỡ!");
-      return;
-    }
-
-    if (!currentVariant && (productVariants.length > 0)) {
-      alert("Biến thể này không hợp lệ hoặc không có sẵn!");
-      return;
-    }
-
-    const stock = getSelectedStock();
-    if (stock <= 0) {
-      alert("Sản phẩm hết hàng!");
-      return;
-    }
-
-    try {
-      setAddingToCart(true);
-      await cartService.addToCart(
-        selectedProduct._id,
-        currentVariant ? currentVariant._id : null,
-        quantity,
-        selectedColor,
-        selectedSize
-      );
-      
-      // Cập nhật số lượng giỏ hàng
-      const data = await cartService.getCart();
-      setCartCount(data.cart.items.length);
-      
-      if (window.confirm("Đã thêm vào giỏ! Xem giỏ hàng ngay?")) {
-        setIsModalOpen(false);
-        navigate("/cart");
-      }
-    } catch (err) {
-      alert(err.message || "Lỗi thêm giỏ hàng. Vui lòng đăng nhập.");
-      if (err.message?.includes("token") || err.status === 401) {
-        navigate("/login");
-      }
-    } finally {
-      setAddingToCart(false);
-    }
-  };
 
   const currentVariant = productVariants.find(v => v.color === selectedColor && v.size === selectedSize);
 
