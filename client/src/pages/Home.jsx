@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useCart } from '../context/CartContext';
 
@@ -10,6 +10,9 @@ export default function Home() {
   const [productGroupMap, setProductGroupMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const [cartCount, setCartCount] = useState(0);
+  const [addingToCart, setAddingToCart] = useState(false);
+  const navigate = useNavigate();
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -20,6 +23,7 @@ export default function Home() {
   // User selection states
   const [selectedColor, setSelectedColor] = useState('');
   const [selectedSize, setSelectedSize] = useState('');
+  const [quantity, setQuantity] = useState(1);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -60,6 +64,15 @@ export default function Home() {
             localStorage.removeItem('token');
           }
         });
+      
+      // Lấy số lượng giỏ hàng
+      cartService.getCart()
+        .then(data => {
+          if (data?.cart?.items) {
+            setCartCount(data.cart.items.length);
+          }
+        })
+        .catch(err => console.error("Error fetching cart:", err));
     }
   }, []);
 
@@ -76,6 +89,7 @@ export default function Home() {
     setSelectedSize('');
     setProductVariants([]);
     setSelectedProduct(null);
+    setQuantity(1);
 
     try {
       const idsToFetch = productGroupMap[productInfo.name] || [productInfo._id];
@@ -118,6 +132,51 @@ export default function Home() {
     }
   };
 
+  const handleModalAddToCart = async () => {
+    if (!selectedColor || !selectedSize) {
+      alert("Vui lòng chọn màu sắc và kích cỡ!");
+      return;
+    }
+
+    if (!currentVariant && (productVariants.length > 0)) {
+      alert("Biến thể này không hợp lệ hoặc không có sẵn!");
+      return;
+    }
+
+    const stock = getSelectedStock();
+    if (stock <= 0) {
+      alert("Sản phẩm hết hàng!");
+      return;
+    }
+
+    try {
+      setAddingToCart(true);
+      await cartService.addToCart(
+        selectedProduct._id,
+        currentVariant ? currentVariant._id : null,
+        quantity,
+        selectedColor,
+        selectedSize
+      );
+      
+      // Cập nhật số lượng giỏ hàng
+      const data = await cartService.getCart();
+      setCartCount(data.cart.items.length);
+      
+      if (window.confirm("Đã thêm vào giỏ! Xem giỏ hàng ngay?")) {
+        setIsModalOpen(false);
+        navigate("/cart");
+      }
+    } catch (err) {
+      alert(err.message || "Lỗi thêm giỏ hàng. Vui lòng đăng nhập.");
+      if (err.message?.includes("token") || err.status === 401) {
+        navigate("/login");
+      }
+    } finally {
+      setAddingToCart(false);
+    }
+  };
+
   const currentVariant = productVariants.find(v => v.color === selectedColor && v.size === selectedSize);
 
   const displayPrice = selectedProduct?.price > 0
@@ -140,11 +199,12 @@ export default function Home() {
   const getSelectedStock = () => {
     if (!selectedProduct) return 0;
     
-    // Nếu có productVariants (hệ thống cũ)
+    // Nếu có productVariants (hệ thống mới, dùng bảng ProductVariant)
     if (productVariants.length > 0) {
-      if (currentVariant) return currentVariant.stock;
-      return productVariants[0].stock;
+      return currentVariant ? currentVariant.stock : 0;
     }
+
+    // Nếu không có productVariants, kiểm tra xem product có mảng stock không (hệ thống cũ)
 
     // Hệ thống mới: stock là mảng trong product
     if (!Array.isArray(selectedProduct.stock) || selectedProduct.stock.length === 0) {
@@ -531,6 +591,43 @@ export default function Home() {
                             </button>
                           ))}
                         </div>
+                      </div>
+                    )}
+
+                    {/* Quantity Selector */}
+                    {getSelectedStock() > 0 && (
+                      <div className="mt-6 flex items-center gap-4">
+                        <h4 className="text-gray-700 font-semibold text-sm uppercase">Số Lượng</h4>
+                        <div className="flex items-center border border-gray-300 rounded-md overflow-hidden bg-white">
+                          <button
+                            onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
+                            className="px-3 py-1 bg-gray-50 hover:bg-gray-100 text-gray-600 font-bold transition border-r border-gray-300"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            value={quantity}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value);
+                              const stock = getSelectedStock();
+                              if (!isNaN(val)) {
+                                setQuantity(Math.min(stock, Math.max(1, val)));
+                              }
+                            }}
+                            className="w-12 text-center text-sm font-bold outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                          <button
+                            onClick={() => {
+                              const stock = getSelectedStock();
+                              setQuantity(prev => Math.min(stock, prev + 1));
+                            }}
+                            className="px-3 py-1 bg-gray-50 hover:bg-gray-100 text-gray-600 font-bold transition border-l border-gray-300"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <span className="text-xs text-gray-400">Tối đa {getSelectedStock()}</span>
                       </div>
                     )}
 

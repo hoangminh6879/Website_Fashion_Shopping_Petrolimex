@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useCart } from '../context/CartContext';
 
 export default function ProductDetail() {
   const { addToCart } = useCart();
   const { id } = useParams();
+  const navigate = useNavigate();
   const [product, setProduct] = useState(null);
   const [activeImage, setActiveImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState(null);
   const [selectedSize, setSelectedSize] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [addingToCart, setAddingToCart] = useState(false);
+  const [quantity, setQuantity] = useState(1);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     setLoading(true);
@@ -23,7 +27,54 @@ export default function ProductDetail() {
       })
       .catch(err => console.error(err))
       .finally(() => setLoading(false));
+
+    const token = localStorage.getItem('token');
+    if (token) {
+      api.get('/auth/me')
+        .then(res => setUser(res.data))
+        .catch(err => console.error("Error fetching user profile:", err));
+    }
   }, [id]);
+
+  const handleAddToCart = async () => {
+    if (!selectedColor || !selectedSize) {
+      alert("Vui lòng chọn màu sắc và kích cỡ!");
+      return;
+    }
+
+    if (!currentVariant && (product.variants?.length > 0)) {
+      alert("Biến thể này không hợp lệ hoặc không có sẵn!");
+      return;
+    }
+
+    const stock = getSelectedStock();
+    if (stock <= 0) {
+      alert("Sản phẩm hết hàng!");
+      return;
+    }
+
+    try {
+      setAddingToCart(true);
+      await cartService.addToCart(
+        product._id,
+        currentVariant ? currentVariant._id : null,
+        quantity,
+        selectedColor,
+        selectedSize
+      );
+      
+      if (window.confirm("Đã thêm vào giỏ! Xem giỏ hàng ngay?")) {
+        navigate("/cart");
+      }
+    } catch (err) {
+      alert(err.message || "Lỗi thêm giỏ hàng. Vui lòng đăng nhập.");
+      if (err.message?.includes("token") || err.status === 401) {
+        navigate("/login");
+      }
+    } finally {
+      setAddingToCart(false);
+    }
+  };
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
@@ -32,25 +83,37 @@ export default function ProductDetail() {
   // Tính toán số lượng tồn kho theo biến thể
   const getSelectedStock = () => {
     if (!product) return 0;
-    
-    // Hệ thống mới: stock là mảng trong product
+
+    // 🔥 Ưu tiên dùng `variants` (hệ thống mới)
+    if (product.variants?.length > 0) {
+      const variant = product.variants.find(v => v.color === selectedColor && v.size === selectedSize);
+      return variant ? variant.stock : 0;
+    }
+
+    // Hệ thống cũ: stock là mảng trong product
     if (!Array.isArray(product.stock) || product.stock.length === 0) {
       return Number(product.stock) || 0;
     }
 
     if (!selectedColor || !selectedSize) return product.stock[0] || 0;
-    
+
     const colorIdx = (product.colors || []).indexOf(selectedColor);
     const sizeIdx = (product.sizes || []).indexOf(selectedSize);
-    
+
     if (colorIdx === -1 || sizeIdx === -1) return product.stock[0] || 0;
-    
+
     const index = colorIdx * (product.sizes?.length || 0) + sizeIdx;
     return product.stock[index] || 0;
   };
 
   // Lấy ảnh của biến thể đang chọn
   const getSelectedVariantImage = () => {
+    // 🔥 Ưu tiên dùng `variants` (hệ thống mới)
+    if (product?.variants?.length > 0) {
+      const variant = product.variants.find(v => v.color === selectedColor && v.size === selectedSize);
+      if (variant?.image) return variant.image;
+    }
+
     if (!product || !product.variantImages || product.variantImages.length === 0) return null;
     if (!selectedColor || !selectedSize) return null;
 
@@ -65,26 +128,30 @@ export default function ProductDetail() {
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 uppercase font-black text-gray-400">
-       Đang tải sản phẩm...
+      Đang tải sản phẩm...
     </div>
   );
 
   if (!product) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 uppercase font-black text-gray-400">
-       Không tìm thấy sản phẩm
+      Không tìm thấy sản phẩm
     </div>
   );
 
   const variantImage = getSelectedVariantImage();
-  const mainImageSrc = variantImage 
-    ? `http://localhost:5000${variantImage}` 
+  const mainImageSrc = variantImage
+    ? `http://localhost:5000${variantImage}`
     : (product.images?.[activeImage]?.url ? `http://localhost:5000${product.images[activeImage].url}` : "https://via.placeholder.com/800");
+
+  const currentVariant = (product?.variants || []).find(
+    v => v.color === selectedColor && v.size === selectedSize
+  );
 
   return (
     <div className="bg-gray-50 min-h-screen font-sans pb-20">
       <div className="max-w-7xl mx-auto px-4 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 bg-white p-8 rounded-3xl shadow-xl shadow-gray-200/50">
-          
+
           {/* LEFT: IMAGES */}
           <div className="space-y-4">
             <div className="aspect-square rounded-2xl overflow-hidden border border-gray-100 bg-gray-50 group">
@@ -97,7 +164,7 @@ export default function ProductDetail() {
             {product.images?.length > 1 && (
               <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
                 {product.images.map((img, idx) => (
-                  <button 
+                  <button
                     key={img._id || idx}
                     onClick={() => {
                       setActiveImage(idx);
@@ -124,7 +191,7 @@ export default function ProductDetail() {
             </div>
 
             <div className="text-4xl font-black text-amber-600 bg-amber-50/50 p-6 rounded-2xl border-l-8 border-amber-500">
-               {formatPrice(product.price || 0)}
+              {formatPrice(product.price || 0)}
             </div>
 
             <div className="space-y-6">
@@ -193,10 +260,10 @@ export default function ProductDetail() {
 
         {/* DESCRIPTION */}
         <div className="mt-12 bg-white p-12 rounded-3xl shadow-lg shadow-gray-200/50">
-           <h2 className="text-xl font-black uppercase tracking-tight mb-8 border-b-2 border-gray-900 inline-block pb-2">Mô tả sản phẩm</h2>
-           <div className="prose prose-lg max-w-none text-gray-600 font-medium leading-relaxed">
-              {product.description || "Đang cập nhật nội dung cho sản phẩm này..."}
-           </div>
+          <h2 className="text-xl font-black uppercase tracking-tight mb-8 border-b-2 border-gray-900 inline-block pb-2">Mô tả sản phẩm</h2>
+          <div className="prose prose-lg max-w-none text-gray-600 font-medium leading-relaxed">
+            {product.description || "Đang cập nhật nội dung cho sản phẩm này..."}
+          </div>
         </div>
       </div>
     </div>
