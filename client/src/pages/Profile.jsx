@@ -8,9 +8,17 @@ export default function Profile() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [form, setForm] = useState({ name: '', phone: '' });
+  const [form, setForm] = useState({ name: '', phone: '', address: '' });
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Seller Request State
+  const [showSellerModal, setShowSellerModal] = useState(false);
+  const [sellerForm, setSellerForm] = useState({ reason: '', proofImage: '' });
+  const [showTerms, setShowTerms] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+
   const fileInputRef = useRef(null);
+  const proofInputRef = useRef(null);
   const navigate = useNavigate();
 
   // Cropper State
@@ -27,7 +35,8 @@ export default function Profile() {
         setUser(res.data);
         setForm({
           name: res.data.name || '',
-          phone: res.data.phone || ''
+          phone: res.data.phone || '',
+          address: res.data.address || ''
         });
       } catch (err) {
         console.error("Error fetching profile:", err);
@@ -150,6 +159,56 @@ export default function Profile() {
     }
   };
 
+  const handleProofChange = async (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const formData = new FormData();
+      formData.append('image', file);
+
+      Swal.fire({
+        title: 'Đang tải lên...',
+        didOpen: () => { Swal.showLoading(); }
+      });
+      
+      try {
+        const uploadRes = await api.post('/images/upload', formData);
+        setSellerForm({ ...sellerForm, proofImage: uploadRes.data.image.url });
+        Swal.close();
+      } catch (err) {
+        Swal.fire("Lỗi", "Tải ảnh lên thất bại", "error");
+      }
+    }
+  };
+
+  const handleSellerSubmit = async () => {
+    if (!sellerForm.reason || !sellerForm.proofImage) {
+      Swal.fire("Lỗi", "Vui lòng nhập lý do và tải ảnh minh chứng", "warning");
+      return;
+    }
+    if (!showTerms) {
+      setShowTerms(true);
+      return;
+    }
+    if (!acceptedTerms) {
+      Swal.fire("Lỗi", "Bạn phải đồng ý với điều khoản", "warning");
+      return;
+    }
+
+    try {
+      const res = await api.post('/users/request-seller', {
+        reason: sellerForm.reason,
+        proofImage: sellerForm.proofImage
+      });
+      setUser(res.data.user);
+      setShowSellerModal(false);
+      setShowTerms(false);
+      setAcceptedTerms(false);
+      Swal.fire("Thành công", "Đã gửi yêu cầu", "success");
+    } catch (err) {
+      Swal.fire("Lỗi", err.response?.data?.message || "Lỗi gửi yêu cầu", "error");
+    }
+  };
+
   const getFullUrl = (url) => {
     if (!url) return null;
     if (url.startsWith('http')) return url;
@@ -260,6 +319,22 @@ export default function Profile() {
                       </div>
                     )}
                   </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block">Địa chỉ giao hàng</label>
+                    {isEditing ? (
+                      <input 
+                        type="text" 
+                        placeholder="Nhập địa chỉ nhận hàng"
+                        value={form.address} 
+                        onChange={(e) => setForm({...form, address: e.target.value})}
+                        className="w-full bg-gray-50 px-4 py-3 rounded-xl border-2 border-amber-500/20 focus:border-amber-500 focus:bg-white outline-none transition font-bold text-gray-800 shadow-inner" 
+                      />
+                    ) : (
+                      <div className={`bg-gray-50 px-4 py-3 rounded-xl border border-gray-100 font-bold ${user.address ? 'text-gray-800' : 'text-gray-400 italic'}`}>
+                        {user.address || 'Chưa cập nhật'}
+                      </div>
+                    )}
+                  </div>
                </div>
             </div>
 
@@ -274,7 +349,7 @@ export default function Profile() {
                     {isSaving ? 'ĐANG LƯU...' : 'LƯU THÔNG TIN'}
                   </button>
                   <button 
-                    onClick={() => { setIsEditing(false); setForm({ name: user.name, phone: user.phone || '' }); }}
+                    onClick={() => { setIsEditing(false); setForm({ name: user.name, phone: user.phone || '', address: user.address || '' }); }}
                     className="px-8 bg-gray-100 text-gray-500 font-black uppercase tracking-widest py-4 rounded-2xl hover:bg-gray-200 transition text-[10px]"
                   >
                     HUỶ
@@ -300,7 +375,126 @@ export default function Profile() {
             </div>
           </div>
         </div>
+
+        {/* Nâng Cấp Seller Section */}
+        {user.role === 'user' && (
+          <div className="mt-8 bg-white p-8 rounded-3xl shadow-xl shadow-gray-200/50 border border-amber-100 flex flex-col md:flex-row gap-6 items-center justify-between">
+            <div>
+              <h3 className="text-xl font-black text-gray-900 mb-2">Trở Thành Đối Tác Bán Hàng</h3>
+              <p className="text-gray-500 text-sm">Mở gian hàng của riêng bạn và bắt đầu kinh doanh trên Petrolimex Fashion.</p>
+              
+              {user.sellerRequest?.status === "pending" && (
+                <div className="mt-4 px-4 py-2 bg-amber-50 text-amber-700 font-bold text-sm border border-amber-200 rounded-lg inline-block">
+                  Yêu cầu của bạn đang chờ phê duyệt.
+                </div>
+              )}
+              {user.sellerRequest?.status === "rejected" && (
+                <div className="mt-4 px-4 py-2 bg-red-50 text-red-700 font-bold text-sm border border-red-200 rounded-lg inline-block">
+                  Yêu cầu của bạn bị từ chối. Lời nhắn: Vui lòng kiểm tra lại thông tin.
+                </div>
+              )}
+            </div>
+            {user.sellerRequest?.status !== "pending" && (
+              <button
+                onClick={() => setShowSellerModal(true)}
+                className="bg-gray-900 text-white font-black uppercase tracking-widest px-8 py-4 rounded-xl hover:bg-amber-500 hover:text-gray-900 shadow-xl transition"
+              >
+                Gửi Yêu Cầu
+              </button>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Seller Request Modal */}
+      {showSellerModal && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur p-4">
+          <div className="bg-white rounded-3xl w-full max-w-lg p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button 
+              onClick={() => { setShowSellerModal(false); setShowTerms(false); setAcceptedTerms(false); }}
+              className="absolute top-6 right-6 text-gray-400 hover:text-red-500 transition"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            
+            <h3 className="text-2xl font-black text-gray-900 mb-6 uppercase tracking-tighter border-b pb-4">Đăng Ký Làm Seller</h3>
+            
+            {!showTerms ? (
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Lý do mở shop</label>
+                  <textarea 
+                    rows="4"
+                    value={sellerForm.reason}
+                    onChange={(e) => setSellerForm({...sellerForm, reason: e.target.value})}
+                    placeholder="Mô tả ngành hàng, quy mô và kinh nghiệm của bạn..."
+                    className="w-full bg-gray-50 p-4 rounded-xl border border-gray-200 focus:border-amber-500 focus:bg-white outline-none transition"
+                  ></textarea>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Ảnh minh chứng (CCCD, Giấy phép KD)</label>
+                  <div 
+                    onClick={() => proofInputRef.current.click()}
+                    className="w-full bg-gray-50 p-6 rounded-xl border-2 border-dashed border-gray-300 hover:border-amber-500 text-center cursor-pointer transition flex flex-col items-center gap-2"
+                  >
+                    {sellerForm.proofImage ? (
+                      <img src={`http://localhost:5000${sellerForm.proofImage}`} className="h-32 object-contain rounded" />
+                    ) : (
+                      <>
+                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        <span className="text-sm font-semibold text-gray-500">Tải ảnh lên tại đây</span>
+                      </>
+                    )}
+                  </div>
+                  <input type="file" ref={proofInputRef} className="hidden" accept="image/*" onChange={handleProofChange} />
+                </div>
+                <button 
+                  onClick={handleSellerSubmit}
+                  className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white font-black uppercase tracking-widest py-4 rounded-xl shadow-lg shadow-amber-500/30 hover:shadow-xl transition"
+                >
+                  Nâng Cấp
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-600 h-64 overflow-y-auto border border-gray-200">
+                  <h4 className="font-black text-gray-800 mb-2">ĐIỀU KHOẢN TRỞ THÀNH NGƯỜI BÁN</h4>
+                  <p className="mb-2">1. Cam kết hàng hóa chính hãng, không bán hàng giả, hàng nhái.</p>
+                  <p className="mb-2">2. Tuân thủ quy định đóng gói và giao hàng của Petrolimex Fashion.</p>
+                  <p className="mb-2">3. Mọi tranh chấp với khách hàng cần được giải quyết thỏa đáng trong 48 giờ.</p>
+                  <p className="mb-2">4. Phí sàn áp dụng cho mỗi đơn hàng thành công là 5% tổng doanh thu.</p>
+                  <p className="mb-2">5. Vi phạm nhiều lần sẽ bị khóa shop vĩnh viễn không cần báo trước.</p>
+                  <p className="font-bold text-red-500 mt-4">Thông tin đăng ký của bạn sẽ được đội ngũ Admin xét duyệt trong 24-48 giờ.</p>
+                </div>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={acceptedTerms}
+                    onChange={(e) => setAcceptedTerms(e.target.checked)}
+                    className="w-5 h-5 accent-amber-500"
+                  />
+                  <span className="text-sm font-bold text-gray-800">Tôi đã đọc và đồng ý với điều khoản</span>
+                </label>
+                <div className="flex gap-4">
+                  <button 
+                    onClick={() => setShowTerms(false)}
+                    className="flex-1 bg-gray-100 text-gray-600 font-black uppercase py-4 rounded-xl"
+                  >
+                    Quay Lại
+                  </button>
+                  <button 
+                    onClick={handleSellerSubmit}
+                    disabled={!acceptedTerms}
+                    className="flex-1 bg-amber-500 text-gray-900 font-black uppercase py-4 rounded-xl disabled:opacity-50"
+                  >
+                    Hoàn Tất Gửi
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Cropper Modal */}
       {showCropper && (

@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { registerUser } from "../services/authService";
 import "../main"; // index.css chứa @tailwind base/components/utilities
 
 export default function Register() {
+  const navigate = useNavigate();
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -17,6 +19,7 @@ export default function Register() {
     try {
       await registerUser(form);
       alert("Đăng ký thành công 🎉");
+      navigate("/login");
     } catch (err) {
       alert(err.response?.data?.message);
     }

@@ -38,19 +38,23 @@ export default function SellerDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [shopRes, catsRes] = await Promise.all([
+        const [shopRes, catsRes] = await Promise.allSettled([
           api.get('/shops/my-shop'),
           api.get('/categories')
         ]);
-        setShop(shopRes.data);
-        setCategories(catsRes.data);
-        setShopForm({
-          name: shopRes.data.name || '',
-          description: shopRes.data.description || '',
-          address: shopRes.data.address || '',
-          phone: shopRes.data.phone || '',
-          fanpage: shopRes.data.fanpage || ''
-        });
+        if (catsRes.status === 'fulfilled') {
+          setCategories(catsRes.value.data);
+        }
+        if (shopRes.status === 'fulfilled') {
+          setShop(shopRes.value.data);
+          setShopForm({
+            name: shopRes.value.data.name || '',
+            description: shopRes.value.data.description || '',
+            address: shopRes.value.data.address || '',
+            phone: shopRes.value.data.phone || '',
+            fanpage: shopRes.value.data.fanpage || ''
+          });
+        }
       } catch (err) {
         console.error("Error fetching data:", err);
       } finally {
@@ -192,20 +196,25 @@ export default function SellerDashboard() {
     e.preventDefault();
     setIsUpdatingShop(true);
     try {
-      const res = await api.put('/shops/my-shop', shopForm);
+      let res;
+      if (!shop) {
+        res = await api.post('/shops', shopForm);
+        Swal.fire({
+          icon: 'success', title: 'Thành công!', text: 'Đã gửi yêu cầu đăng ký shop, chờ Admin duyệt!', confirmButtonColor: '#f59e0b'
+        });
+      } else {
+        res = await api.put('/shops/my-shop', shopForm);
+        Swal.fire({
+          icon: 'success', title: 'Thành công!', text: 'Cập nhật thông tin shop thành công!', confirmButtonColor: '#f59e0b'
+        });
+      }
       setShop(res.data);
-      Swal.fire({
-        icon: 'success',
-        title: 'Tuyệt vời!',
-        text: 'Cập nhật thông tin shop thành công!',
-        confirmButtonColor: '#f59e0b'
-      });
     } catch (err) {
       console.error("Error updating shop:", err);
       Swal.fire({
         icon: 'error',
         title: 'Lỗi!',
-        text: err.response?.data?.message || 'Không thể cập nhật thông tin shop!',
+        text: err.response?.data?.message || 'Không thể lưu thông tin shop!',
         confirmButtonColor: '#f59e0b'
       });
     } finally {
@@ -462,10 +471,16 @@ export default function SellerDashboard() {
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                   <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
                     <h2 className="font-bold text-gray-700">Tất cả sản phẩm</h2>
-                    <button onClick={() => setIsAddingProduct(true)} className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-md font-medium text-sm transition shadow-sm flex items-center gap-1">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                      Thêm Sản Phẩm Mới
-                    </button>
+                    {shop?.status === 'active' ? (
+                      <button onClick={() => setIsAddingProduct(true)} className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-md font-medium text-sm transition shadow-sm flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                        Thêm Sản Phẩm Mới
+                      </button>
+                    ) : (
+                      <span className="text-amber-600 font-bold bg-amber-50 px-3 py-1 rounded-full text-xs border border-amber-200">
+                        {shop ? 'Shop đang chờ duyệt' : 'Chưa tạo shop'}
+                      </span>
+                    )}
                   </div>
 
                   {loading ? (
@@ -510,26 +525,32 @@ export default function SellerDashboard() {
                               <td className="p-4 text-sm text-gray-600 font-medium">{p.sizes?.join(', ') || '-'}</td>
                               <td className="p-4 text-right">
                                 <div className="flex items-center justify-end gap-2">
-                                  <button
-                                    onClick={() => openStockModal(p)}
-                                    className="bg-amber-50 text-amber-600 hover:bg-amber-100 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition border border-amber-200"
-                                  >
-                                    Nhập số lượng
-                                  </button>
-                                  <button 
-                                    onClick={() => handleEditClick(p)} 
-                                    className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition"
-                                    title="Sửa"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                                  </button>
-                                  <button 
-                                    onClick={() => handleDeleteProduct(p._id)} 
-                                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
-                                    title="Xóa"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                  </button>
+                                  {shop?.status === 'active' ? (
+                                    <>
+                                      <button
+                                        onClick={() => openStockModal(p)}
+                                        className="bg-amber-50 text-amber-600 hover:bg-amber-100 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition border border-amber-200"
+                                      >
+                                        Nhập số lượng
+                                      </button>
+                                      <button 
+                                        onClick={() => handleEditClick(p)} 
+                                        className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition"
+                                        title="Sửa"
+                                      >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                      </button>
+                                      <button 
+                                        onClick={() => handleDeleteProduct(p._id)} 
+                                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
+                                        title="Xóa"
+                                      >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <span className="text-xs text-gray-400">Chỉ xem</span>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -556,85 +577,129 @@ export default function SellerDashboard() {
           )}
 
           {activeTab === 'settings' && (
-            <div className="bg-white rounded-2xl shadow-xl shadow-gray-200/50 border border-gray-100 p-8 max-w-2xl">
-              <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
-                 <div>
-                    <h2 className="text-xl font-black italic tracking-tighter text-gray-900 leading-none">THIẾT LẬP <span className="text-amber-500">CỬA HÀNG</span></h2>
-                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-2 flex items-center gap-2">
-                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                       Ngày tạo shop: {shop?.createdAt ? new Date(shop.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
-                    </p>
-                 </div>
+            <div className="space-y-6 max-w-4xl mx-auto">
+              {/* Form thiết lập shop */}
+              <div className="bg-white rounded-2xl shadow-xl shadow-gray-200/50 border border-gray-100 p-8">
+                <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
+                   <div>
+                      <h2 className="text-xl font-black italic tracking-tighter text-gray-900 leading-none">
+                        {shop ? 'THIẾT LẬP ' : 'TẠO '} <span className="text-amber-500">CỬA HÀNG</span>
+                      </h2>
+                      {shop && (
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-2 flex items-center gap-2">
+                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                           Trạng thái: {shop.status === 'active' ? 'Đã duyệt' : 'Đang chờ duyệt'}
+                        </p>
+                      )}
+                   </div>
+                </div>
+
+                <form onSubmit={handleUpdateShop} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block leading-none">Tên cửa hàng</label>
+                      <input 
+                        type="text" 
+                        value={shopForm.name} 
+                        onChange={(e) => setShopForm({...shopForm, name: e.target.value})}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-800 focus:border-amber-500 focus:bg-white transition outline-none shadow-inner" 
+                        placeholder="Ví dụ: Fashion Shop" 
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block leading-none">Số điện thoại</label>
+                      <input 
+                        type="text" 
+                        value={shopForm.phone} 
+                        onChange={(e) => setShopForm({...shopForm, phone: e.target.value})}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-800 focus:border-amber-500 focus:bg-white transition outline-none shadow-inner" 
+                        placeholder="0123 456 789" 
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block leading-none">Địa chỉ</label>
+                    <input 
+                      type="text" 
+                      value={shopForm.address} 
+                      onChange={(e) => setShopForm({...shopForm, address: e.target.value})}
+                      className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-800 focus:border-amber-500 focus:bg-white transition outline-none shadow-inner" 
+                      placeholder="Số nhà, Tên đường, Quận/Huyện, Tỉnh/Thành phố" 
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block leading-none">Fanpage URL</label>
+                    <input 
+                      type="text" 
+                      value={shopForm.fanpage} 
+                      onChange={(e) => setShopForm({...shopForm, fanpage: e.target.value})}
+                      className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-800 focus:border-amber-500 focus:bg-white transition outline-none shadow-inner" 
+                      placeholder="https://facebook.com/yourshop" 
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block leading-none">Mô tả cửa hàng</label>
+                    <textarea 
+                      rows="4" 
+                      value={shopForm.description} 
+                      onChange={(e) => setShopForm({...shopForm, description: e.target.value})}
+                      className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-800 focus:border-amber-500 focus:bg-white transition outline-none shadow-inner" 
+                      placeholder="Giới thiệu về cửa hàng của bạn..."
+                    ></textarea>
+                  </div>
+
+                  <div className="pt-4">
+                    <button 
+                      type="submit"
+                      disabled={isUpdatingShop}
+                      className="w-full bg-gray-900 text-white font-black uppercase tracking-[0.2em] py-4 rounded-2xl hover:bg-amber-500 hover:text-gray-900 transition shadow-xl shadow-gray-200 hover:shadow-amber-500/30 text-[10px] transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isUpdatingShop ? 'ĐANG LƯU...' : (shop ? 'LƯU THÔNG TIN CỬA HÀNG' : 'GỬI YÊU CẦU TẠO CỬA HÀNG')}
+                    </button>
+                  </div>
+                </form>
               </div>
 
-              <form onSubmit={handleUpdateShop} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block leading-none">Tên cửa hàng</label>
-                    <input 
-                      type="text" 
-                      value={shopForm.name} 
-                      onChange={(e) => setShopForm({...shopForm, name: e.target.value})}
-                      className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-800 focus:border-amber-500 focus:bg-white transition outline-none shadow-inner" 
-                      placeholder="Ví dụ: Fashion Shop" 
-                      required
-                    />
+              {/* Bảng sản phẩm Read-only bên dưới nếu đã có shop */}
+              {shop && (
+                <div className="bg-white rounded-2xl shadow-xl shadow-gray-200/50 border border-gray-100 p-8">
+                  <h2 className="text-xl font-black text-gray-900 mb-6">SẢN PHẨM CỦA CỬA HÀNG</h2>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50 text-gray-600 text-sm border-b border-gray-200">
+                          <th className="p-4 font-semibold">Tên Sản Phẩm</th>
+                          <th className="p-4 font-semibold">Giá</th>
+                          <th className="p-4 font-semibold">Tồn Kho</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {products.length > 0 ? products.map(p => (
+                          <tr key={p._id} className="border-b border-gray-100">
+                            <td className="p-4 flex items-center gap-3">
+                              <img 
+                                src={p.images?.[0]?.url ? (p.images[0].url.startsWith('http') ? p.images[0].url : `http://localhost:5000${p.images[0].url}`) : `https://picsum.photos/seed/${p._id}/50/50`} 
+                                className="w-10 h-10 rounded object-cover border border-gray-200" 
+                              />
+                              <div className="font-medium text-gray-800 line-clamp-1">{p.name}</div>
+                            </td>
+                            <td className="p-4 text-amber-600 font-bold">{formatPrice(p.price || 0)}</td>
+                            <td className="p-4 font-bold text-gray-700">
+                              {Array.isArray(p.stock) ? p.stock.reduce((sum, val) => sum + val, 0) : (Number(p.stock) || 0)}
+                            </td>
+                          </tr>
+                        )) : (
+                          <tr><td colSpan="3" className="p-8 text-center text-gray-500">Shop chưa đăng sản phẩm nào.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
-                  <div>
-                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block leading-none">Số điện thoại</label>
-                    <input 
-                      type="text" 
-                      value={shopForm.phone} 
-                      onChange={(e) => setShopForm({...shopForm, phone: e.target.value})}
-                      className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-800 focus:border-amber-500 focus:bg-white transition outline-none shadow-inner" 
-                      placeholder="0123 456 789" 
-                    />
-                  </div>
                 </div>
-
-                <div>
-                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block leading-none">Địa chỉ</label>
-                  <input 
-                    type="text" 
-                    value={shopForm.address} 
-                    onChange={(e) => setShopForm({...shopForm, address: e.target.value})}
-                    className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-800 focus:border-amber-500 focus:bg-white transition outline-none shadow-inner" 
-                    placeholder="Số nhà, Tên đường, Quận/Huyện, Tỉnh/Thành phố" 
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block leading-none">Fanpage URL</label>
-                  <input 
-                    type="text" 
-                    value={shopForm.fanpage} 
-                    onChange={(e) => setShopForm({...shopForm, fanpage: e.target.value})}
-                    className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-800 focus:border-amber-500 focus:bg-white transition outline-none shadow-inner" 
-                    placeholder="https://facebook.com/yourshop" 
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block leading-none">Mô tả cửa hàng</label>
-                  <textarea 
-                    rows="4" 
-                    value={shopForm.description} 
-                    onChange={(e) => setShopForm({...shopForm, description: e.target.value})}
-                    className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-800 focus:border-amber-500 focus:bg-white transition outline-none shadow-inner" 
-                    placeholder="Giới thiệu về cửa hàng của bạn..."
-                  ></textarea>
-                </div>
-
-                <div className="pt-4">
-                  <button 
-                    type="submit"
-                    disabled={isUpdatingShop}
-                    className="w-full bg-gray-900 text-white font-black uppercase tracking-[0.2em] py-4 rounded-2xl hover:bg-amber-500 hover:text-gray-900 transition shadow-xl shadow-gray-200 hover:shadow-amber-500/30 text-[10px] transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isUpdatingShop ? 'ĐANG LƯU...' : 'LƯU THÔNG TIN CỬA HÀNG'}
-                  </button>
-                </div>
-              </form>
+              )}
             </div>
           )}
 

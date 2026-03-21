@@ -8,6 +8,7 @@ const shopSchema = new mongoose.Schema(
     phone: { type: String },
     fanpage: { type: String },
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    status: { type: String, enum: ["pending", "active", "rejected"], default: "pending" },
     rating: { type: Number, default: 0 },
   },
   { timestamps: true }

@@ -69,10 +69,10 @@ export const login = async (req, res) => {
 
 export const updateMe = async (req, res) => {
   try {
-    const { name, phone, avatar } = req.body;
+    const { name, phone, address, avatar } = req.body;
     const user = await User.findByIdAndUpdate(
       req.user.id,
-      { name, phone, avatar },
+      { name, phone, address, avatar },
       { new: true }
     ).select("-password");
     if (!user) {

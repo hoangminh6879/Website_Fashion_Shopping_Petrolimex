@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../services/api';
+import { useCart } from '../context/CartContext';
 
 export default function ProductDetail() {
+  const { addToCart } = useCart();
   const { id } = useParams();
   const [product, setProduct] = useState(null);
   const [activeImage, setActiveImage] = useState(0);
@@ -168,7 +170,17 @@ export default function ProductDetail() {
                   <span>Tồn kho: <span className="font-bold text-gray-800">{getSelectedStock()}</span> sản phẩm</span>
                </div>
                <div className="flex gap-4">
-                  <button className="flex-1 py-5 bg-gray-900 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-amber-500 hover:text-gray-900 transition-all shadow-xl active:scale-[0.98]">
+                  <button 
+                    onClick={() => {
+                      if (!selectedColor || !selectedSize) {
+                        alert("Vui lòng chọn màu sắc và kích cỡ!");
+                        return;
+                      }
+                      addToCart(product, selectedColor, selectedSize, 1);
+                      alert('Đã thêm vào giỏ hàng!');
+                    }}
+                    className="flex-1 py-5 bg-gray-900 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-amber-500 hover:text-gray-900 transition-all shadow-xl active:scale-[0.98]"
+                  >
                     THÊM VÀO GIỎ HÀNG
                   </button>
                   <button className="p-5 border-2 border-gray-100 rounded-2xl hover:bg-red-50 hover:border-red-100 group transition-all">

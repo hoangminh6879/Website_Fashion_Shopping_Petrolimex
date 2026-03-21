@@ -20,3 +20,14 @@ export const protect = (req, res, next) => {
     res.status(401).json({ message: "Token không hợp lệ" });
   }
 };
+
+export const authorizeRoles = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({
+        message: `Role (${req.user?.role || 'User'}) không có quyền truy cập`
+      });
+    }
+    next();
+  };
+};

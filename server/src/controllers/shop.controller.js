@@ -15,6 +15,7 @@ export const createShop = async (req, res) => {
       name: req.body.name,
       description: req.body.description,
       owner: req.user.id,
+      status: "pending"
     });
 
     res.status(201).json(shop);
