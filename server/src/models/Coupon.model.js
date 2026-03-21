@@ -1,18 +1,60 @@
 import mongoose from "mongoose";
 
-const couponSchema = new mongoose.Schema({
-  code: String,
+const couponSchema = new mongoose.Schema(
+  {
+    code: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+    },
 
-  discount: Number,
+    discount: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
 
-  type: {
-    type: String,
-    enum: ["system", "shop"],
+    // 👉 loại ưu đãi (freeship, giảm %,...)
+    couponType: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "CouponType",
+      required: true,
+    },
+
+    // 👉 phân biệt ai tạo
+    createdBy: {
+      type: String,
+      enum: ["admin", "seller"],
+      required: true,
+    },
+
+    // 👉 nếu là seller thì có shop
+    shop: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Shop",
+      default: null,
+    },
+
+    expiryDate: {
+      type: Date,
+      required: true,
+    },
   },
+  { timestamps: true }
+);
 
-  shop: { type: mongoose.Schema.Types.ObjectId, ref: "Shop" },
+// ✅ Validate logic
+couponSchema.pre("save", function (next) {
+  if (this.createdBy === "seller" && !this.shop) {
+    return next(new Error("Coupon của seller phải có shopId"));
+  }
 
-  expiryDate: Date,
+  if (this.createdBy === "admin" && this.shop) {
+    return next(new Error("Coupon của admin không được có shopId"));
+  }
+
+  next();
 });
 
 export default mongoose.model("Coupon", couponSchema);
