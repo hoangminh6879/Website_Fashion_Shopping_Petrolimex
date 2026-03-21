@@ -44,7 +44,11 @@ export const createProduct = async (req, res) => {
 // 🔥 GET ALL PRODUCTS
 export const getProducts = async (req, res) => {
   try {
-    const products = await Product.find()
+    const { shopId } = req.query;
+    const filter = {};
+    if (shopId) filter.shop = shopId;
+
+    const products = await Product.find(filter)
       .populate("shop")
       .populate("category")
       .populate("images");
