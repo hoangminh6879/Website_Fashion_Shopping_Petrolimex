@@ -158,6 +158,67 @@ export const CartProvider = ({ children }) => {
     }));
   };
 
+  // Hành động: Cập nhật biến thể (Màu sắc / Kích cỡ)
+  const updateVariant = async (productId, oldColor, oldSize, newColor, newSize) => {
+    if (userId && userId !== 'guest') {
+      try {
+        const res = await api.put('/cart/update-variant', { 
+          productId, 
+          oldColor, 
+          oldSize, 
+          newColor, 
+          newSize 
+        });
+        
+        const { item, merged } = res.data;
+        
+        setCart(prevCart => {
+          if (merged) {
+            // Nếu bị merged: Xóa item cũ, cập nhật item mới (variant mới)
+            const filtered = prevCart.filter(i => !(i.product._id === productId && i.color === oldColor && i.size === oldSize));
+            return filtered.map(i => {
+              if (i.product._id === productId && i.color === newColor && i.size === newSize) {
+                return item;
+              }
+              return i;
+            });
+          } else {
+            // Nếu không merged: Chỉ cập nhật item cũ
+            return prevCart.map(i => {
+              if (i.product._id === productId && i.color === oldColor && i.size === oldSize) {
+                return item;
+              }
+              return i;
+            });
+          }
+        });
+      } catch (err) {
+        console.error("Lỗi cập nhật biến thể DB:", err);
+        throw err; // Ném lỗi để UI xử lý (hiển thị thông báo)
+      }
+    } else {
+      // Logic cho Guest (nếu cần)
+      setCart(prevCart => {
+        const oldItem = prevCart.find(i => i.product._id === productId && i.color === oldColor && i.size === oldSize);
+        if (!oldItem) return prevCart;
+
+        const filtered = prevCart.filter(i => !(i.product._id === productId && i.color === oldColor && i.size === oldSize));
+        const existingNew = filtered.find(i => i.product._id === productId && i.color === newColor && i.size === newSize);
+
+        if (existingNew) {
+          return filtered.map(i => {
+            if (i.product._id === productId && i.color === newColor && i.size === newSize) {
+              return { ...i, quantity: i.quantity + oldItem.quantity };
+            }
+            return i;
+          });
+        } else {
+          return [...filtered, { ...oldItem, color: newColor, size: newSize }];
+        }
+      });
+    }
+  };
+
   // Hành động: Xóa tất cả
   const clearCart = async () => {
     if (userId && userId !== 'guest') {
@@ -189,6 +250,7 @@ export const CartProvider = ({ children }) => {
       addToCart,
       removeFromCart,
       updateQuantity,
+      updateVariant,
       clearCart,
       getCartTotal,
       getCartCount

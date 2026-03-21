@@ -14,6 +14,7 @@ import cartRoutes from "./src/routes/cart.routes.js";
 import adminRoutes from "./src/routes/admin.routes.js";
 import couponTypeRoutes from "./src/routes/couponType.routes.js";
 import couponRoutes from "./src/routes/coupon.routes.js";
+import flowShopRoutes from "./src/routes/flowShop.routes.js";
 import path from "path";
 
 
@@ -94,6 +95,7 @@ app.use("/api/cart", cartRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/coupon-types", couponTypeRoutes);
 app.use("/api/coupons", couponRoutes);
+app.use("/api/flows", flowShopRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
