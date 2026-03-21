@@ -36,45 +36,6 @@ export default function ProductDetail() {
     }
   }, [id]);
 
-  const handleAddToCart = async () => {
-    if (!selectedColor || !selectedSize) {
-      alert("Vui lòng chọn màu sắc và kích cỡ!");
-      return;
-    }
-
-    if (!currentVariant && (product.variants?.length > 0)) {
-      alert("Biến thể này không hợp lệ hoặc không có sẵn!");
-      return;
-    }
-
-    const stock = getSelectedStock();
-    if (stock <= 0) {
-      alert("Sản phẩm hết hàng!");
-      return;
-    }
-
-    try {
-      setAddingToCart(true);
-      await cartService.addToCart(
-        product._id,
-        currentVariant ? currentVariant._id : null,
-        quantity,
-        selectedColor,
-        selectedSize
-      );
-      
-      if (window.confirm("Đã thêm vào giỏ! Xem giỏ hàng ngay?")) {
-        navigate("/cart");
-      }
-    } catch (err) {
-      alert(err.message || "Lỗi thêm giỏ hàng. Vui lòng đăng nhập.");
-      if (err.message?.includes("token") || err.status === 401) {
-        navigate("/login");
-      }
-    } finally {
-      setAddingToCart(false);
-    }
-  };
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);

@@ -9,12 +9,24 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [shops, setShops] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [couponTypes, setCouponTypes] = useState([]);
+  const [coupons, setCoupons] = useState([]);
   const navigate = useNavigate();
-  
+
   // Category Form State
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [categoryName, setCategoryName] = useState("");
+
+  // CouponType Form State
+  const [showCouponTypeModal, setShowCouponTypeModal] = useState(false);
+  const [editingCouponType, setEditingCouponType] = useState(null);
+  const [couponTypeName, setCouponTypeName] = useState("");
+  const [couponTypeDesc, setCouponTypeDesc] = useState("");
+
+  // Coupon Form State (Admin)
+  const [showCouponModal, setShowCouponModal] = useState(false);
+  const [newCoupon, setNewCoupon] = useState({ code: "", discount: "", couponType: "", expiryDate: "" });
 
   useEffect(() => {
     fetchData(activeTab);
@@ -23,17 +35,31 @@ export default function AdminDashboard() {
   const fetchData = async (tab) => {
     try {
       if (tab === "overview") {
-        const res = await api.get("/admin/stats");
-        setStats(res.data);
-      } else if (tab === "users") {
+        const [statsRes, usersRes] = await Promise.all([
+          api.get("/admin/stats"),
+          api.get("/admin/users")
+        ]);
+        setStats(statsRes.data || {});
+        setUsers(Array.isArray(usersRes.data) ? usersRes.data : []);
+      } else if (tab === "users" || tab === "upgrade_requests") {
         const res = await api.get("/admin/users");
-        setUsers(res.data);
+        setUsers(Array.isArray(res.data) ? res.data : []);
       } else if (tab === "shops") {
         const res = await api.get("/admin/shops");
-        setShops(res.data);
+        setShops(Array.isArray(res.data) ? res.data : []);
       } else if (tab === "categories") {
         const res = await api.get("/categories");
-        setCategories(res.data);
+        setCategories(Array.isArray(res.data) ? res.data : []);
+      } else if (tab === "couponTypes") {
+        const res = await api.get("/coupon-types");
+        setCouponTypes(Array.isArray(res.data) ? res.data : []);
+      } else if (tab === "coupons") {
+        const [couponsRes, typesRes] = await Promise.all([
+          api.get("/coupons"),
+          api.get("/coupon-types") // Cần loại coupon để hiển thị hoặc tạo mới
+        ]);
+        setCoupons(Array.isArray(couponsRes.data) ? couponsRes.data : []);
+        setCouponTypes(Array.isArray(typesRes.data) ? typesRes.data : []);
       }
     } catch (err) {
       if (err.response?.status === 401 || err.response?.status === 403) {
@@ -109,6 +135,69 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleSaveCouponType = async () => {
+    if (!couponTypeName.trim()) {
+      Swal.fire("Lỗi", "Vui lòng nhập tên loại coupon", "warning");
+      return;
+    }
+    try {
+      if (editingCouponType) {
+        await api.put(`/coupon-types/${editingCouponType._id}`, { name: couponTypeName, description: couponTypeDesc });
+        Swal.fire("Thành công", "Đã cập nhật loại coupon", "success");
+      } else {
+        await api.post("/coupon-types", { name: couponTypeName, description: couponTypeDesc });
+        Swal.fire("Thành công", "Đã thêm loại coupon mới", "success");
+      }
+      setShowCouponTypeModal(false);
+      setEditingCouponType(null);
+      setCouponTypeName("");
+      setCouponTypeDesc("");
+      fetchData("couponTypes");
+    } catch (err) {
+      Swal.fire("Lỗi", err.response?.data?.message || "Lỗi lưu loại coupon", "error");
+    }
+  };
+
+  const handleDeleteCouponType = async (id) => {
+    if (confirm("Chắc chắn xóa loại coupon này?")) {
+      try {
+        await api.delete(`/coupon-types/${id}`);
+        Swal.fire("Thành công", "Đã xóa loại coupon", "success");
+        fetchData("couponTypes");
+      } catch (err) {
+        Swal.fire("Lỗi", err.response?.data?.message || "Lỗi xóa loại coupon", "error");
+      }
+    }
+  };
+
+  const handleCreateCoupon = async () => {
+    if (!newCoupon.code || !newCoupon.discount || !newCoupon.couponType || !newCoupon.expiryDate) {
+      Swal.fire("Lỗi", "Vui lòng nhập đầy đủ thông tin", "warning");
+      return;
+    }
+    try {
+      await api.post("/coupons", newCoupon);
+      Swal.fire("Thành công", "Đã tạo coupon mới", "success");
+      setShowCouponModal(false);
+      setNewCoupon({ code: "", discount: "", couponType: "", expiryDate: "" });
+      fetchData("coupons");
+    } catch (err) {
+      Swal.fire("Lỗi", err.response?.data?.message || "Lỗi tạo coupon", "error");
+    }
+  };
+
+  const handleDeleteCoupon = async (id) => {
+    if (confirm("Chắc chắn xóa coupon này?")) {
+      try {
+        await api.delete(`/coupons/${id}`);
+        Swal.fire("Thành công", "Đã xóa coupon", "success");
+        fetchData("coupons");
+      } catch (err) {
+        Swal.fire("Lỗi", err.response?.data?.message || "Lỗi xóa coupon", "error");
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
       <header className="bg-gradient-to-r from-gray-900 via-black to-gray-900 border-b border-amber-900/50 sticky top-0 z-50 py-4 px-6 text-white flex justify-between items-center shadow-lg">
@@ -152,7 +241,7 @@ export default function AdminDashboard() {
               }`}
             >
               <span>⭐ Yêu cầu nâng cấp</span>
-              {users.filter(u => u.sellerRequest?.status === 'pending' && u.role !== 'seller').length > 0 && (
+              {Array.isArray(users) && users.filter(u => u.sellerRequest?.status === 'pending' && u.role !== 'seller').length > 0 && (
                 <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">
                   {users.filter(u => u.sellerRequest?.status === 'pending' && u.role !== 'seller').length}
                 </span>
@@ -173,6 +262,22 @@ export default function AdminDashboard() {
               }`}
             >
               🏷️ Danh mục
+            </button>
+            <button
+              onClick={() => setActiveTab("couponTypes")}
+              className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${
+                activeTab === "couponTypes" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              🎟️ Loại Coupon
+            </button>
+            <button
+              onClick={() => setActiveTab("coupons")}
+              className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${
+                activeTab === "coupons" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              🧧 Mã Giảm Giá
             </button>
           </div>
         </aside>
@@ -329,7 +434,7 @@ export default function AdminDashboard() {
             <div>
               <h2 className="text-2xl font-black text-gray-900 mb-6">Quản lý cửa hàng</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {shops.map(shop => (
+                {Array.isArray(shops) && shops.map(shop => (
                   <div key={shop._id} className="border border-gray-100 rounded-2xl p-4 flex gap-4 shadow-sm hover:shadow-md transition">
                     <img 
                       src={`http://localhost:5000${shop.image}`} 
@@ -403,7 +508,7 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {categories.map(cat => (
+                    {Array.isArray(categories) && categories.map(cat => (
                       <tr key={cat._id} className="hover:bg-gray-50 transition">
                         <td className="px-6 py-4 font-bold text-gray-900">{cat.name}</td>
                         <td className="px-6 py-4 text-gray-500 font-mono text-xs">{cat.slug}</td>
@@ -430,6 +535,118 @@ export default function AdminDashboard() {
                     ))}
                     {categories.length === 0 && (
                       <tr><td colSpan="4" className="text-center py-8 text-gray-400">Không có danh mục nào.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: Loại Coupon */}
+          {activeTab === "couponTypes" && (
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-black text-gray-900">Quản lý loại Coupon</h2>
+                <button 
+                  onClick={() => { setEditingCouponType(null); setCouponTypeName(""); setCouponTypeDesc(""); setShowCouponTypeModal(true); }}
+                  className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg shadow-amber-500/30 transition"
+                >
+                  + Thêm loại coupon
+                </button>
+              </div>
+
+              <div className="overflow-x-auto rounded-xl border border-gray-200">
+                <table className="w-full text-left bg-white text-sm">
+                  <thead className="bg-gray-50 text-gray-500 font-bold uppercase">
+                    <tr>
+                      <th className="px-6 py-4">Tên loại</th>
+                      <th className="px-6 py-4">Mô tả</th>
+                      <th className="px-6 py-4 text-center">Hành động</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {Array.isArray(couponTypes) && couponTypes.map(type => (
+                      <tr key={type._id} className="hover:bg-gray-50 transition">
+                        <td className="px-6 py-4 font-bold text-gray-900">{type.name}</td>
+                        <td className="px-6 py-4 text-gray-500">{type.description}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-center gap-2">
+                            <button 
+                              onClick={() => { setEditingCouponType(type); setCouponTypeName(type.name); setCouponTypeDesc(type.description); setShowCouponTypeModal(true); }}
+                              className="bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-1 rounded shadow-sm text-xs font-bold transition border border-blue-200"
+                            >
+                              Sửa
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteCouponType(type._id)}
+                              className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1 rounded shadow-sm text-xs font-bold transition border border-red-200"
+                            >
+                              Xóa
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {couponTypes.length === 0 && (
+                      <tr><td colSpan="3" className="text-center py-8 text-gray-400">Không có loại coupon nào.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: Mã Giảm Giá (Admin) */}
+          {activeTab === "coupons" && (
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-black text-gray-900">Quản lý Mã Giảm Giá</h2>
+                <button 
+                  onClick={() => setShowCouponModal(true)}
+                  className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg shadow-amber-500/30 transition"
+                >
+                  + Tạo Coupon Admin
+                </button>
+              </div>
+
+              <div className="overflow-x-auto rounded-xl border border-gray-200">
+                <table className="w-full text-left bg-white text-sm">
+                  <thead className="bg-gray-50 text-gray-500 font-bold uppercase">
+                    <tr>
+                      <th className="px-6 py-4">Mã</th>
+                      <th className="px-6 py-4">Loại</th>
+                      <th className="px-6 py-4">Giảm giá</th>
+                      <th className="px-6 py-4">Người tạo</th>
+                      <th className="px-6 py-4">Hết hạn</th>
+                      <th className="px-6 py-4 text-center">Hành động</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {Array.isArray(coupons) && coupons.map(cp => (
+                      <tr key={cp._id} className="hover:bg-gray-50 transition">
+                        <td className="px-6 py-4 font-bold text-amber-600">{cp.code}</td>
+                        <td className="px-6 py-4">{cp.couponType?.name || "N/A"}</td>
+                        <td className="px-6 py-4 font-bold">{cp.discount?.toLocaleString() || 0}</td>
+                        <td className="px-6 py-4 uppercase text-xs font-bold">
+                           {cp.createdBy === 'admin' ? <span className="text-red-600">Admin</span> : <span className="text-amber-600">Shop: {cp.shop?.name || "N/A"}</span>}
+                        </td>
+                        <td className="px-6 py-4 text-gray-500">
+                          {cp.expiryDate ? new Date(cp.expiryDate).toLocaleDateString("vi-VN") : "N/A"}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-center gap-2">
+                            <button 
+                              onClick={() => handleDeleteCoupon(cp._id)}
+                              className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1 rounded shadow-sm text-xs font-bold transition border border-red-200"
+                            >
+                              Xóa
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {coupons.length === 0 && (
+                      <tr><td colSpan="6" className="text-center py-8 text-gray-400">Không có mã giảm giá nào.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -472,6 +689,121 @@ export default function AdminDashboard() {
                 className="flex-1 bg-amber-500 text-gray-900 font-black uppercase py-4 rounded-xl hover:bg-amber-600 shadow-lg shadow-amber-500/30 transition"
               >
                 Lưu lại
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL THÊM/SỬA LOẠI COUPON */}
+      {showCouponTypeModal && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl relative">
+            <h3 className="text-xl font-black text-gray-900 mb-6 uppercase">
+              {editingCouponType ? "Sửa loại coupon" : "Thêm loại coupon mới"}
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Tên loại (vd: FREESHIP)</label>
+                <input 
+                  type="text"
+                  value={couponTypeName}
+                  onChange={(e) => setCouponTypeName(e.target.value)}
+                  placeholder="Nhập tên loại"
+                  className="w-full bg-gray-50 p-4 rounded-xl border border-gray-200 focus:border-amber-500 focus:bg-white outline-none transition font-bold"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Mô tả</label>
+                <textarea 
+                  value={couponTypeDesc}
+                  onChange={(e) => setCouponTypeDesc(e.target.value)}
+                  placeholder="Mô tả loại coupon"
+                  className="w-full bg-gray-50 p-4 rounded-xl border border-gray-200 focus:border-amber-500 focus:bg-white outline-none transition font-medium"
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-4 mt-8">
+              <button 
+                onClick={() => { setShowCouponTypeModal(false); setEditingCouponType(null); }}
+                className="flex-1 bg-gray-100 text-gray-600 font-black uppercase py-4 rounded-xl hover:bg-gray-200 transition"
+              >
+                Hủy
+              </button>
+              <button 
+                onClick={handleSaveCouponType}
+                className="flex-1 bg-amber-500 text-gray-900 font-black uppercase py-4 rounded-xl hover:bg-amber-600 shadow-lg shadow-amber-500/30 transition"
+              >
+                Lưu lại
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL TẠO COUPON (ADMIN) */}
+      {showCouponModal && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl relative">
+            <h3 className="text-xl font-black text-gray-900 mb-6 uppercase">Tạo Coupon Admin mới</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Mã Coupon</label>
+                <input 
+                  type="text"
+                  value={newCoupon.code}
+                  onChange={(e) => setNewCoupon({ ...newCoupon, code: e.target.value.toUpperCase() })}
+                  placeholder="VD: GIAMGIA10"
+                  className="w-full bg-gray-50 p-4 rounded-xl border border-gray-200 focus:border-amber-500 focus:bg-white outline-none transition font-bold"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Loại Coupon</label>
+                <select 
+                  value={newCoupon.couponType}
+                  onChange={(e) => setNewCoupon({ ...newCoupon, couponType: e.target.value })}
+                  className="w-full bg-gray-50 p-4 rounded-xl border border-gray-200 focus:border-amber-500 focus:bg-white outline-none transition font-bold"
+                >
+                  <option value="">-- Chọn loại --</option>
+                  {Array.isArray(couponTypes) && couponTypes.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Mức giảm</label>
+                <input 
+                  type="number"
+                  value={newCoupon.discount}
+                  onChange={(e) => setNewCoupon({ ...newCoupon, discount: e.target.value })}
+                  placeholder="Số tiền hoặc %"
+                  className="w-full bg-gray-50 p-4 rounded-xl border border-gray-200 focus:border-amber-500 focus:bg-white outline-none transition font-bold"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Ngày hết hạn</label>
+                <input 
+                  type="date"
+                  value={newCoupon.expiryDate}
+                  onChange={(e) => setNewCoupon({ ...newCoupon, expiryDate: e.target.value })}
+                  className="w-full bg-gray-50 p-4 rounded-xl border border-gray-200 focus:border-amber-500 focus:bg-white outline-none transition font-bold"
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-4 mt-8">
+              <button 
+                onClick={() => setShowCouponModal(false)}
+                className="flex-1 bg-gray-100 text-gray-600 font-black uppercase py-4 rounded-xl hover:bg-gray-200 transition"
+              >
+                Hủy
+              </button>
+              <button 
+                onClick={handleCreateCoupon}
+                className="flex-1 bg-amber-500 text-gray-900 font-black uppercase py-4 rounded-xl hover:bg-amber-600 shadow-lg shadow-amber-500/30 transition"
+              >
+                Tạo ngay
               </button>
             </div>
           </div>
