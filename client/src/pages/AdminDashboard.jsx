@@ -26,7 +26,7 @@ export default function AdminDashboard() {
 
   // Coupon Form State (Admin)
   const [showCouponModal, setShowCouponModal] = useState(false);
-  const [newCoupon, setNewCoupon] = useState({ code: "", discount: "", couponType: "", expiryDate: "" });
+  const [newCoupon, setNewCoupon] = useState({ code: "", discount: "", couponType: "", expiryDate: "", quantity: "" });
 
   useEffect(() => {
     fetchData(activeTab);
@@ -171,7 +171,7 @@ export default function AdminDashboard() {
   };
 
   const handleCreateCoupon = async () => {
-    if (!newCoupon.code || !newCoupon.discount || !newCoupon.couponType || !newCoupon.expiryDate) {
+    if (!newCoupon.code || !newCoupon.discount || !newCoupon.couponType || !newCoupon.expiryDate || !newCoupon.quantity) {
       Swal.fire("Lỗi", "Vui lòng nhập đầy đủ thông tin", "warning");
       return;
     }
@@ -179,7 +179,7 @@ export default function AdminDashboard() {
       await api.post("/coupons", newCoupon);
       Swal.fire("Thành công", "Đã tạo coupon mới", "success");
       setShowCouponModal(false);
-      setNewCoupon({ code: "", discount: "", couponType: "", expiryDate: "" });
+      setNewCoupon({ code: "", discount: "", couponType: "", expiryDate: "", quantity: "" });
       fetchData("coupons");
     } catch (err) {
       Swal.fire("Lỗi", err.response?.data?.message || "Lỗi tạo coupon", "error");
@@ -616,6 +616,8 @@ export default function AdminDashboard() {
                       <th className="px-6 py-4">Mã</th>
                       <th className="px-6 py-4">Loại</th>
                       <th className="px-6 py-4">Giảm giá</th>
+                      <th className="px-6 py-4">Số lượng</th>
+                      <th className="px-6 py-4">Đã dùng</th>
                       <th className="px-6 py-4">Người tạo</th>
                       <th className="px-6 py-4">Hết hạn</th>
                       <th className="px-6 py-4 text-center">Hành động</th>
@@ -627,11 +629,13 @@ export default function AdminDashboard() {
                         <td className="px-6 py-4 font-bold text-amber-600">{cp.code}</td>
                         <td className="px-6 py-4">{cp.couponType?.name || "N/A"}</td>
                         <td className="px-6 py-4 font-bold">{cp.discount?.toLocaleString() || 0}</td>
+                        <td className="px-6 py-4 font-bold text-blue-600">{cp.quantity || 0}</td>
+                        <td className="px-6 py-4 font-bold text-green-600">{cp.usedCount || 0}</td>
                         <td className="px-6 py-4 uppercase text-xs font-bold">
                            {cp.createdBy === 'admin' ? <span className="text-red-600">Admin</span> : <span className="text-amber-600">Shop: {cp.shop?.name || "N/A"}</span>}
                         </td>
                         <td className="px-6 py-4 text-gray-500">
-                          {cp.expiryDate ? new Date(cp.expiryDate).toLocaleDateString("vi-VN") : "N/A"}
+                          {cp.expiryDate ? new Date(cp.expiryDate).toLocaleString("vi-VN") : "N/A"}
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-center gap-2">
@@ -782,9 +786,20 @@ export default function AdminDashboard() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Ngày hết hạn</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Số lượng</label>
                 <input 
-                  type="date"
+                  type="number"
+                  min="1"
+                  value={newCoupon.quantity}
+                  onChange={(e) => setNewCoupon({ ...newCoupon, quantity: e.target.value })}
+                  placeholder="VD: 100"
+                  className="w-full bg-gray-50 p-4 rounded-xl border border-gray-200 focus:border-amber-500 focus:bg-white outline-none transition font-bold"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Ngày & Giờ hết hạn</label>
+                <input 
+                  type="datetime-local"
                   value={newCoupon.expiryDate}
                   onChange={(e) => setNewCoupon({ ...newCoupon, expiryDate: e.target.value })}
                   className="w-full bg-gray-50 p-4 rounded-xl border border-gray-200 focus:border-amber-500 focus:bg-white outline-none transition font-bold"

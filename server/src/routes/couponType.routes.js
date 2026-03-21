@@ -11,7 +11,7 @@ const router = express.Router();
 
 router
   .route("/")
-  .get(protect, authorizeRoles("admin"), getCouponTypes)
+  .get(protect, authorizeRoles("admin", "seller"), getCouponTypes)
   .post(protect, authorizeRoles("admin"), createCouponType);
 
 router
