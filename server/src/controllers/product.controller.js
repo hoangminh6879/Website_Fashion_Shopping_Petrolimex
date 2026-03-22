@@ -59,6 +59,59 @@ export const getProducts = async (req, res) => {
   }
 };
 
+// 🔥 UPDATE FLASH SALE
+export const updateFlashSale = async (req, res) => {
+  try {
+    const { isFlashSale, discountPercentage, flashSaleEndDate, flashSaleStock } = req.body;
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({ message: "Không tìm thấy sản phẩm" });
+    }
+
+    const shop = await Shop.findOne({ owner: req.user.id });
+
+    if (!shop || product.shop.toString() !== shop._id.toString()) {
+      return res.status(403).json({ message: "Không có quyền" });
+    }
+
+    // Kiểm tra số lượng flash sale so với tồn kho thực tế
+    const totalStock = Array.isArray(product.stock) 
+      ? product.stock.reduce((a, b) => a + Number(b), 0) 
+      : (Number(product.stock) || 0);
+
+    if (isFlashSale && Number(flashSaleStock) > totalStock) {
+      return res.status(400).json({ 
+        message: `Số lượng Flash Sale (${flashSaleStock}) không được vượt quá tổng tồn kho (${totalStock})` 
+      });
+    }
+
+    // Tự tính giá flash sale dựa trên % giảm giá
+    const flashSalePrice = isFlashSale 
+      ? Math.round(product.price * (1 - (discountPercentage || 0) / 100))
+      : 0;
+
+    const updatedProduct = await Product.findByIdAndUpdate(
+      req.params.id,
+      { 
+        isFlashSale, 
+        discountPercentage: discountPercentage || 0, 
+        flashSalePrice,
+        flashSaleEndDate: isFlashSale ? flashSaleEndDate : null,
+        flashSaleStock: isFlashSale ? Number(flashSaleStock) : 0
+      },
+      { new: true }
+    );
+
+    res.json({
+      message: isFlashSale ? "Đã bật Flash Sale ✅" : "Đã tắt Flash Sale ❌",
+      product: updatedProduct,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 // 🔥 GET PRODUCT DETAIL (QUAN TRỌNG)
 export const getProductById = async (req, res) => {
   try {

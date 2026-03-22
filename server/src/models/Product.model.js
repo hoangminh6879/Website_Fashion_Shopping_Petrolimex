@@ -75,6 +75,26 @@ const productSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    // --- Flash Sale Features ---
+    isFlashSale: {
+      type: Boolean,
+      default: false,
+    },
+    flashSalePrice: {
+      type: Number,
+      default: 0,
+    },
+    discountPercentage: {
+      type: Number,
+      default: 0,
+    },
+    flashSaleEndDate: {
+      type: Date,
+    },
+    flashSaleStock: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );
