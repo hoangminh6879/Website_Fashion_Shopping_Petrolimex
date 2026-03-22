@@ -9,6 +9,7 @@ import {
   addVariant,
   updateVariant,
   deleteVariant,
+  updateFlashSale,
 } from "../controllers/product.controller.js";
 
 import { protect } from "../middlewares/auth.middleware.js";
@@ -23,6 +24,9 @@ router.get("/", getProducts);
 router.get("/:id", getProductById);
 router.put("/:id", protect, authorizeRoles("seller"), updateProduct);
 router.delete("/:id", protect, authorizeRoles("seller"), deleteProduct);
+
+// Flash Sale Route
+router.put("/:id/flash-sale", protect, authorizeRoles("seller"), updateFlashSale);
 
 // ================= VARIANT =================
 // 🔥 đổi :id → :productId cho rõ ràng

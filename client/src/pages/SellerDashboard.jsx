@@ -37,6 +37,14 @@ export default function SellerDashboard() {
   const [isUpdatingShop, setIsUpdatingShop] = useState(false);
   const [isSavingStock, setIsSavingStock] = useState(false);
 
+  // Flash Sale States
+  const [isFlashSaleModalOpen, setIsFlashSaleModalOpen] = useState(false);
+  const [flashSaleEditingProduct, setFlashSaleEditingProduct] = useState(null);
+  const [flashSaleDiscount, setFlashSaleDiscount] = useState(0);
+  const [flashSaleEndDate, setFlashSaleEndDate] = useState('');
+  const [flashSaleStockQty, setFlashSaleStockQty] = useState(0);
+  const [flashSaleSubTab, setFlashSaleSubTab] = useState('active'); // 'active' or 'join'
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -411,6 +419,14 @@ export default function SellerDashboard() {
                 🧧 Quản lý Mã Giảm Giá
               </button>
             </li>
+            <li>
+              <button
+                onClick={() => setActiveTab('flash-sale')}
+                className={`w-full text-left px-4 py-3 rounded-md transition ${activeTab === 'flash-sale' ? 'bg-amber-500 text-gray-900 font-bold' : 'hover:bg-gray-800'}`}
+              >
+                ⚡ Quản lý Flash Sale
+              </button>
+            </li>
           </ul>
         </div>
       </div>
@@ -424,6 +440,7 @@ export default function SellerDashboard() {
             {activeTab === 'orders' && 'Quản lý Đơn hàng'}
             {activeTab === 'settings' && 'Thiết lập Shop'}
             {activeTab === 'coupons' && 'Quản lý Mã Giảm Giá'}
+            {activeTab === 'flash-sale' && 'Quản lý Flash Sale'}
           </h1>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 mr-4">
@@ -622,6 +639,103 @@ export default function SellerDashboard() {
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* TAB: Quản lý Flash Sale */}
+          {activeTab === 'flash-sale' && (
+            <div className="space-y-6 animate-fadeIn">
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <h2 className="text-2xl font-black text-gray-900 tracking-tight uppercase italic flex items-center gap-2">
+                    <span className="text-[#D4AF37]">⚡</span> Flash Sale
+                  </h2>
+                  <div className="flex gap-4 mt-2">
+                    <button 
+                      onClick={() => setFlashSaleSubTab('active')}
+                      className={`text-[10px] font-black uppercase tracking-[0.2em] pb-1 border-b-2 transition-all ${flashSaleSubTab === 'active' ? 'border-[#D4AF37] text-gray-900' : 'border-transparent text-gray-400'}`}
+                    >
+                      Đang chạy
+                    </button>
+                    <button 
+                      onClick={() => setFlashSaleSubTab('join')}
+                      className={`text-[10px] font-black uppercase tracking-[0.2em] pb-1 border-b-2 transition-all ${flashSaleSubTab === 'join' ? 'border-[#D4AF37] text-gray-900' : 'border-transparent text-gray-400'}`}
+                    >
+                      Tham gia mới
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-3xl shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50/50 text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] border-b border-gray-100">
+                        <th className="p-6">Sản phẩm</th>
+                        <th className="p-6">Giá gốc</th>
+                        <th className="p-6">Kho FS / Tổng</th>
+                        <th className="p-6 text-center">% Giảm</th>
+                        <th className="p-6">Giá Flash Sale</th>
+                        <th className="p-6 text-right">Thao Tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {products
+                        .filter(p => flashSaleSubTab === 'active' ? p.isFlashSale : !p.isFlashSale)
+                        .map(p => (
+                        <tr key={p._id} className="hover:bg-gray-50 transition-colors">
+                          <td className="p-6">
+                            <div className="flex items-center gap-3">
+                              <img 
+                                src={p.images?.[0]?.url ? (p.images[0].url.startsWith('http') ? p.images[0].url : `http://localhost:5000${p.images[0].url}`) : `https://picsum.photos/seed/${p._id}/50/50`} 
+                                className="w-12 h-12 rounded-xl object-cover border border-gray-100 shadow-sm"
+                                alt=""
+                              />
+                               <div className="font-bold text-gray-800 line-clamp-1">{p.name}</div>
+                            </div>
+                          </td>
+                          <td className="p-6 font-medium text-gray-400 line-through text-sm">{formatPrice(p.price)}</td>
+                          <td className="p-6">
+                             <div className="font-black text-gray-900">{p.flashSaleStock || 0}</div>
+                             <div className="text-[10px] text-gray-400 font-bold uppercase">Tồn: {Array.isArray(p.stock) ? p.stock.reduce((a,b)=>a+b,0) : (p.stock || 0)}</div>
+                          </td>
+                          <td className="p-6 text-center">
+                             <span className="px-2 py-1 bg-red-50 text-red-600 rounded font-black text-xs">-{p.discountPercentage || 0}%</span>
+                          </td>
+                          <td className="p-6 font-black text-[#D4AF37] text-lg">
+                            {p.flashSalePrice ? formatPrice(p.flashSalePrice) : formatPrice(p.price)}
+                          </td>
+                          <td className="p-6 text-right">
+                            <button 
+                              onClick={() => {
+                                setFlashSaleEditingProduct(p);
+                                setFlashSaleDiscount(p.discountPercentage || 0);
+                                setFlashSaleEndDate(p.flashSaleEndDate ? new Date(p.flashSaleEndDate).toISOString().slice(0, 16) : '');
+                                setFlashSaleStockQty(p.flashSaleStock || 0);
+                                setIsFlashSaleModalOpen(true);
+                              }}
+                              className="bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-[#D4AF37] hover:text-gray-900 transition-all shadow-lg shadow-gray-200"
+                            >
+                              {flashSaleSubTab === 'active' ? 'CHỈNH SỬA' : 'THAM GIA'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {products.filter(p => flashSaleSubTab === 'active' ? p.isFlashSale : !p.isFlashSale).length === 0 && (
+                        <tr>
+                           <td colSpan="6" className="p-20 text-center">
+                              <div className="flex flex-col items-center gap-2">
+                                <span className="text-4xl grayscale opacity-30">⚡</span>
+                                <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Không có sản phẩm nào</p>
+                              </div>
+                           </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           )}
 
@@ -953,6 +1067,126 @@ export default function SellerDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL FLASH SALE */}
+      {isFlashSaleModalOpen && flashSaleEditingProduct && (
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-zoomIn">
+            <div className="p-8 border-b border-gray-100 bg-gray-50/50">
+              <h3 className="text-xl font-black text-gray-900 uppercase italic">Thiết lập <span className="text-amber-500">Flash Sale</span></h3>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">{flashSaleEditingProduct.name}</p>
+            </div>
+            
+            <div className="p-8 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                   <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block">Thời gian kết thúc</label>
+                   <input 
+                     type="datetime-local" 
+                     value={flashSaleEndDate}
+                     onChange={(e) => setFlashSaleEndDate(e.target.value)}
+                     className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-800 focus:border-amber-500 outline-none"
+                   />
+                </div>
+                <div>
+                   <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block">Số lượng chạy Flash Sale</label>
+                   <input 
+                     type="number" 
+                     value={flashSaleStockQty}
+                     onChange={(e) => setFlashSaleStockQty(e.target.value)}
+                     className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-800 focus:border-amber-500 outline-none"
+                     placeholder="Ví dụ: 10"
+                   />
+                   <p className="text-[9px] text-gray-400 mt-1 italic">Tồn kho hiện tại: {Array.isArray(flashSaleEditingProduct.stock) ? flashSaleEditingProduct.stock.reduce((a,b)=>a+b,0) : (flashSaleEditingProduct.stock || 0)}</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-4 block">Phần trăm giảm giá (%)</label>
+                <div className="flex items-center gap-4">
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="100" 
+                    value={flashSaleDiscount}
+                    onChange={(e) => setFlashSaleDiscount(e.target.value)}
+                    className="flex-1 accent-amber-500"
+                  />
+                  <div className="w-16 h-12 bg-gray-900 text-white flex items-center justify-center rounded-xl font-black text-lg">
+                    {flashSaleDiscount}%
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-amber-50 rounded-2xl p-6 border border-amber-100 space-y-3">
+                <div className="flex justify-between items-center text-xs font-bold text-gray-500 uppercase tracking-widest">
+                  <span>Giá gốc:</span>
+                  <span className="line-through">{formatPrice(flashSaleEditingProduct.price)}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm font-black text-gray-900 uppercase tracking-widest">
+                   <span>Giá FLASH SALE:</span>
+                   <span className="text-xl text-amber-500">
+                     {formatPrice(Math.round(flashSaleEditingProduct.price * (1 - flashSaleDiscount / 100)))}
+                   </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-8 bg-gray-50 flex gap-4">
+               <button 
+                 onClick={() => {
+                   setIsFlashSaleModalOpen(false);
+                   setFlashSaleEditingProduct(null);
+                 }}
+                 className="flex-1 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] text-gray-400 hover:bg-gray-200 transition-colors"
+               >
+                 HỦY
+               </button>
+               <button 
+                 onClick={async () => {
+                   const totalStock = Array.isArray(flashSaleEditingProduct.stock) 
+                     ? flashSaleEditingProduct.stock.reduce((a,b)=>a+b,0) 
+                     : (flashSaleEditingProduct.stock || 0);
+
+                   if (!flashSaleEndDate || flashSaleStockQty <= 0) {
+                     return Swal.fire('Lỗi', 'Vui lòng nhập đầy đủ thời gian và số lượng', 'error');
+                   }
+
+                   if (Number(flashSaleStockQty) > totalStock) {
+                     return Swal.fire('Lỗi', `Số lượng Flash Sale (${flashSaleStockQty}) không được vượt quá tồn kho (${totalStock})`, 'error');
+                   }
+
+                   if (new Date(flashSaleEndDate) <= new Date()) {
+                     return Swal.fire('Lỗi', 'Thời gian kết thúc phải lớn hơn thời gian hiện tại', 'error');
+                   }
+
+                   try {
+                     await api.put(`/products/${flashSaleEditingProduct._id}/flash-sale`, {
+                       isFlashSale: Number(flashSaleDiscount) > 0,
+                       discountPercentage: Number(flashSaleDiscount),
+                       flashSaleEndDate,
+                       flashSaleStock: Number(flashSaleStockQty)
+                     });
+                     Swal.fire({
+                       icon: 'success',
+                       title: 'Thành công',
+                       text: Number(flashSaleDiscount) > 0 ? 'Đã khởi tạo Flash Sale!' : 'Đã tắt Flash Sale cho sản phẩm này.',
+                       confirmButtonColor: '#d97706'
+                     });
+                     setIsFlashSaleModalOpen(false);
+                     fetchProducts();
+                   } catch (err) {
+                     Swal.fire('Lỗi', err.response?.data?.message || 'Lỗi cập nhật', 'error');
+                   }
+                 }}
+                 className="flex-[2] py-4 bg-gray-900 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-amber-600 hover:text-gray-900 transition-all shadow-xl shadow-gray-200 hover:shadow-amber-500/30"
+               >
+                 XÁC NHẬN CẬP NHẬT
+               </button>
+            </div>
           </div>
         </div>
       )}
