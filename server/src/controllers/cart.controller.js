@@ -6,7 +6,7 @@ export const getCart = async (req, res) => {
   try {
     const userId = req.user.id;
     let cart = await Cart.findOne({ user: userId });
-    
+
     if (!cart) {
       cart = await Cart.create({ user: userId });
       return res.json([]);
@@ -14,7 +14,10 @@ export const getCart = async (req, res) => {
 
     const cartItems = await CartItem.find({ cart: cart._id }).populate({
       path: "product",
-      populate: { path: "shop", select: "name address phone" }
+      populate: [
+        { path: "shop", select: "name address phone" },
+        { path: "images" }
+      ]
     });
     res.json(cartItems);
   } catch (err) {
@@ -57,7 +60,10 @@ export const addToCart = async (req, res) => {
     // Trả về sau khi populate để frontend lấy được ảnh, tên, giá, shop
     const populatedItem = await CartItem.findById(cartItem._id).populate({
       path: "product",
-      populate: { path: "shop", select: "name address phone" }
+      populate: [
+        { path: "shop", select: "name address phone" },
+        { path: "images" }
+      ]
     });
     res.status(201).json(populatedItem);
   } catch (err) {
@@ -75,27 +81,30 @@ export const updateCartItem = async (req, res) => {
     if (!cart) return res.status(404).json({ message: "Không tìm thấy giỏ hàng" });
 
     if (quantity <= 0) {
-      await CartItem.findOneAndDelete({ 
-        cart: cart._id, 
-        product: productId, 
-        color: color || "", 
-        size: size || "" 
+      await CartItem.findOneAndDelete({
+        cart: cart._id,
+        product: productId,
+        color: color || "",
+        size: size || ""
       });
       return res.json({ message: "Đã xóa sản phẩm khỏi giỏ hàng" });
     }
 
     const cartItem = await CartItem.findOneAndUpdate(
-      { 
-        cart: cart._id, 
-        product: productId, 
-        color: color || "", 
-        size: size || "" 
+      {
+        cart: cart._id,
+        product: productId,
+        color: color || "",
+        size: size || ""
       },
       { quantity },
       { new: true }
     ).populate({
       path: "product",
-      populate: { path: "shop", select: "name address phone" }
+      populate: [
+        { path: "shop", select: "name address phone" },
+        { path: "images" }
+      ]
     });
 
     if (!cartItem) return res.status(404).json({ message: "Không tìm thấy sản phẩm trong giỏ" });
@@ -133,17 +142,17 @@ export const updateVariant = async (req, res) => {
     const sizeIdx = (product.sizes || []).indexOf(newSize);
 
     if (colorIdx === -1 || sizeIdx === -1) {
-       return res.status(400).json({ message: "Biến thể không hợp lệ" });
+      return res.status(400).json({ message: "Biến thể không hợp lệ" });
     }
 
     const stockIndex = colorIdx * (product.sizes?.length || 0) + sizeIdx;
     const availableStock = product.stock[stockIndex] || 0;
 
     if (availableStock < oldItem.quantity) {
-       return res.status(400).json({ 
-         message: `Biến thể mới không đủ hàng (Hiện còn: ${availableStock})`,
-         available: availableStock
-       });
+      return res.status(400).json({
+        message: `Biến thể mới không đủ hàng (Hiện còn: ${availableStock})`,
+        available: availableStock
+      });
     }
 
     // Tìm xem variant mới đã có trong giỏ chưa
@@ -159,10 +168,13 @@ export const updateVariant = async (req, res) => {
       existingNewVariant.quantity += oldItem.quantity;
       await existingNewVariant.save();
       await CartItem.findByIdAndDelete(oldItem._id);
-      
+
       const populated = await CartItem.findById(existingNewVariant._id).populate({
         path: "product",
-        populate: { path: "shop", select: "name address phone" }
+        populate: [
+          { path: "shop", select: "name address phone" },
+          { path: "images" }
+        ]
       });
       return res.json({ message: "Đã gộp biến thể", item: populated, merged: true });
     } else {
@@ -173,7 +185,10 @@ export const updateVariant = async (req, res) => {
 
       const populated = await CartItem.findById(oldItem._id).populate({
         path: "product",
-        populate: { path: "shop", select: "name address phone" }
+        populate: [
+          { path: "shop", select: "name address phone" },
+          { path: "images" }
+        ]
       });
       return res.json({ message: "Đã cập nhật biến thể", item: populated, merged: false });
     }
@@ -191,13 +206,13 @@ export const removeFromCart = async (req, res) => {
     const cart = await Cart.findOne({ user: userId });
     if (!cart) return res.status(404).json({ message: "Không có giỏ hàng" });
 
-    await CartItem.findOneAndDelete({ 
-      cart: cart._id, 
-      product: productId, 
-      color: color || "", 
-      size: size || "" 
+    await CartItem.findOneAndDelete({
+      cart: cart._id,
+      product: productId,
+      color: color || "",
+      size: size || ""
     });
-    
+
     res.json({ message: "Đã xóa sản phẩm" });
   } catch (err) {
     res.status(500).json({ message: err.message });

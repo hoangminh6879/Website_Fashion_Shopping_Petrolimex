@@ -9,6 +9,9 @@ import Cart from "./pages/Cart";
 import AdminDashboard from "./pages/AdminDashboard";
 import ShopDetail from "./pages/ShopDetail"; // 🔥 thêm
 import FollowedShops from "./pages/FollowedShops";
+import Wishlist from "./pages/Wishlist";
+import FlashSalePage from "./pages/FlashSalePage";
+import LoginSuccess from "./pages/LoginSuccess";
 
 function App() {
   return (
@@ -16,6 +19,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/login-success" element={<LoginSuccess />} />
         <Route path="/register" element={<Register />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/cart" element={<Cart />} />
@@ -24,6 +28,8 @@ function App() {
         <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/shop/:id" element={<ShopDetail />} />
         <Route path="/followed-shops" element={<FollowedShops />} />
+        <Route path="/wishlist" element={<Wishlist />} />
+        <Route path="/flash-sale" element={<FlashSalePage />} />
         <Route path="/seller/dashboard" element={<SellerDashboard />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
       </Routes>

@@ -15,11 +15,14 @@ import adminRoutes from "./src/routes/admin.routes.js";
 import couponTypeRoutes from "./src/routes/couponType.routes.js";
 import couponRoutes from "./src/routes/coupon.routes.js";
 import flowShopRoutes from "./src/routes/flowShop.routes.js";
+import reviewRoutes from "./src/routes/review.routes.js";
+import wishlistRoutes from "./src/routes/wishlist.routes.js";
 import path from "path";
 
 
 
 import cors from "cors";
+import passport from "./src/config/google-auth.config.js";
 
 dotenv.config();
 connectDB();
@@ -28,6 +31,7 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use(passport.initialize());
 
 // Serve static files
 app.use("/uploads", express.static(path.join(process.cwd(), "public/uploads")));
@@ -96,6 +100,8 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/coupon-types", couponTypeRoutes);
 app.use("/api/coupons", couponRoutes);
 app.use("/api/flows", flowShopRoutes);
+app.use("/api/reviews", reviewRoutes);
+app.use("/api/wishlist", wishlistRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

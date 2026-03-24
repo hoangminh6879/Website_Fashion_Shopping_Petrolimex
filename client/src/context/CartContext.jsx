@@ -8,6 +8,7 @@ export const useCart = () => useContext(CartContext);
 export const CartProvider = ({ children }) => {
   const [cart, setCart] = useState([]);
   const [userId, setUserId] = useState(null);
+  const [user, setUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -19,9 +20,11 @@ export const CartProvider = ({ children }) => {
         .then(res => {
           if (res.data && res.data._id) {
             setUserId(res.data._id);
+            setUser(res.data);
             setUserRole(res.data.role);
           } else {
             setUserId('guest');
+            setUser(null);
             setUserRole('guest');
           }
         })
@@ -33,6 +36,7 @@ export const CartProvider = ({ children }) => {
         .finally(() => setIsInitialized(true));
     } else {
       setUserId('guest');
+      setUser(null);
       setUserRole('guest');
       setIsInitialized(true);
     }
@@ -231,6 +235,15 @@ export const CartProvider = ({ children }) => {
     setCart([]);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setUserId('guest');
+    setUser(null);
+    setUserRole('guest');
+    setCart([]);
+    window.location.href = '/login';
+  };
+
   // Tính toán
   const getCartTotal = () => {
     return cart.reduce((total, item) => {
@@ -246,7 +259,9 @@ export const CartProvider = ({ children }) => {
   return (
     <CartContext.Provider value={{
       cart,
+      user,
       userRole,
+      handleLogout,
       addToCart,
       removeFromCart,
       updateQuantity,
