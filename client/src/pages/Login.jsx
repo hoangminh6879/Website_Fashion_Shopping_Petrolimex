@@ -97,6 +97,15 @@ export default function Login() {
             />
           </div>
 
+          <div className="flex justify-end mb-4 -mt-2">
+            <a
+              href="/forgot-password"
+              className="text-sm font-medium text-amber-600 hover:text-amber-700 hover:underline transition-all"
+            >
+              Quên mật khẩu?
+            </a>
+          </div>
+
           {/* Login button */}
           <button className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white font-semibold p-3 rounded-xl hover:from-amber-600 hover:to-amber-700 shadow-lg shadow-amber-500/30 transition-all transform hover:-translate-y-0.5 mb-6">
             Đăng nhập
