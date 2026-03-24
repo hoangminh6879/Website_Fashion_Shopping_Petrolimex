@@ -1,6 +1,8 @@
 import User from "../models/User.model.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
+import sendEmail from "../utils/sendEmail.js";
 
 export const register = async (req, res) => {
   try {
@@ -128,5 +130,105 @@ export const googleSuccess = async (req, res) => {
   } catch (error) {
     console.error("Lỗi Google Success Callback:", error);
     res.status(500).json({ message: "Lỗi hệ thống khi xử lý kết quả Google Login" });
+  }
+};
+
+// @desc    Gửi email reset mật khẩu
+// @route   POST /api/auth/forgot-password
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng với email này" });
+    }
+
+    // 1. Tạo token reset mật khẩu ngẫu nhiên
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    // 2. Lưu token vào database (đã hash để bảo mật)
+    user.resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+
+    // 3. Thời gian hết hạn (10 phút)
+    user.resetPasswordExpires = Date.now() + 10 * 60 * 1000;
+
+    await user.save();
+
+    // 4. Gửi email
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+
+    const message = `
+      Bạn nhận được email này vì bạn (hoặc ai đó) đã yêu cầu đặt lại mật khẩu cho tài khoản của mình.
+      Vui lòng nhấn vào đường link dưới đây để hoàn tất quy trình:
+      ${resetUrl}
+
+      Nếu bạn không yêu cầu điều này, vui lòng bỏ qua email này và mật khẩu của bạn sẽ vẫn không thay đổi.
+    `;
+
+    try {
+      await sendEmail({
+        email: user.email,
+        subject: "Đặt lại mật khẩu - Petrolimex Fashion",
+        message,
+        html: `
+          <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+            <h2 style="color: #333;">Yêu cầu đặt lại mật khẩu</h2>
+            <p>Xin chào ${user.name},</p>
+            <p>Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản Petrolimex Fashion của mình.</p>
+            <p>Vui lòng nhấn vào nút bên dưới để đặt lại mật khẩu mới. Liên kết này sẽ hết hạn sau 10 phút.</p>
+            <a href="${resetUrl}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: #fff; text-decoration: none; border-radius: 5px; margin-top: 10px;">Đặt lại mật khẩu</a>
+            <p style="margin-top: 20px; font-size: 12px; color: #777;">Nếu bạn không yêu cầu đặt lại mật khẩu, bạn có thể an tâm bỏ qua email này.</p>
+          </div>
+        `,
+      });
+
+      res.status(200).json({ message: "Email đã được gửi thành công" });
+    } catch (error) {
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpires = undefined;
+      await user.save();
+      console.error(error);
+      return res.status(500).json({ message: "Không thể gửi email. Vui lòng thử lại sau." });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Đặt lại mật khẩu mới
+// @route   POST /api/auth/reset-password/:token
+export const resetPassword = async (req, res) => {
+  try {
+    // 1. Lấy token đã hash từ params
+    const resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(req.params.token)
+      .digest("hex");
+
+    // 2. Tìm user có token hợp lệ và chưa hết hạn
+    const user = await User.findOne({
+      resetPasswordToken,
+      resetPasswordExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Token không hợp lệ hoặc đã hết hạn" });
+    }
+
+    // 3. Cập nhật mật khẩu mới
+    const { password } = req.body;
+    user.password = await bcrypt.hash(password, 10);
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+
+    await user.save();
+
+    res.status(200).json({ message: "Mật khẩu đã được đặt lại thành công. Bạn có thể đăng nhập ngay." });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
