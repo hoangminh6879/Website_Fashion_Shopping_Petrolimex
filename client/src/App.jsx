@@ -12,6 +12,8 @@ import FollowedShops from "./pages/FollowedShops";
 import Wishlist from "./pages/Wishlist";
 import FlashSalePage from "./pages/FlashSalePage";
 import LoginSuccess from "./pages/LoginSuccess";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 function App() {
   return (
@@ -30,6 +32,8 @@ function App() {
         <Route path="/followed-shops" element={<FollowedShops />} />
         <Route path="/wishlist" element={<Wishlist />} />
         <Route path="/flash-sale" element={<FlashSalePage />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/seller/dashboard" element={<SellerDashboard />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
       </Routes>
