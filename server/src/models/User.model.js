@@ -15,7 +15,15 @@ const userSchema = new mongoose.Schema(
 
     password: {
       type: String,
-      required: true,
+      required: function () {
+        return !this.googleId; // mật khẩu chỉ bắt buộc nếu không có googleId
+      },
+    },
+
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true, // cho phép nhiều user có googleId null nhưng duy nhất nếu có
     },
 
     role: {

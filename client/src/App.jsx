@@ -11,6 +11,7 @@ import ShopDetail from "./pages/ShopDetail"; // 🔥 thêm
 import FollowedShops from "./pages/FollowedShops";
 import Wishlist from "./pages/Wishlist";
 import FlashSalePage from "./pages/FlashSalePage";
+import LoginSuccess from "./pages/LoginSuccess";
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/login-success" element={<LoginSuccess />} />
         <Route path="/register" element={<Register />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/cart" element={<Cart />} />

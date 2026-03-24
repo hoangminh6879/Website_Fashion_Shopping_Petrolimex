@@ -14,13 +14,22 @@ export default function Login() {
     try {
       const res = await loginUser(form);
       localStorage.setItem("token", res.data.token);
+
+      const userRole = res.data.user.role;
+
       Swal.fire({
         icon: "success",
         title: "Tuyệt vời!",
         text: "Đăng nhập thành công",
         confirmButtonColor: "#f97316",
       }).then(() => {
-        window.location.href = "/";
+        if (userRole === "admin") {
+          window.location.href = "/admin/dashboard";
+        } else if (userRole === "seller") {
+          window.location.href = "/seller/dashboard";
+        } else {
+          window.location.href = "/";
+        }
       });
     } catch (err) {
       Swal.fire({
@@ -30,6 +39,10 @@ export default function Login() {
         confirmButtonColor: "#f97316",
       });
     }
+  };
+
+  const handleGoogleLogin = () => {
+    window.location.href = "http://localhost:5000/api/auth/google";
   };
 
   return (
@@ -100,6 +113,7 @@ export default function Login() {
           <div className="flex flex-col gap-3">
             <button
               type="button"
+              onClick={handleGoogleLogin}
               className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl p-3 hover:bg-gray-50 transition-all text-gray-700 font-medium"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-5 h-5">

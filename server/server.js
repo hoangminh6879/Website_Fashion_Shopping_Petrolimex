@@ -22,6 +22,7 @@ import path from "path";
 
 
 import cors from "cors";
+import passport from "./src/config/google-auth.config.js";
 
 dotenv.config();
 connectDB();
@@ -30,6 +31,7 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use(passport.initialize());
 
 // Serve static files
 app.use("/uploads", express.static(path.join(process.cwd(), "public/uploads")));
