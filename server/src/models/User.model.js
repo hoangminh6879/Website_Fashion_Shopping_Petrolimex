@@ -33,7 +33,18 @@ const userSchema = new mongoose.Schema(
     },
 
     phone: String,
-    address: String,
+    address: String, // Keep for backward compatibility or as default string
+    addresses: [
+      {
+        receiverName: String,
+        phone: String,
+        street: String,
+        ward: String,
+        district: String,
+        city: String,
+        isDefault: { type: Boolean, default: false }
+      }
+    ],
     avatar: String,
 
     shopId: {

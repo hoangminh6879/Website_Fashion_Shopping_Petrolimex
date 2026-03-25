@@ -112,6 +112,27 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
 
   const currentStock = getSelectedStock();
 
+  const getVariantImage = () => {
+    if (!selectedProduct) return null;
+    
+    // 🔥 New system: Use individual variant's image
+    if (currentVariant?.image) return currentVariant.image;
+
+    // 🔥 Old system: Use variantImages array from product
+    if (selectedProduct.variantImages && selectedProduct.variantImages.length > 0) {
+      const colorIdx = (selectedProduct.colors || []).indexOf(selectedColor);
+      const sizeIdx = (selectedProduct.sizes || []).indexOf(selectedSize);
+      if (colorIdx !== -1 && sizeIdx !== -1) {
+        const index = colorIdx * (selectedProduct.sizes?.length || 0) + sizeIdx;
+        if (selectedProduct.variantImages[index]) return selectedProduct.variantImages[index];
+      }
+    }
+    
+    return null;
+  };
+
+  const variantImage = getVariantImage();
+
   const handleAddToCart = async (isBuyNow = false) => {
     if (userRole !== 'user') {
       Swal.fire({
@@ -182,7 +203,7 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
             {/* Left: Image */}
             <div className="w-full md:w-1/2 bg-gray-100 flex flex-col items-center justify-center p-8 border-r border-gray-100">
               <img
-                src={selectedProduct.images && selectedProduct.images.length > 0 ? `http://localhost:5000${selectedProduct.images[0].url}` : `https://picsum.photos/seed/${selectedProduct._id}/400/400`}
+                src={variantImage ? `http://localhost:5000${variantImage}` : (selectedProduct.images && selectedProduct.images.length > 0 ? `http://localhost:5000${selectedProduct.images[0].url}` : `https://picsum.photos/seed/${selectedProduct._id}/400/400`)}
                 alt={selectedProduct.name}
                 className="w-full max-w-sm aspect-square object-cover rounded-lg shadow-sm bg-white"
               />
