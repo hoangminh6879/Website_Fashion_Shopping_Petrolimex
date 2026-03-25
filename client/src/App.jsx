@@ -11,6 +11,7 @@ import ShopDetail from "./pages/ShopDetail"; // 🔥 thêm
 import FollowedShops from "./pages/FollowedShops";
 import Wishlist from "./pages/Wishlist";
 import FlashSalePage from "./pages/FlashSalePage";
+import EventDetail from "./pages/EventDetail"; // 🔥 thêm
 import LoginSuccess from "./pages/LoginSuccess";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
@@ -29,6 +30,7 @@ function App() {
         {/* 🔥 QUAN TRỌNG */}
         <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/shop/:id" element={<ShopDetail />} />
+        <Route path="/event/:id" element={<EventDetail />} />
         <Route path="/followed-shops" element={<FollowedShops />} />
         <Route path="/wishlist" element={<Wishlist />} />
         <Route path="/flash-sale" element={<FlashSalePage />} />

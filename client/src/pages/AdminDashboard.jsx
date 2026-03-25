@@ -18,7 +18,12 @@ export default function AdminDashboard() {
   const [showEventTypeModal, setShowEventTypeModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
   const [eventTypeForm, setEventTypeForm] = useState({ name: '', label: '', description: '', icon: '🎉', color: '#f59e0b' });
-  const [eventForm, setEventForm] = useState({ name: '', description: '', eventType: '', startDate: '', endDate: '', discountPercentage: 0, isPublic: true, isFeatured: false });
+  const [eventForm, setEventForm] = useState({ name: '', description: '', eventType: '', startDate: '', endDate: '', discountPercentage: 0, thumbnailImage: '' });
+  const [editingEvent, setEditingEvent] = useState(null);
+  const [eventBannerFile, setEventBannerFile] = useState(null);
+  const [eventBannerPreview, setEventBannerPreview] = useState("");
+  const [eventThumbFile, setEventThumbFile] = useState(null);
+  const [eventThumbPreview, setEventThumbPreview] = useState("");
   const [showEventProductsModal, setShowEventProductsModal] = useState(false);
   const [selectedEventForProducts, setSelectedEventForProducts] = useState(null);
   const [eventProducts, setEventProducts] = useState([]);
@@ -43,7 +48,15 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchData(activeTab);
+    fetchPendingCount();
   }, [activeTab]);
+
+  const fetchPendingCount = async () => {
+    try {
+      const res = await api.get("/product-events/pending");
+      setPendingProductEvents(Array.isArray(res.data) ? res.data : []);
+    } catch (err) { console.error("Error fetching pending count:", err); }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -276,13 +289,52 @@ export default function AdminDashboard() {
   const handleSaveEvent = async () => {
     const { name, eventType, startDate, endDate } = eventForm;
     if (!name || !eventType || !startDate || !endDate) return Swal.fire('Lỗi', 'Vui lòng điền đầy đủ thông tin bắt buộc', 'warning');
+    
+    let updatedEventForm = { ...eventForm };
+
     try {
-      await api.post('/events', eventForm);
-      Swal.fire('Thành công', 'Đã tạo sự kiện', 'success');
+      // Upload Thumbnail if selected
+      if (eventThumbFile) {
+        const formData = new FormData();
+        formData.append("image", eventThumbFile);
+        const uploadRes = await api.post("/images/upload", formData, {
+          headers: { "Content-Type": "multipart/form-data" }
+        });
+        updatedEventForm.thumbnailImage = uploadRes.data.image.url;
+      }
+
+      if (editingEvent) {
+        await api.put(`/events/${editingEvent._id}`, updatedEventForm);
+        Swal.fire('Thành công', 'Đã cập nhật sự kiện', 'success');
+      } else {
+        await api.post('/events', updatedEventForm);
+        Swal.fire('Thành công', 'Đã tạo sự kiện', 'success');
+      }
+
       setShowEventModal(false);
-      setEventForm({ name: '', description: '', eventType: '', startDate: '', endDate: '', discountPercentage: 0, isPublic: true, isFeatured: false });
+      setEditingEvent(null);
+      setEventForm({ name: '', description: '', eventType: '', startDate: '', endDate: '', discountPercentage: 0, thumbnailImage: '' });
+      setEventBannerFile(null);
+      setEventBannerPreview("");
+      setEventThumbFile(null);
+      setEventThumbPreview("");
       fetchData('events');
-    } catch (err) { Swal.fire('Lỗi', err.response?.data?.message || 'Lỗi tạo sự kiện', 'error'); }
+    } catch (err) { Swal.fire('Lỗi', err.response?.data?.message || 'Lỗi lưu sự kiện', 'error'); }
+  };
+
+  const handleEditEvent = (ev) => {
+    setEditingEvent(ev);
+    setEventForm({
+      name: ev.name,
+      description: ev.description,
+      eventType: ev.eventType?._id || ev.eventType,
+      startDate: new Date(ev.startDate).toISOString().slice(0, 16),
+      endDate: new Date(ev.endDate).toISOString().slice(0, 16),
+      discountPercentage: ev.discountPercentage,
+      thumbnailImage: ev.thumbnailImage
+    });
+    setEventThumbPreview(ev.thumbnailImage ? (ev.thumbnailImage.startsWith('http') ? ev.thumbnailImage : `http://localhost:5000${ev.thumbnailImage}`) : "");
+    setShowEventModal(true);
   };
 
   const handleDeleteEvent = async (id) => {
@@ -294,9 +346,10 @@ export default function AdminDashboard() {
   const handleApproveProductEvent = async (id, status) => {
     const reason = status === 'rejected' ? await Swal.fire({ input: 'textarea', inputLabel: 'Lý do từ chối', showCancelButton: true }).then(r => r.value) : '';
     try {
-      await api.put(`/product-events/${id}/approve`, { status, rejectionReason: reason });
+      await api.put(`/product-events/${id}/approve`, { status, reason });
       Swal.fire('Thành công', status === 'approved' ? 'Đã duyệt sản phẩm' : 'Đã từ chối', 'success');
       fetchData('productEvents');
+      fetchPendingCount();
     } catch (err) { Swal.fire('Lỗi', err.response?.data?.message || 'Lỗi', 'error'); }
   };
 
@@ -882,6 +935,7 @@ export default function AdminDashboard() {
                         {ev.status === 'draft' && <button onClick={() => handleActivateEvent(ev._id, 'active')} className="bg-green-500 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-green-600 transition">Kích hoạt</button>}
                         {ev.status === 'active' && <button onClick={() => handleActivateEvent(ev._id, 'paused')} className="bg-blue-500 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-blue-600 transition">Tạm dừng</button>}
                         {ev.status === 'paused' && <button onClick={() => handleActivateEvent(ev._id, 'active')} className="bg-green-500 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-green-600 transition">Tiếp tục</button>}
+                        <button onClick={() => handleEditEvent(ev)} className="bg-gray-100 text-gray-700 text-xs font-bold px-4 py-2 rounded-xl border border-gray-200 hover:bg-gray-200 transition">Sửa</button>
                         <button 
                           onClick={() => {
                             setSelectedEventForProducts(ev);
@@ -1162,14 +1216,14 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* MODAL: Tạo Sự Kiện */}
+      {/* MODAL THÊM SỰ KIỆN */}
       {showEventModal && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl w-full max-w-lg p-8 shadow-2xl my-8">
-            <h3 className="text-xl font-black text-gray-900 mb-6 uppercase">Tạo Sự Kiện Mới</h3>
+        <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/80 backdrop-blur p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl w-full max-w-lg p-8 shadow-2xl relative my-8">
+            <h3 className="text-xl font-black text-gray-900 mb-6 uppercase">{editingEvent ? "Chỉnh sửa sự kiện" : "Tạo sự kiện mới"}</h3>
             <div className="space-y-4">
               <div><label className="block text-sm font-bold text-gray-700 mb-2">Tên sự kiện *</label>
-                <input type="text" value={eventForm.name} onChange={e => setEventForm({...eventForm, name: e.target.value})} placeholder="Flash Sale 12/12 2026" className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold" /></div>
+                <input type="text" value={eventForm.name} onChange={e => setEventForm({...eventForm, name: e.target.value})} className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold" /></div>
               <div><label className="block text-sm font-bold text-gray-700 mb-2">Loại sự kiện *</label>
                 <select value={eventForm.eventType} onChange={e => setEventForm({...eventForm, eventType: e.target.value})} className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold">
                   <option value="">-- Chọn loại --</option>
@@ -1185,18 +1239,21 @@ export default function AdminDashboard() {
                 <input type="number" min="0" max="100" value={eventForm.discountPercentage} onChange={e => setEventForm({...eventForm, discountPercentage: e.target.value})} className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold" /></div>
               <div><label className="block text-sm font-bold text-gray-700 mb-2">Mô tả</label>
                 <textarea value={eventForm.description} onChange={e => setEventForm({...eventForm, description: e.target.value})} className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-medium" rows="2" /></div>
-              <div className="flex gap-6">
-                <label className="flex items-center gap-2 cursor-pointer text-sm font-bold">
-                  <input type="checkbox" checked={eventForm.isPublic} onChange={e => setEventForm({...eventForm, isPublic: e.target.checked})} className="w-4 h-4" /> Hiện trên trang chủ
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer text-sm font-bold">
-                  <input type="checkbox" checked={eventForm.isFeatured} onChange={e => setEventForm({...eventForm, isFeatured: e.target.checked})} className="w-4 h-4" /> Sự kiện nổi bật
-                </label>
+              
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Thumbnail Sự Kiện</label>
+                {eventThumbPreview && <img src={eventThumbPreview} className="w-full h-32 object-cover rounded-lg mb-2" />}
+                <input type="file" onChange={e => {
+                  const file = e.target.files[0];
+                  if (file) { setEventThumbFile(file); setEventThumbPreview(URL.createObjectURL(file)); }
+                }} className="text-xs" />
               </div>
             </div>
-            <div className="flex gap-4 mt-6">
-              <button onClick={() => setShowEventModal(false)} className="flex-1 bg-gray-100 text-gray-600 font-black uppercase py-3 rounded-xl hover:bg-gray-200 transition">Hủy</button>
-              <button onClick={handleSaveEvent} className="flex-1 bg-amber-500 text-gray-900 font-black uppercase py-3 rounded-xl hover:bg-amber-600 shadow-lg shadow-amber-500/30 transition">Tạo sự kiện</button>
+            <div className="flex gap-4 mt-8">
+              <button onClick={() => { setShowEventModal(false); setEditingEvent(null); }} className="flex-1 bg-gray-100 text-gray-500 font-bold py-3 rounded-xl uppercase hover:bg-gray-200 transition">Hủy</button>
+              <button onClick={handleSaveEvent} className="flex-1 bg-amber-500 text-white font-bold py-3 rounded-xl uppercase hover:bg-amber-600 transition shadow-lg shadow-amber-500/30">
+                {editingEvent ? "Lưu thay đổi" : "Tạo sự kiện"}
+              </button>
             </div>
           </div>
         </div>

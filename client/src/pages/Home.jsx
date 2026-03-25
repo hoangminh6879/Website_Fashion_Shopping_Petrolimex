@@ -15,6 +15,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [flashSaleProducts, setFlashSaleProducts] = useState([]);
+  const [ongoingEvents, setOngoingEvents] = useState([]);
+  const [currentSlide, setCurrentSlide] = useState(0);
   const [timeLeft, setTimeLeft] = useState({});
   const navigate = useNavigate();
 
@@ -25,11 +27,13 @@ export default function Home() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [catRes, prodRes] = await Promise.all([
+        const [catRes, prodRes, eventRes] = await Promise.all([
           api.get('/categories'),
-          api.get('/products')
+          api.get('/products'),
+          api.get('/events/ongoing')
         ]);
         setCategories(catRes.data);
+        setOngoingEvents(eventRes.data);
 
         const prods = prodRes.data;
         const unique = [];
@@ -94,6 +98,14 @@ export default function Home() {
     return () => clearInterval(timer);
   }, [flashSaleProducts]);
 
+  useEffect(() => {
+    if (ongoingEvents.length <= 1) return;
+    const slideTimer = setInterval(() => {
+      setCurrentSlide(prev => (prev + 1) % ongoingEvents.length);
+    }, 5000);
+    return () => clearInterval(slideTimer);
+  }, [ongoingEvents]);
+
   const openProductModal = (productInfo) => {
     setSelectedProduct(productInfo);
     setIsModalOpen(true);
@@ -119,32 +131,84 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50 font-sans pb-10 relative pt-40 md:pt-48">
       <Navbar />
 
-      {/* BANNER SECTION */}
+      {/* BANNER SECTION (DYNAMIC CAROUSEL) */}
       <section className="container mx-auto px-4 mt-8 flex flex-col lg:flex-row gap-4">
-        <div className="w-full lg:w-2/3 h-64 md:h-80 bg-gradient-to-br from-gray-900 to-black rounded-lg relative overflow-hidden shadow-md">
-          <div className="absolute inset-x-0 bottom-0 top-0 opacity-40 mix-blend-overlay bg-gradient-to-tr from-[#D4AF37] to-black"></div>
-          <div className="absolute inset-y-0 left-0 p-8 flex flex-col justify-center">
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-2 leading-tight">Mùa Lễ Hội <br /><span className="text-[#D4AF37] drop-shadow-lg">Giảm Giá Lên Đến 50%</span></h2>
-            <p className="text-gray-300 mb-6 drop-shadow-md">Trải nghiệm những thiết kế sang trọng nhất</p>
-            <button className="bg-[#D4AF37] hover:bg-white text-gray-900 font-bold px-6 py-2.5 rounded-sm w-max transition shadow-lg shadow-[#D4AF37]/20">
-              Khám Phá Ngay
-            </button>
-          </div>
+        <div className="w-full lg:w-2/3 h-[250px] md:h-[400px] bg-gray-900 rounded-2xl relative overflow-hidden shadow-2xl border border-gray-800">
+          {ongoingEvents.length > 0 ? (
+            <div className="relative w-full h-full group">
+              {ongoingEvents.map((ev, idx) => (
+                <div 
+                  key={ev._id} 
+                  className={`absolute inset-0 transition-all duration-1000 ease-in-out transform ${idx === currentSlide ? 'opacity-100 scale-100' : 'opacity-0 scale-110 pointer-events-none'}`}
+                >
+                  <img 
+                    src={ev.thumbnailImage ? (ev.thumbnailImage.startsWith('http') ? ev.thumbnailImage : `http://localhost:5000${ev.thumbnailImage}`) : `https://picsum.photos/seed/${ev._id}/1200/600`} 
+                    className={`w-full h-full object-cover transition-transform duration-[10000ms] ${idx === currentSlide ? 'scale-110' : 'scale-100'}`}
+                    alt={ev.name}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/20 to-transparent flex flex-col justify-end p-8 md:p-16">
+                    <div className="flex items-center gap-3 mb-4 animate-fadeInLeft">
+                      <span className="text-3xl bg-white/10 backdrop-blur-md p-2 rounded-2xl border border-white/20 shadow-xl">{ev.eventType?.icon || '🎉'}</span>
+                      <span className="text-white font-black uppercase tracking-[0.4em] text-[11px] brightness-150 drop-shadow-md">{ev.eventType?.label}</span>
+                    </div>
+                    <h2 className="text-4xl md:text-7xl font-black text-white mb-4 uppercase italic tracking-tighter leading-none drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)] animate-fadeInUp">
+                      {ev.name.split(' ').map((word, i) => i % 2 === 1 ? <span key={i} className="text-[#D4AF37] ml-2">{word}</span> : (i === 0 ? word : <span key={i} className="ml-2">{word}</span>))}
+                    </h2>
+                    <p className="text-gray-200 mb-8 drop-shadow-lg max-w-xl text-sm md:text-base font-medium line-clamp-2 opacity-90 animate-fadeInUp delay-100">{ev.description}</p>
+                    <button 
+                      onClick={() => navigate(`/event/${ev._id}`)}
+                      className="bg-gradient-to-r from-[#D4AF37] to-[#B8860B] hover:from-white hover:to-gray-100 text-gray-900 font-black px-10 py-4 rounded-2xl w-max transition-all shadow-2xl shadow-[#D4AF37]/40 uppercase tracking-[0.2em] text-[11px] active:scale-95 animate-fadeInUp delay-200 group/btn flex items-center gap-2"
+                    >
+                      Khám Phá Ngay
+                      <span className="group-hover/btn:translate-x-1 transition-transform">→</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+              
+              {/* Carousel Indicators */}
+              <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-3 z-30 bg-black/20 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
+                {ongoingEvents.map((_, idx) => (
+                  <button 
+                    key={idx}
+                    onClick={() => setCurrentSlide(idx)}
+                    className={`h-2 transition-all duration-500 rounded-full ${idx === currentSlide ? 'w-10 bg-[#D4AF37] shadow-[0_0_15px_#D4AF37]' : 'w-2 bg-white/40 hover:bg-white/70'}`}
+                  />
+                ))}
+              </div>
+
+              {/* Navigation Arrows */}
+              <button onClick={() => setCurrentSlide(prev => (prev - 1 + ongoingEvents.length) % ongoingEvents.length)} className="absolute left-6 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-black/10 backdrop-blur-md border border-white/10 text-white opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center hover:bg-[#D4AF37] hover:text-gray-900 z-30 shadow-2xl hover:scale-110 active:scale-95 text-xl">←</button>
+              <button onClick={() => setCurrentSlide(prev => (prev + 1) % ongoingEvents.length)} className="absolute right-6 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-black/10 backdrop-blur-md border border-white/10 text-white opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center hover:bg-[#D4AF37] hover:text-gray-900 z-30 shadow-2xl hover:scale-110 active:scale-95 text-xl">→</button>
+            </div>
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-gray-900 to-black rounded-lg relative overflow-hidden shadow-md flex items-center justify-center">
+              <div className="text-center">
+                <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter">Chào mừng đến với <span className="text-[#D4AF37]">Petrolimex Fashion</span></h2>
+                <p className="text-gray-400 mt-2 font-bold uppercase tracking-widest text-[10px]">Đang cập nhật các sự kiện hot nhất...</p>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="w-full lg:w-1/3 flex flex-row lg:flex-col gap-4">
-          <div className="flex-1 lg:h-1/2 bg-gray-800 rounded-lg overflow-hidden relative shadow-sm group border border-gray-200/10">
+          <div 
+            onClick={() => navigate('/flash-sale')}
+            className="flex-1 lg:h-1/2 bg-gray-800 rounded-2xl overflow-hidden relative shadow-xl group border border-gray-200/10 cursor-pointer"
+          >
             <div className="absolute inset-0 bg-gradient-to-tr from-gray-900 to-gray-700 opacity-80 transition group-hover:scale-105 duration-500"></div>
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-4 flex flex-col justify-end">
-              <span className="text-[#D4AF37] font-bold text-sm bg-black/40 w-max px-2 py-0.5 rounded">🎫 Voucher Mới</span>
-              <span className="text-white text-lg font-semibold mt-1">Deal Thời Trang Nam</span>
+            <img src="https://picsum.photos/seed/flash/600/300" className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay group-hover:scale-110 transition-transform duration-1000" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent p-6 flex flex-col justify-end">
+              <span className="text-[#D4AF37] font-black text-[10px] bg-black/60 w-max px-3 py-1 rounded-full uppercase tracking-widest border border-[#D4AF37]/30 mb-2">⚡ Flash Sale</span>
+              <h3 className="text-white text-xl font-black uppercase italic leading-tight">Deal Thời Trang Nam <br /> <span className="text-[#D4AF37]">Săn Ngay 0Đ</span></h3>
             </div>
           </div>
-          <div className="flex-1 lg:h-1/2 bg-gray-800 rounded-lg overflow-hidden relative shadow-sm group border border-gray-200/10">
+          <div className="flex-1 lg:h-1/2 bg-gray-800 rounded-2xl overflow-hidden relative shadow-xl group border border-gray-200/10 cursor-pointer">
             <div className="absolute inset-0 bg-gradient-to-tr from-gray-900 to-gray-700 opacity-60 transition group-hover:scale-105 duration-500"></div>
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-4 flex flex-col justify-end">
-              <span className="text-[#D4AF37] font-bold text-sm bg-black/40 w-max px-2 py-0.5 rounded">🚚 Giao Siêu Tốc</span>
-              <span className="text-white text-lg font-semibold mt-1">Dành cho đơn từ 0Đ</span>
+            <img src="https://picsum.photos/seed/shipping/600/300" className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay group-hover:scale-110 transition-transform duration-1000" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent p-6 flex flex-col justify-end">
+              <span className="text-[#D4AF37] font-black text-[10px] bg-black/60 w-max px-3 py-1 rounded-full uppercase tracking-widest border border-[#D4AF37]/30 mb-2">🚚 Giao Siêu Tốc</span>
+              <h3 className="text-white text-xl font-black uppercase italic leading-tight">Miễn phí vận chuyển <br /> <span className="text-[#D4AF37]">Toàn quốc</span></h3>
             </div>
           </div>
         </div>

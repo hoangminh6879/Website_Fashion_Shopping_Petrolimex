@@ -78,9 +78,14 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
 
   const currentVariant = productVariants.find(v => v.color === selectedColor && v.size === selectedSize);
 
-  const displayPrice = selectedProduct?.price > 0
-    ? selectedProduct.price
-    : (currentVariant ? currentVariant.price : (productVariants.length > 0 ? productVariants[0].price : 0));
+  const displayPrice = productInfo?.eventPrice > 0 
+    ? productInfo.eventPrice 
+    : (selectedProduct?.price > 0
+        ? selectedProduct.price
+        : (currentVariant ? currentVariant.price : (productVariants.length > 0 ? productVariants[0].price : 0)));
+
+  const originalPrice = productInfo?.originalPrice || selectedProduct?.price || (currentVariant ? currentVariant.originalPrice : 0);
+  const discountPercentage = productInfo?.discountPercentage || 0;
 
   const uniqueColors = selectedProduct?.colors?.length > 0
     ? selectedProduct.colors
@@ -221,12 +226,24 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
               <h2 className="text-2xl font-bold text-gray-800 mb-4 leading-tight">{selectedProduct.name}</h2>
 
               <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-100">
-                <div className="flex items-end gap-3">
-                  <span className="text-3xl font-bold text-amber-600">
-                    {formatPrice(displayPrice)}
-                  </span>
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-col">
+                    <span className="text-3xl font-black text-[#d0011b]">
+                      {formatPrice(displayPrice)}
+                    </span>
+                    {originalPrice > displayPrice && (
+                      <span className="text-sm text-gray-400 line-through">
+                        {formatPrice(originalPrice)}
+                      </span>
+                    )}
+                  </div>
+                  {discountPercentage > 0 && (
+                     <span className="bg-[#d0011b] text-white text-[10px] font-black px-1.5 py-0.5 rounded-sm uppercase tracking-tighter">
+                       -{discountPercentage}% GIẢM
+                     </span>
+                  )}
                   {!currentVariant && productVariants.length > 0 && (
-                    <span className="text-sm text-gray-500 pb-1"> (Chọn loại để xem chi tiết)</span>
+                    <span className="text-xs text-gray-400 ml-auto self-start"> (Chọn phân loại để xem giá)</span>
                   )}
                 </div>
               </div>
