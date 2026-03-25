@@ -17,6 +17,9 @@ import couponRoutes from "./src/routes/coupon.routes.js";
 import flowShopRoutes from "./src/routes/flowShop.routes.js";
 import reviewRoutes from "./src/routes/review.routes.js";
 import wishlistRoutes from "./src/routes/wishlist.routes.js";
+import eventTypeRoutes from "./src/routes/eventType.routes.js";
+import eventRoutes from "./src/routes/event.routes.js";
+import productEventRoutes from "./src/routes/productEvent.routes.js";
 import path from "path";
 
 
@@ -102,6 +105,9 @@ app.use("/api/coupons", couponRoutes);
 app.use("/api/flows", flowShopRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/wishlist", wishlistRoutes);
+app.use("/api/event-types", eventTypeRoutes);
+app.use("/api/events", eventRoutes);
+app.use("/api/product-events", productEventRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

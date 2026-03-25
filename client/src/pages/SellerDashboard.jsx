@@ -45,6 +45,17 @@ export default function SellerDashboard() {
   const [flashSaleStockQty, setFlashSaleStockQty] = useState(0);
   const [flashSaleSubTab, setFlashSaleSubTab] = useState('active'); // 'active' or 'join'
 
+  // Event States
+  const [events, setEvents] = useState([]);
+  const [myProductEvents, setMyProductEvents] = useState([]);
+  const [eventSubTab, setEventSubTab] = useState('list');
+  const [selectedEventId, setSelectedEventId] = useState('');
+  const [selectedProductIds, setSelectedProductIds] = useState(new Set());
+  const [isRegisteringEvent, setIsRegisteringEvent] = useState(false);
+  const [registerForm, setRegisterForm] = useState({ eventId: '', productIds: [] });
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -85,7 +96,98 @@ export default function SellerDashboard() {
     if (activeTab === 'coupons') {
       fetchCoupons();
     }
+    if (activeTab === 'events') {
+      fetchEvents();
+    }
   }, [activeTab]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    Swal.fire({
+      icon: "success",
+      title: "Đã đăng xuất",
+      text: "Hẹn gặp lại bạn!",
+      timer: 1500,
+      showConfirmButton: false,
+    }).then(() => {
+      navigate("/login");
+    });
+  };
+
+  const fetchEvents = async () => {
+    try {
+      const [evRes, myPeRes] = await Promise.allSettled([
+        api.get('/events'),
+        api.get('/product-events/my')
+      ]);
+      if (evRes.status === 'fulfilled') setEvents(Array.isArray(evRes.value.data) ? evRes.value.data : []);
+      if (myPeRes.status === 'fulfilled') setMyProductEvents(Array.isArray(myPeRes.value.data) ? myPeRes.value.data : []);
+    } catch (err) {
+      console.error('Error fetching events:', err);
+    }
+  };
+
+  const handleRegisterProductToEvent = async (e) => {
+    if (e) e.preventDefault();
+    if (!registerForm.eventId) return Swal.fire('Chú ý', 'Vui lòng chọn sự kiện', 'warning');
+    if (!registerForm.productIds || registerForm.productIds.length === 0) return Swal.fire('Chú ý', 'Vui lòng chọn ít nhất một sản phẩm', 'warning');
+    
+    setIsRegisteringEvent(true);
+    try {
+      const res = await api.post('/product-events', {
+        eventId: registerForm.eventId,
+        productIds: registerForm.productIds
+      });
+      
+      const data = res.data;
+      const msg = [
+        data.success?.length ? `✅ Đăng ký thành công: ${data.success.map(p => p.name).join(', ')}` : '',
+        data.skipped?.length ? `⚠️ Bỏ qua (đã tham gia): ${data.skipped.map(p => p.name).join(', ')}` : '',
+        data.errors?.length ? `❌ Lỗi: ${data.errors.map(p => p.reason).join('; ')}` : '',
+      ].filter(Boolean).join('\n');
+
+      Swal.fire({ icon: 'success', title: 'Hoàn tất!', text: msg || 'Đã gửi yêu cầu đăng ký.', confirmButtonColor: '#f59e0b' });
+      
+      setRegisterForm({ eventId: '', productIds: [] });
+      setIsRegisterModalOpen(false);
+      setEventSubTab('my');
+      fetchEvents();
+    } catch (err) {
+      Swal.fire('Lỗi', err.response?.data?.message || 'Lỗi đăng ký', 'error');
+    } finally {
+      setIsRegisteringEvent(false);
+    }
+  };
+
+  const toggleProductSelection = (productId) => {
+    setRegisterForm(prev => {
+      const isSelected = prev.productIds.includes(productId);
+      const newIds = isSelected 
+        ? prev.productIds.filter(id => id !== productId)
+        : [...prev.productIds, productId];
+      return { ...prev, productIds: newIds };
+    });
+  };
+
+  const selectAllProducts = () => {
+    const allIds = products.map(p => p._id);
+    setRegisterForm(prev => ({ ...prev, productIds: allIds }));
+  };
+
+  const deselectAllProducts = () => {
+    setRegisterForm(prev => ({ ...prev, productIds: [] }));
+  };
+
+  const handleWithdrawProductEvent = async (id) => {
+    const result = await Swal.fire({ title: 'Rút đăng ký?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Đồng ý', cancelButtonText: 'Hủy' });
+    if (!result.isConfirmed) return;
+    try {
+      await api.delete(`/product-events/${id}`);
+      Swal.fire('Thành công', 'Đã rút đăng ký', 'success');
+      fetchEvents();
+    } catch (err) { Swal.fire('Lỗi', err.response?.data?.message || 'Lỗi', 'error'); }
+  };
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -427,6 +529,14 @@ export default function SellerDashboard() {
                 ⚡ Quản lý Flash Sale
               </button>
             </li>
+            <li>
+              <button
+                onClick={() => setActiveTab('events')}
+                className={`w-full text-left px-4 py-3 rounded-md transition ${activeTab === 'events' ? 'bg-amber-500 text-gray-900 font-bold' : 'hover:bg-gray-800'}`}
+              >
+                🎪 Sự Kiện
+              </button>
+            </li>
           </ul>
         </div>
       </div>
@@ -441,6 +551,7 @@ export default function SellerDashboard() {
             {activeTab === 'settings' && 'Thiết lập Shop'}
             {activeTab === 'coupons' && 'Quản lý Mã Giảm Giá'}
             {activeTab === 'flash-sale' && 'Quản lý Flash Sale'}
+            {activeTab === 'events' && 'Sự Kiện Khuyến Mãi'}
           </h1>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 mr-4">
@@ -450,6 +561,12 @@ export default function SellerDashboard() {
               <span className="text-sm font-medium text-gray-700">{shop?.name || 'Shop Của Tôi'}</span>
             </div>
             <Link to="/" className="text-sm text-amber-600 font-bold hover:underline">Trở về Trang chủ</Link>
+            <button 
+              onClick={handleLogout}
+              className="px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold text-xs hover:bg-red-500 hover:text-white transition-all border border-red-100"
+            >
+              Đăng xuất
+            </button>
           </div>
         </header>
 
@@ -707,18 +824,48 @@ export default function SellerDashboard() {
                             {p.flashSalePrice ? formatPrice(p.flashSalePrice) : formatPrice(p.price)}
                           </td>
                           <td className="p-6 text-right">
-                            <button 
-                              onClick={() => {
-                                setFlashSaleEditingProduct(p);
-                                setFlashSaleDiscount(p.discountPercentage || 0);
-                                setFlashSaleEndDate(p.flashSaleEndDate ? new Date(p.flashSaleEndDate).toISOString().slice(0, 16) : '');
-                                setFlashSaleStockQty(p.flashSaleStock || 0);
-                                setIsFlashSaleModalOpen(true);
-                              }}
-                              className="bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-[#D4AF37] hover:text-gray-900 transition-all shadow-lg shadow-gray-200"
-                            >
-                              {flashSaleSubTab === 'active' ? 'CHỈNH SỬA' : 'THAM GIA'}
-                            </button>
+                            <div className="flex justify-end gap-2">
+                              {flashSaleSubTab === 'active' && (
+                                <button 
+                                  onClick={async () => {
+                                    const result = await Swal.fire({
+                                      title: 'Hủy Flash Sale?',
+                                      text: "Bạn có chắc chắn muốn dừng Flash Sale cho sản phẩm này không?",
+                                      icon: 'warning',
+                                      showCancelButton: true,
+                                      confirmButtonColor: '#d33',
+                                      cancelButtonColor: '#3085d6',
+                                      confirmButtonText: 'Đồng ý, hủy!',
+                                      cancelButtonText: 'Không'
+                                    });
+                                    if (result.isConfirmed) {
+                                      try {
+                                        await api.put(`/products/${p._id}/flash-sale`, { isFlashSale: false });
+                                        Swal.fire('Thành công', 'Đã hủy Flash Sale', 'success');
+                                        fetchProducts();
+                                      } catch (err) {
+                                        Swal.fire('Lỗi', err.response?.data?.message || 'Lỗi', 'error');
+                                      }
+                                    }
+                                  }}
+                                  className="px-3 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest text-red-500 bg-red-50 hover:bg-red-500 hover:text-white transition-all border border-red-100"
+                                >
+                                  HỦY SALE
+                                </button>
+                              )}
+                              <button 
+                                onClick={() => {
+                                  setFlashSaleEditingProduct(p);
+                                  setFlashSaleDiscount(p.discountPercentage || 0);
+                                  setFlashSaleEndDate(p.flashSaleEndDate ? new Date(p.flashSaleEndDate).toISOString().slice(0, 16) : '');
+                                  setFlashSaleStockQty(p.flashSaleStock || 0);
+                                  setIsFlashSaleModalOpen(true);
+                                }}
+                                className="bg-gray-900 text-white px-5 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-[#D4AF37] hover:text-gray-900 transition-all shadow-lg shadow-gray-200"
+                              >
+                                {flashSaleSubTab === 'active' ? 'SỬA' : 'THAM GIA'}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -963,8 +1110,6 @@ export default function SellerDashboard() {
               </div>
             </div>
           )}
-        </main>
-      </div>
 
 
       {/* MODAL TẠO COUPON (SELLER) */}
@@ -1191,6 +1336,286 @@ export default function SellerDashboard() {
         </div>
       )}
 
+      {/* TAB: Events */}
+      {activeTab === 'events' && (
+        <div className="w-full space-y-6 animate-fadeIn pb-10">
+          {/* Sub-tab header */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-8 rounded-3xl shadow-sm border border-gray-100 gap-4">
+            <div>
+              <h2 className="text-3xl font-black text-gray-900 tracking-tight uppercase italic leading-none">Sự Kiện Khuyến Mãi</h2>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.2em] mt-3">Tham gia các chương trình ưu đãi để tăng doanh số</p>
+            </div>
+            <div className="flex gap-2 bg-gray-50 p-2 rounded-2xl border border-gray-100">
+              {['list', 'my'].map(tab => (
+                <button 
+                  key={tab} 
+                  onClick={() => setEventSubTab(tab)} 
+                  className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${eventSubTab === tab ? 'bg-amber-500 text-gray-900 shadow-lg shadow-amber-500/20' : 'text-gray-400 hover:text-gray-600 hover:bg-white'}`}>
+                  {tab === 'list' ? '🎪 Tham gia sự kiện mới' : '📋 Danh sách đã đăng ký'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6">
+            {/* Sub-tab: Event List */}
+            {eventSubTab === 'list' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {events.length === 0 && (
+                  <div className="col-span-full bg-white rounded-3xl p-20 text-center border-2 border-dashed border-gray-100">
+                    <div className="text-6xl mb-4 grayscale opacity-20">🎪</div>
+                    <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em]">Hiện không có sự kiện nào đang diễn ra</p>
+                  </div>
+                )}
+                {events.map(ev => {
+                  const now = new Date();
+                  const isOngoing = ev.status === 'active' && new Date(ev.startDate) <= now && new Date(ev.endDate) >= now;
+                  const isUpcoming = new Date(ev.startDate) > now;
+                  return (
+                    <div key={ev._id} className={`group relative bg-white rounded-[2.5rem] p-8 border transition-all duration-500 hover:shadow-2xl hover:shadow-amber-500/10 ${isOngoing ? 'border-amber-200 bg-amber-50/5' : 'border-gray-100'}`}>
+                      <div className="absolute top-6 right-8 text-4xl group-hover:scale-125 transition-transform duration-500 grayscale group-hover:grayscale-0">{ev.eventType?.icon || '🎪'}</div>
+                      
+                      <div className="space-y-4">
+                        <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${isOngoing ? 'bg-green-100 text-green-600' : isUpcoming ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${isOngoing ? 'bg-green-500' : isUpcoming ? 'bg-blue-500' : 'bg-gray-400'}`}></span>
+                          {isOngoing ? 'Đang diễn ra' : isUpcoming ? 'Sắp mở' : ev.status}
+                        </div>
+                        
+                        <h4 className="text-lg font-black text-gray-900 uppercase leading-tight line-clamp-2">{ev.name}</h4>
+                        
+                        <div className="bg-gray-50 rounded-2xl p-4 space-y-2 border border-gray-100 group-hover:bg-white transition-colors">
+                          <div className="flex justify-between text-[10px]">
+                            <span className="text-gray-400 font-bold uppercase">Bắt đầu</span>
+                            <span className="text-gray-900 font-black italic">{new Date(ev.startDate).toLocaleDateString('vi-VN')}</span>
+                          </div>
+                          <div className="flex justify-between text-[10px]">
+                            <span className="text-gray-400 font-bold uppercase">Kết thúc</span>
+                            <span className="text-gray-900 font-black italic">{new Date(ev.endDate).toLocaleDateString('vi-VN')}</span>
+                          </div>
+                          {ev.discountPercentage > 0 && (
+                            <div className="flex justify-between text-[10px] pt-1 border-t border-gray-200/50">
+                              <span className="text-amber-500 font-bold uppercase">Ưu đãi lên đến</span>
+                              <span className="text-amber-600 font-black">{ev.discountPercentage}%</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {(isOngoing || isUpcoming) && (
+                          <button 
+                            onClick={() => { 
+                              setRegisterForm({ ...registerForm, eventId: ev._id }); 
+                              setIsRegisterModalOpen(true); 
+                            }}
+                            className="w-full bg-gray-900 text-white font-black text-[10px] uppercase tracking-[0.2em] py-4 rounded-2xl hover:bg-amber-500 hover:text-gray-900 transition-all shadow-xl shadow-gray-200 hover:shadow-amber-500/30 transform active:scale-95"
+                          >
+                            Đăng Ký Tham Gia
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Sub-tab: My Registrations */}
+            {eventSubTab === 'my' && (
+              <div className="bg-white rounded-3xl shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50/50 text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] border-b border-gray-100">
+                        <th className="p-6">Sản phẩm</th>
+                        <th className="p-6">Sự kiện</th>
+                        <th className="p-6 text-center">Giá SK / Gốc</th>
+                        <th className="p-6 text-center">Tồn kho / Giảm</th>
+                        <th className="p-6">Trạng thái</th>
+                        <th className="p-6 text-right">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {myProductEvents.length === 0 && (
+                        <tr>
+                          <td colSpan="6" className="p-20 text-center">
+                            <div className="flex flex-col items-center gap-4">
+                              <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-3xl grayscale opacity-30">📋</div>
+                              <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em]">Bạn chưa có đăng ký nào</p>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      {myProductEvents.map(pe => (
+                        <tr key={pe._id} className="group hover:bg-amber-50/30 transition-all duration-300">
+                          <td className="p-6">
+                            <div className="flex items-center gap-3">
+                              <img src={pe.product?.images?.[0]?.url ? (pe.product.images[0].url.startsWith('http') ? pe.product.images[0].url : `http://localhost:5000${pe.product.images[0].url}`) : `https://picsum.photos/seed/${pe.product?._id}/50/50`} className="w-12 h-12 rounded-xl object-cover border border-gray-100 shadow-sm" alt="" />
+                              <div className="font-bold text-gray-800 line-clamp-1">{pe.product?.name}</div>
+                            </div>
+                          </td>
+                          <td className="p-6">
+                            <div className="text-sm font-black text-gray-900 uppercase italic">{pe.event?.name}</div>
+                          </td>
+                          <td className="p-6 text-center">
+                            <div className="font-black text-amber-600">
+                                {pe.event?.discountPercentage > 0 
+                                  ? formatPrice(Math.round(pe.originalPrice * (1 - pe.event.discountPercentage / 100)))
+                                  : formatPrice(pe.eventPrice)
+                                }
+                            </div>
+                            <div className="text-[10px] text-gray-400 line-through italic">{formatPrice(pe.originalPrice)}</div>
+                          </td>
+                          <td className="p-6 text-center">
+                            <div className="font-black text-gray-900">{pe.eventStock}</div>
+                            <div className="text-[10px] text-red-500 font-bold">-{pe.discountPercentage}%</div>
+                          </td>
+                          <td className="p-6">
+                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${pe.status === 'approved' ? 'bg-green-100 text-green-600' : pe.status === 'rejected' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
+                              <span className={`w-1 h-1 rounded-full ${pe.status === 'approved' ? 'bg-green-500' : pe.status === 'rejected' ? 'bg-red-500' : 'bg-amber-500'}`}></span>
+                              {pe.status === 'approved' ? 'Đã duyệt' : pe.status === 'rejected' ? 'Bị từ chối' : 'Chờ duyệt'}
+                            </span>
+                          </td>
+                          <td className="p-6 text-right">
+                            {pe.status === 'pending' && (
+                              <button onClick={() => handleWithdrawProductEvent(pe._id)} className="text-[10px] font-black text-red-500 uppercase tracking-widest hover:underline">Rút đăng ký</button>
+                            )}
+                            {pe.status === 'rejected' && pe.rejectionReason && (
+                                <div className="text-[9px] text-gray-400 italic mt-1 bg-white p-2 rounded-lg border border-gray-100 shadow-sm inline-block">Lý do: {pe.rejectionReason}</div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ĐĂNG KÝ SỰ KIỆN */}
+      {isRegisterModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-white rounded-[3rem] w-full max-w-2xl overflow-hidden shadow-2xl border border-gray-100 relative">
+            <div className="bg-gray-900 p-10 text-white relative overflow-hidden">
+               <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/10 rounded-full -mr-24 -mt-24 blur-3xl"></div>
+               <div className="relative z-10">
+                  <h2 className="text-3xl font-black uppercase tracking-tight italic leading-none">ĐĂNG KÝ SỰ KIỆN</h2>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-500 mt-3">Thiết lập sản phẩm tham gia chương trình</p>
+               </div>
+               <button 
+                onClick={() => setIsRegisterModalOpen(false)}
+                className="absolute top-10 right-10 text-gray-500 hover:text-white transition-all hover:rotate-90 duration-300"
+               >
+                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+               </button>
+            </div>
+
+            <form onSubmit={handleRegisterProductToEvent} className="p-10 space-y-10 bg-gray-50/50">
+              <div>
+                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-4 block italic">1. Chọn chương trình tham gia *</label>
+                <select 
+                  required 
+                  value={registerForm.eventId} 
+                  onChange={e => setRegisterForm({...registerForm, eventId: e.target.value})}
+                  className="w-full bg-white border-2 border-gray-100 rounded-[1.5rem] px-6 py-5 font-black text-gray-900 focus:border-amber-500 outline-none transition shadow-sm text-lg"
+                >
+                  <option value="">-- CHỌN SỰ KIỆN --</option>
+                  {events.filter(ev => ev.status !== 'ended').map(ev => (
+                    <option key={ev._id} value={ev._id}>{ev.eventType?.icon} {ev.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic">2. Chọn các sản phẩm đăng ký tham gia *</label>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={selectAllProducts} className="text-[9px] font-black text-amber-600 uppercase tracking-widest hover:underline">Chọn tất cả</button>
+                    <span className="text-gray-300">|</span>
+                    <button type="button" onClick={deselectAllProducts} className="text-[9px] font-black text-gray-400 uppercase tracking-widest hover:underline">Bỏ chọn hết</button>
+                  </div>
+                </div>
+                
+                <div className="bg-white border-2 border-gray-100 rounded-[2rem] overflow-hidden shadow-sm">
+                  <div className="p-4 border-b border-gray-50 bg-gray-50/50">
+                    <input 
+                      type="text" 
+                      placeholder="Tìm nhanh sản phẩm..." 
+                      value={productSearch}
+                      onChange={e => setProductSearch(e.target.value)}
+                      className="w-full bg-white border-2 border-gray-100 rounded-xl px-4 py-3 text-sm font-bold focus:border-amber-500 outline-none transition"
+                    />
+                  </div>
+                  <div className="max-h-[350px] overflow-y-auto p-4 space-y-2 scrollbar-thin scrollbar-thumb-amber-200">
+                    {products
+                      .filter(p => !productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase()))
+                      .map(p => (
+                      <label key={p._id} className={`flex items-center gap-4 p-4 rounded-2xl border transition-all cursor-pointer ${registerForm.productIds.includes(p._id) ? 'bg-amber-50 border-amber-500 shadow-md transform translate-x-2' : 'bg-white border-gray-100 hover:bg-gray-50'}`}>
+                        <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${registerForm.productIds.includes(p._id) ? 'bg-amber-500 border-amber-500 text-white' : 'border-gray-200 bg-white'}`}>
+                          {registerForm.productIds.includes(p._id) && (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
+                          )}
+                        </div>
+                        <input 
+                          type="checkbox" 
+                          className="hidden" 
+                          checked={registerForm.productIds.includes(p._id)}
+                          onChange={() => toggleProductSelection(p._id)}
+                        />
+                        <img 
+                          src={p.images?.[0]?.url 
+                            ? (p.images[0].url.startsWith('http') ? p.images[0].url : `http://localhost:5000${p.images[0].url}`) 
+                            : `https://picsum.photos/seed/${p._id}/50/50`
+                          } 
+                          className="w-10 h-10 rounded-xl object-cover shadow-sm border border-gray-100" alt="" 
+                        />
+                        <div className="flex-1">
+                          <div className="font-black text-gray-800 text-sm line-clamp-1 italic uppercase tracking-tight">{p.name}</div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className={`text-[10px] font-bold uppercase tracking-widest ${registerForm.eventId && events.find(e => e._id === registerForm.eventId)?.discountPercentage > 0 ? 'text-gray-400 line-through' : 'text-gray-400'}`}>
+                              {formatPrice(p.price)}
+                            </span>
+                            {registerForm.eventId && events.find(e => e._id === registerForm.eventId)?.discountPercentage > 0 && (
+                              <span className="text-[10px] text-amber-600 font-black uppercase tracking-widest flex items-center gap-1">
+                                <span className="bg-amber-100 px-1.5 py-0.5 rounded-md text-[8px] italic -rotate-2">
+                                  -{events.find(e => e._id === registerForm.eventId).discountPercentage}%
+                                </span>
+                                {formatPrice(Math.round(p.price * (1 - events.find(e => e._id === registerForm.eventId).discountPercentage / 100)))}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="mt-4 flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                  <span className="text-gray-400 italic">Đã chọn: <span className="text-amber-500 text-lg ml-1">{registerForm.productIds.length}</span> sản phẩm</span>
+                  <span className="text-gray-300 italic">Lưu ý: Sản phẩm sẽ sử dụng giá và tồn kho hiện tại</span>
+                </div>
+              </div>
+
+              <div className="flex gap-6 pt-6 border-t border-gray-100">
+                <button 
+                  type="button" 
+                  onClick={() => setIsRegisterModalOpen(false)} 
+                  className="flex-1 px-8 py-5 bg-white border-2 border-gray-200 text-gray-400 rounded-[1.5rem] font-black uppercase tracking-widest text-[10px] hover:bg-gray-100 hover:text-gray-600 transition-all active:scale-95"
+                >
+                  HUỶ BỎ
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={isRegisteringEvent || registerForm.productIds.length === 0}
+                  className="flex-[2] px-8 py-5 bg-gray-900 text-white rounded-[1.5rem] font-black uppercase tracking-widest text-[10px] hover:bg-amber-500 hover:text-gray-900 transition-all shadow-2xl shadow-gray-200 hover:shadow-amber-500/30 active:scale-95 disabled:opacity-50"
+                >
+                  {isRegisteringEvent ? 'ĐANG GỬI...' : '🚀 XÁC NHẬN ĐĂNG KÝ BÙNG NỔ'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       <StockModal 
         isOpen={isStockModalOpen}
         onClose={() => setIsStockModalOpen(false)}
@@ -1202,7 +1627,9 @@ export default function SellerDashboard() {
         onSave={saveStock}
         isSaving={isSavingStock}
       />
+      </main>
     </div>
+  </div>
   );
 }
 

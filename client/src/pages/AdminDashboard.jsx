@@ -11,6 +11,17 @@ export default function AdminDashboard() {
   const [categories, setCategories] = useState([]);
   const [couponTypes, setCouponTypes] = useState([]);
   const [coupons, setCoupons] = useState([]);
+  // Event Management State
+  const [eventTypes, setEventTypes] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [pendingProductEvents, setPendingProductEvents] = useState([]);
+  const [showEventTypeModal, setShowEventTypeModal] = useState(false);
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [eventTypeForm, setEventTypeForm] = useState({ name: '', label: '', description: '', icon: '🎉', color: '#f59e0b' });
+  const [eventForm, setEventForm] = useState({ name: '', description: '', eventType: '', startDate: '', endDate: '', discountPercentage: 0, isPublic: true, isFeatured: false });
+  const [showEventProductsModal, setShowEventProductsModal] = useState(false);
+  const [selectedEventForProducts, setSelectedEventForProducts] = useState(null);
+  const [eventProducts, setEventProducts] = useState([]);
   const navigate = useNavigate();
 
   // Category Form State
@@ -33,6 +44,20 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchData(activeTab);
   }, [activeTab]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    Swal.fire({
+      icon: 'success',
+      title: 'Đã đăng xuất',
+      text: 'Chào tạm biệt Admin!',
+      timer: 1500,
+      showConfirmButton: false
+    }).then(() => {
+      navigate('/login');
+    });
+  };
 
   const fetchData = async (tab) => {
     try {
@@ -58,10 +83,20 @@ export default function AdminDashboard() {
       } else if (tab === "coupons") {
         const [couponsRes, typesRes] = await Promise.all([
           api.get("/coupons"),
-          api.get("/coupon-types") // Cần loại coupon để hiển thị hoặc tạo mới
+          api.get("/coupon-types")
         ]);
         setCoupons(Array.isArray(couponsRes.data) ? couponsRes.data : []);
         setCouponTypes(Array.isArray(typesRes.data) ? typesRes.data : []);
+      } else if (tab === "eventTypes") {
+        const res = await api.get("/event-types");
+        setEventTypes(Array.isArray(res.data) ? res.data : []);
+      } else if (tab === "events") {
+        const [evRes, typesRes] = await Promise.all([ api.get("/events"), api.get("/event-types") ]);
+        setEvents(Array.isArray(evRes.data) ? evRes.data : []);
+        setEventTypes(Array.isArray(typesRes.data) ? typesRes.data : []);
+      } else if (tab === "productEvents") {
+        const res = await api.get("/product-events/pending");
+        setPendingProductEvents(Array.isArray(res.data) ? res.data : []);
       }
     } catch (err) {
       if (err.response?.status === 401 || err.response?.status === 403) {
@@ -221,6 +256,87 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleSaveEventType = async () => {
+    if (!eventTypeForm.name || !eventTypeForm.label) return Swal.fire('Lỗi', 'Tên và nhãn là bắt buộc', 'warning');
+    try {
+      await api.post('/event-types', eventTypeForm);
+      Swal.fire('Thành công', 'Đã tạo loại sự kiện', 'success');
+      setShowEventTypeModal(false);
+      setEventTypeForm({ name: '', label: '', description: '', icon: '🎉', color: '#f59e0b' });
+      fetchData('eventTypes');
+    } catch (err) { Swal.fire('Lỗi', err.response?.data?.message || 'Lỗi tạo', 'error'); }
+  };
+
+  const handleDeleteEventType = async (id) => {
+    if (!confirm('Xóa loại sự kiện này?')) return;
+    try { await api.delete(`/event-types/${id}`); Swal.fire('Thành công', 'Đã xóa', 'success'); fetchData('eventTypes'); }
+    catch (err) { Swal.fire('Lỗi', err.response?.data?.message || 'Lỗi xóa', 'error'); }
+  };
+
+  const handleSaveEvent = async () => {
+    const { name, eventType, startDate, endDate } = eventForm;
+    if (!name || !eventType || !startDate || !endDate) return Swal.fire('Lỗi', 'Vui lòng điền đầy đủ thông tin bắt buộc', 'warning');
+    try {
+      await api.post('/events', eventForm);
+      Swal.fire('Thành công', 'Đã tạo sự kiện', 'success');
+      setShowEventModal(false);
+      setEventForm({ name: '', description: '', eventType: '', startDate: '', endDate: '', discountPercentage: 0, isPublic: true, isFeatured: false });
+      fetchData('events');
+    } catch (err) { Swal.fire('Lỗi', err.response?.data?.message || 'Lỗi tạo sự kiện', 'error'); }
+  };
+
+  const handleDeleteEvent = async (id) => {
+    if (!confirm('Xóa sự kiện? Tất cả sản phẩm đã đăng ký cũng bị xóa!')) return;
+    try { await api.delete(`/events/${id}`); Swal.fire('Thành công', 'Đã xóa sự kiện', 'success'); fetchData('events'); }
+    catch (err) { Swal.fire('Lỗi', err.response?.data?.message || 'Lỗi xóa', 'error'); }
+  };
+
+  const handleApproveProductEvent = async (id, status) => {
+    const reason = status === 'rejected' ? await Swal.fire({ input: 'textarea', inputLabel: 'Lý do từ chối', showCancelButton: true }).then(r => r.value) : '';
+    try {
+      await api.put(`/product-events/${id}/approve`, { status, rejectionReason: reason });
+      Swal.fire('Thành công', status === 'approved' ? 'Đã duyệt sản phẩm' : 'Đã từ chối', 'success');
+      fetchData('productEvents');
+    } catch (err) { Swal.fire('Lỗi', err.response?.data?.message || 'Lỗi', 'error'); }
+  };
+
+  const handleActivateEvent = async (id, newStatus) => {
+    try { await api.put(`/events/${id}`, { status: newStatus }); fetchData('events'); Swal.fire('OK', 'Đã cập nhật trạng thái sự kiện', 'success'); }
+    catch (err) { Swal.fire('Lỗi', err.response?.data?.message || 'Lỗi', 'error'); }
+  };
+
+  const fetchEventProducts = async (eventId) => {
+    try {
+      const res = await api.get(`/product-events?eventId=${eventId}&status=all`); // Get all statuses for admin
+      setEventProducts(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error("Lỗi lấy sản phẩm sự kiện:", err);
+    }
+  };
+
+  const handleRecalculatePrices = async (eventId) => {
+    try {
+      const res = await api.post(`/product-events/admin/recalculate/${eventId}`);
+      Swal.fire("Thành công", res.data.message, "success");
+      fetchEventProducts(eventId);
+    } catch (err) {
+      Swal.fire("Lỗi", err.response?.data?.message || "Lỗi đồng bộ giá", "error");
+    }
+  };
+
+  const handleAdminRemoveProductFromEvent = async (regId) => {
+    if (!confirm("Xóa sản phẩm này khỏi sự kiện? Hành động này không thể hoàn tác.")) return;
+    try {
+      await api.delete(`/product-events/admin/${regId}`);
+      Swal.fire("Thành công", "Đã xóa sản phẩm khỏi sự kiện", "success");
+      // Refresh list
+      fetchEventProducts(selectedEventForProducts._id);
+      fetchData("events"); // Update count
+    } catch (err) {
+      Swal.fire("Lỗi", err.response?.data?.message || "Lỗi xóa sản phẩm", "error");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
       <header className="bg-gradient-to-r from-gray-900 via-black to-gray-900 border-b border-amber-900/50 sticky top-0 z-50 py-4 px-6 text-white flex justify-between items-center shadow-lg">
@@ -229,12 +345,20 @@ export default function AdminDashboard() {
             ADMIN PANEL
           </div>
         </div>
-        <button
-          onClick={() => navigate("/")}
-          className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg font-semibold transition"
-        >
-          Trang chủ
-        </button>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate("/")}
+            className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg font-semibold transition"
+          >
+            Trang chủ
+          </button>
+          <button
+            onClick={handleLogout}
+            className="bg-red-500/20 hover:bg-red-500 text-white px-4 py-2 rounded-lg font-bold transition border border-red-500/50"
+          >
+            Đăng xuất
+          </button>
+        </div>
       </header>
 
       <div className="flex-1 container mx-auto px-4 py-8 flex flex-col md:flex-row gap-8">
@@ -301,6 +425,14 @@ export default function AdminDashboard() {
               }`}
             >
               🧧 Mã Giảm Giá
+            </button>
+            <div className="border-t border-gray-100 my-2"></div>
+            <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest px-2 pb-1">Quản Lý Sự Kiện</p>
+            <button onClick={() => setActiveTab("eventTypes")} className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${ activeTab === "eventTypes" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-600 hover:bg-gray-100" }`}>🏷️ Loại Sự Kiện</button>
+            <button onClick={() => setActiveTab("events")} className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${ activeTab === "events" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-600 hover:bg-gray-100" }`}>🎪 Sự Kiện</button>
+            <button onClick={() => setActiveTab("productEvents")} className={`text-left px-5 py-3 rounded-xl font-bold transition-all flex justify-between items-center ${ activeTab === "productEvents" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-600 hover:bg-gray-100" }`}>
+              <span>⏳ Duyệt Sản Phẩm</span>
+              {pendingProductEvents.length > 0 && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">{pendingProductEvents.length}</span>}
             </button>
           </div>
         </aside>
@@ -693,6 +825,124 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
+
+          {/* TAB: Loại Sự Kiện */}
+          {activeTab === "eventTypes" && (
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-black text-gray-900">Loại Sự Kiện</h2>
+                <button onClick={() => setShowEventTypeModal(true)} className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg shadow-amber-500/30 transition">+ Thêm loại</button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {eventTypes.map(et => (
+                  <div key={et._id} className="border border-gray-100 rounded-2xl p-5 flex items-center gap-4 shadow-sm hover:shadow-md transition">
+                    <div className="text-4xl w-14 h-14 flex items-center justify-center rounded-2xl bg-gray-50 border border-gray-100">{et.icon}</div>
+                    <div className="flex-1">
+                      <div className="font-black text-gray-900 uppercase tracking-tight">{et.label}</div>
+                      <div className="text-xs text-gray-400 font-mono">{et.name}</div>
+                      <div className="text-xs text-gray-500 mt-1">{et.description}</div>
+                    </div>
+                    <button onClick={() => handleDeleteEventType(et._id)} className="text-red-400 hover:text-red-600 text-xs font-bold transition">Xóa</button>
+                  </div>
+                ))}
+                {eventTypes.length === 0 && <p className="col-span-full text-center py-10 text-gray-400">Chưa có loại sự kiện nào.</p>}
+              </div>
+            </div>
+          )}
+
+          {/* TAB: Sự Kiện */}
+          {activeTab === "events" && (
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-black text-gray-900">Quản Lý Sự Kiện</h2>
+                <button onClick={() => setShowEventModal(true)} className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg shadow-amber-500/30 transition">+ Tạo sự kiện</button>
+              </div>
+              <div className="space-y-4">
+                {events.map(ev => {
+                  const now = new Date();
+                  const isOngoing = ev.status === 'active' && new Date(ev.startDate) <= now && new Date(ev.endDate) >= now;
+                  return (
+                    <div key={ev._id} className={`border rounded-2xl p-6 flex flex-col md:flex-row gap-4 items-start md:items-center shadow-sm transition hover:shadow-md ${ isOngoing ? 'border-amber-400 bg-amber-50/30' : 'border-gray-100 bg-white' }`}>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="text-2xl">{ev.eventType?.icon || '🎪'}</span>
+                          <div>
+                            <h3 className="font-black text-gray-900 uppercase tracking-tight">{ev.name}</h3>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ ev.status === 'active' ? 'bg-green-100 text-green-700' : ev.status === 'draft' ? 'bg-gray-100 text-gray-500' : ev.status === 'ended' ? 'bg-red-100 text-red-500' : 'bg-blue-100 text-blue-600' }`}>{ev.status.toUpperCase()}{isOngoing ? ' (Đang diễn ra)' : ''}</span>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
+                          <span>🕐 Bắt đầu: <b>{new Date(ev.startDate).toLocaleString('vi-VN')}</b></span>
+                          <span>🕔 Kết thúc: <b>{new Date(ev.endDate).toLocaleString('vi-VN')}</b></span>
+                          <span>🛍️ Sản phẩm tham gia: <b>{ev.totalProductCount || 0}</b></span>
+                          <span>💰 Giảm: <b>{ev.discountPercentage}%</b></span>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {ev.status === 'draft' && <button onClick={() => handleActivateEvent(ev._id, 'active')} className="bg-green-500 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-green-600 transition">Kích hoạt</button>}
+                        {ev.status === 'active' && <button onClick={() => handleActivateEvent(ev._id, 'paused')} className="bg-blue-500 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-blue-600 transition">Tạm dừng</button>}
+                        {ev.status === 'paused' && <button onClick={() => handleActivateEvent(ev._id, 'active')} className="bg-green-500 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-green-600 transition">Tiếp tục</button>}
+                        <button 
+                          onClick={() => {
+                            setSelectedEventForProducts(ev);
+                            fetchEventProducts(ev._id);
+                            setShowEventProductsModal(true);
+                          }}
+                          className="bg-amber-100 text-amber-600 text-xs font-bold px-4 py-2 rounded-xl border border-amber-200 hover:bg-amber-500 hover:text-white transition"
+                        >
+                          Quản lý SP
+                        </button>
+                        <button onClick={() => handleDeleteEvent(ev._id)} className="bg-red-50 text-red-500 text-xs font-bold px-4 py-2 rounded-xl border border-red-100 hover:bg-red-500 hover:text-white transition">Xóa</button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {events.length === 0 && <p className="text-center py-12 text-gray-400">Chưa có sự kiện nào. Hãy tạo sự kiện đầu tiên!</p>}
+              </div>
+            </div>
+          )}
+
+          {/* TAB: Duyệt Sản Phẩm Sự Kiện */}
+          {activeTab === "productEvents" && (
+            <div>
+              <h2 className="text-2xl font-black text-gray-900 mb-6">Duyệt Sản Phẩm Vào Sự Kiện <span className="text-red-500 text-lg">({pendingProductEvents.length} chờ duyệt)</span></h2>
+              <div className="overflow-x-auto rounded-xl border border-gray-200">
+                <table className="w-full text-left bg-white text-sm">
+                  <thead className="bg-gray-50 text-gray-500 font-bold uppercase">
+                    <tr>
+                      <th className="px-4 py-3">Sản phẩm</th>
+                      <th className="px-4 py-3">Shop</th>
+                      <th className="px-4 py-3">Sự kiện</th>
+                      <th className="px-4 py-3">Giá SK</th>
+                      <th className="px-4 py-3">Tồn kho</th>
+                      <th className="px-4 py-3">Giảm</th>
+                      <th className="px-4 py-3 text-center">Hành động</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {pendingProductEvents.map(pe => (
+                      <tr key={pe._id} className="hover:bg-amber-50/30 transition">
+                        <td className="px-4 py-3 font-semibold text-gray-900">{pe.product?.name}</td>
+                        <td className="px-4 py-3 text-gray-600">{pe.shop?.name}</td>
+                        <td className="px-4 py-3 text-gray-600">{pe.event?.name}</td>
+                        <td className="px-4 py-3 font-bold text-amber-600">{pe.eventPrice?.toLocaleString()}đ</td>
+                        <td className="px-4 py-3">{pe.eventStock}</td>
+                        <td className="px-4 py-3 text-red-500 font-bold">{pe.discountPercentage}%</td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-2 justify-center">
+                            <button onClick={() => handleApproveProductEvent(pe._id, 'approved')} className="bg-green-500 hover:bg-green-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition">Duyệt</button>
+                            <button onClick={() => handleApproveProductEvent(pe._id, 'rejected')} className="bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold px-3 py-1.5 rounded-lg border border-red-200 transition">Từ chối</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {pendingProductEvents.length === 0 && <tr><td colSpan="7" className="text-center py-10 text-gray-400">Không có đăng ký nào đang chờ duyệt.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
         </main>
       </div>
 
@@ -880,6 +1130,184 @@ export default function AdminDashboard() {
                 className="flex-1 bg-amber-500 text-gray-900 font-black uppercase py-4 rounded-xl hover:bg-amber-600 shadow-lg shadow-amber-500/30 transition"
               >
                 Tạo ngay
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* MODAL: Tạo Loại Sự Kiện */}
+      {showEventTypeModal && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl">
+            <h3 className="text-xl font-black text-gray-900 mb-6 uppercase">Thêm Loại Sự Kiện Mới</h3>
+            <div className="space-y-4">
+              <div><label className="block text-sm font-bold text-gray-700 mb-2">Tên mã (VD: FLASH_SALE) *</label>
+                <input type="text" value={eventTypeForm.name} onChange={e => setEventTypeForm({...eventTypeForm, name: e.target.value.toUpperCase()})} placeholder="FLASH_SALE" className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold" /></div>
+              <div><label className="block text-sm font-bold text-gray-700 mb-2">Tên hiển thị *</label>
+                <input type="text" value={eventTypeForm.label} onChange={e => setEventTypeForm({...eventTypeForm, label: e.target.value})} placeholder="Flash Sale" className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold" /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="block text-sm font-bold text-gray-700 mb-2">Icon (emoji)</label>
+                  <input type="text" value={eventTypeForm.icon} onChange={e => setEventTypeForm({...eventTypeForm, icon: e.target.value})} className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold text-xl" /></div>
+                <div><label className="block text-sm font-bold text-gray-700 mb-2">Màu chủ đạo</label>
+                  <input type="color" value={eventTypeForm.color} onChange={e => setEventTypeForm({...eventTypeForm, color: e.target.value})} className="w-full h-12 rounded-xl border border-gray-200 cursor-pointer" /></div>
+              </div>
+              <div><label className="block text-sm font-bold text-gray-700 mb-2">Mô tả</label>
+                <textarea value={eventTypeForm.description} onChange={e => setEventTypeForm({...eventTypeForm, description: e.target.value})} className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-medium" rows="2" /></div>
+            </div>
+            <div className="flex gap-4 mt-6">
+              <button onClick={() => setShowEventTypeModal(false)} className="flex-1 bg-gray-100 text-gray-600 font-black uppercase py-3 rounded-xl hover:bg-gray-200 transition">Hủy</button>
+              <button onClick={handleSaveEventType} className="flex-1 bg-amber-500 text-gray-900 font-black uppercase py-3 rounded-xl hover:bg-amber-600 shadow-lg shadow-amber-500/30 transition">Tạo ngay</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Tạo Sự Kiện */}
+      {showEventModal && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl w-full max-w-lg p-8 shadow-2xl my-8">
+            <h3 className="text-xl font-black text-gray-900 mb-6 uppercase">Tạo Sự Kiện Mới</h3>
+            <div className="space-y-4">
+              <div><label className="block text-sm font-bold text-gray-700 mb-2">Tên sự kiện *</label>
+                <input type="text" value={eventForm.name} onChange={e => setEventForm({...eventForm, name: e.target.value})} placeholder="Flash Sale 12/12 2026" className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold" /></div>
+              <div><label className="block text-sm font-bold text-gray-700 mb-2">Loại sự kiện *</label>
+                <select value={eventForm.eventType} onChange={e => setEventForm({...eventForm, eventType: e.target.value})} className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold">
+                  <option value="">-- Chọn loại --</option>
+                  {eventTypes.map(et => <option key={et._id} value={et._id}>{et.icon} {et.label}</option>)}
+                </select></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="block text-sm font-bold text-gray-700 mb-2">🕐 Ngày bắt đầu *</label>
+                  <input type="datetime-local" value={eventForm.startDate} onChange={e => setEventForm({...eventForm, startDate: e.target.value})} className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold" /></div>
+                <div><label className="block text-sm font-bold text-gray-700 mb-2">🕔 Ngày kết thúc *</label>
+                  <input type="datetime-local" value={eventForm.endDate} onChange={e => setEventForm({...eventForm, endDate: e.target.value})} className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold" /></div>
+              </div>
+              <div><label className="block text-sm font-bold text-gray-700 mb-2">% Giảm giá chung (0 = không áp dụng)</label>
+                <input type="number" min="0" max="100" value={eventForm.discountPercentage} onChange={e => setEventForm({...eventForm, discountPercentage: e.target.value})} className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold" /></div>
+              <div><label className="block text-sm font-bold text-gray-700 mb-2">Mô tả</label>
+                <textarea value={eventForm.description} onChange={e => setEventForm({...eventForm, description: e.target.value})} className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-medium" rows="2" /></div>
+              <div className="flex gap-6">
+                <label className="flex items-center gap-2 cursor-pointer text-sm font-bold">
+                  <input type="checkbox" checked={eventForm.isPublic} onChange={e => setEventForm({...eventForm, isPublic: e.target.checked})} className="w-4 h-4" /> Hiện trên trang chủ
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm font-bold">
+                  <input type="checkbox" checked={eventForm.isFeatured} onChange={e => setEventForm({...eventForm, isFeatured: e.target.checked})} className="w-4 h-4" /> Sự kiện nổi bật
+                </label>
+              </div>
+            </div>
+            <div className="flex gap-4 mt-6">
+              <button onClick={() => setShowEventModal(false)} className="flex-1 bg-gray-100 text-gray-600 font-black uppercase py-3 rounded-xl hover:bg-gray-200 transition">Hủy</button>
+              <button onClick={handleSaveEvent} className="flex-1 bg-amber-500 text-gray-900 font-black uppercase py-3 rounded-xl hover:bg-amber-600 shadow-lg shadow-amber-500/30 transition">Tạo sự kiện</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL QUẢN LÝ SẢN PHẨM TRONG SỰ KIỆN */}
+      {showEventProductsModal && selectedEventForProducts && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-gray-900/60 backdrop-blur-md p-4 animate-fadeIn">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-5xl shadow-2xl relative max-h-[90vh] flex flex-col border border-gray-100 overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <div>
+                <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tight italic">
+                  Sản phẩm trong: <span className="text-amber-500">{selectedEventForProducts.name}</span>
+                </h3>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Danh sách sản phẩm tham gia sự kiện này</p>
+              </div>
+              <button 
+                onClick={() => setShowEventProductsModal(false)} 
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-gray-200 text-gray-400 hover:text-gray-900 hover:border-gray-900 transition-all active:scale-95 shadow-sm"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Modal Content - Table */}
+            <div className="flex-1 overflow-y-auto p-8">
+              <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50/80 text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] border-b border-gray-100">
+                      <th className="px-6 py-4">Sản phẩm</th>
+                      <th className="px-6 py-4">Cửa hàng</th>
+                      <th className="px-6 py-4 text-center">Giá SK</th>
+                      <th className="px-6 py-4 text-center">Trạng thái</th>
+                      <th className="px-6 py-4 text-right">Hành động</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {eventProducts.map(pe => (
+                      <tr key={pe._id} className="group hover:bg-amber-50/20 transition-all duration-300">
+                        <td className="px-6 py-5">
+                          <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 rounded-2xl overflow-hidden border border-gray-100 shadow-sm bg-gray-50 flex-shrink-0">
+                              <img 
+                                src={pe.product?.images?.[0]?.url 
+                                  ? (pe.product.images[0].url.startsWith('http') ? pe.product.images[0].url : `http://localhost:5000${pe.product.images[0].url}`) 
+                                  : `https://picsum.photos/seed/${pe.product?._id}/60/60`
+                                } 
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                alt=""
+                              />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="font-black text-gray-900 text-sm line-clamp-1 italic">{pe.product?.name}</span>
+                              <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">ID: {pe.product?._id?.slice(-6)}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-black text-gray-700 uppercase italic">{pe.shop?.name}</span>
+                            <span className="text-[9px] text-amber-500 font-bold uppercase tracking-widest">Gian hàng Petro</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <div className="text-lg font-black text-amber-600 italic leading-none">
+                            {selectedEventForProducts?.discountPercentage > 0
+                              ? (Math.round(pe.originalPrice * (1 - selectedEventForProducts.discountPercentage / 100))).toLocaleString()
+                              : pe.eventPrice?.toLocaleString()}đ
+                          </div>
+                          <div className="text-[9px] text-gray-400 line-through mt-1">Gốc: {pe.originalPrice?.toLocaleString()}đ</div>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${pe.status === 'approved' ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'}`}>
+                             <span className={`w-1 h-1 rounded-full ${pe.status === 'approved' ? 'bg-green-500' : 'bg-amber-500'}`}></span>
+                             {pe.status === 'approved' ? 'Đã duyệt' : 'Chờ duyệt'}
+                           </span>
+                        </td>
+                        <td className="px-6 py-5 text-right">
+                           <button 
+                             onClick={() => handleAdminRemoveProductFromEvent(pe._id)}
+                             className="px-4 py-2 bg-red-50 text-red-500 rounded-xl font-black uppercase tracking-widest text-[9px] hover:bg-red-500 hover:text-white transition-all shadow-sm hover:shadow-red-500/20 active:scale-95"
+                           >
+                             XÓA KHỎI SK
+                           </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {eventProducts.length === 0 && (
+                      <tr>
+                        <td colSpan="5" className="px-6 py-24 text-center">
+                           <div className="flex flex-col items-center gap-4 opacity-20 transform -rotate-2">
+                             <span className="text-6xl grayscale">🏷️</span>
+                             <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.3em]">Không có sản phẩm nào tham gia</p>
+                           </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-8 bg-gray-50 border-t border-gray-100 flex justify-end">
+              <button 
+                onClick={() => setShowEventProductsModal(false)}
+                className="px-12 py-4 bg-gray-900 text-white font-black uppercase tracking-[0.2em] text-[10px] rounded-2xl hover:bg-amber-500 hover:text-gray-900 transition-all shadow-xl shadow-gray-200 hover:shadow-amber-500/30 active:scale-95"
+              >
+                🚀 XÁC NHẬN & ĐÓNG
               </button>
             </div>
           </div>
