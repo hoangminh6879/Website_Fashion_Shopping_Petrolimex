@@ -75,7 +75,7 @@ export default function ShopDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans pb-10">
+    <div className="min-h-screen bg-gray-50 font-sans pb-10 pt-32 md:pt-44">
       {/* SHOP HEADER (Premium Look) */}
       <div className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border-b border-amber-900/50 pt-10 pb-16">
         <div className="container mx-auto px-4">
@@ -125,7 +125,7 @@ export default function ShopDetail() {
       </div>
 
       {/* PRODUCTS NAV */}
-      <div className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm mb-8">
+      <div className="sticky top-32 md:top-44 z-40 bg-white border-b border-gray-200 shadow-sm mb-8">
          <div className="container mx-auto px-4 flex">
             <button className="px-8 py-4 text-amber-600 font-black uppercase tracking-widest text-[11px] border-b-2 border-amber-600">Tất Cả Sản Phẩm</button>
             <button className="px-8 py-4 text-gray-500 font-black uppercase tracking-widest text-[11px] hover:text-gray-900 transition">Sản Phẩm Mới</button>

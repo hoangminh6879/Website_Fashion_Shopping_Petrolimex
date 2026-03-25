@@ -36,7 +36,7 @@ export default function FlashSalePage() {
     <div className="bg-gray-50 min-h-screen font-sans pb-20">
       <Navbar />
       
-      <div className="container mx-auto px-4 py-8 mt-24">
+      <div className="container mx-auto px-4 py-8 mt-44">
         {/* Header */}
         <div className="bg-gradient-to-r from-black via-gray-900 to-black rounded-3xl p-12 text-center shadow-2xl border border-amber-500/30 mb-12 relative overflow-hidden group">
            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
