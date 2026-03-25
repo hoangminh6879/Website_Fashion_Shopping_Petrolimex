@@ -20,6 +20,7 @@ export default function Home() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -110,8 +111,12 @@ export default function Home() {
     );
   }
 
+  const filteredProducts = selectedCategory 
+    ? products.filter(p => p.category === selectedCategory || (p.category?._id === selectedCategory))
+    : products;
+
   return (
-    <div className="min-h-screen bg-gray-50 font-sans pb-10 relative">
+    <div className="min-h-screen bg-gray-50 font-sans pb-10 relative pt-40 md:pt-48">
       <Navbar />
 
       {/* BANNER SECTION */}
@@ -155,15 +160,28 @@ export default function Home() {
             </h2>
           </div>
           <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-6 border-l border-t border-gray-100">
+            <button 
+              onClick={() => setSelectedCategory(null)}
+              className={`flex flex-col items-center gap-3 p-5 border-r border-b border-gray-100 transition-all duration-300 group ${!selectedCategory ? 'bg-gray-50 border-b-2 border-b-[#D4AF37]' : 'hover:bg-gray-50'}`}
+            >
+              <div className={`w-[85px] h-[85px] rounded-full overflow-hidden bg-gray-100 flex items-center justify-center border-2 transition-all ${!selectedCategory ? 'border-[#D4AF37]' : 'border-transparent group-hover:border-[#D4AF37]'}`}>
+                <span className="text-2xl">🛍️</span>
+              </div>
+              <span className={`text-sm text-center font-bold uppercase tracking-tighter transition-colors ${!selectedCategory ? 'text-[#D4AF37]' : 'text-gray-700 group-hover:text-[#D4AF37]'}`}>Tất Cả</span>
+            </button>
             {categories.map((cat) => (
-              <a href="#" key={cat._id} className="flex flex-col items-center gap-3 p-5 border-r border-b border-gray-100 hover:bg-gray-50 transition-all duration-300 group">
-                <div className="w-[85px] h-[85px] rounded-full overflow-hidden bg-gray-50 border-2 border-transparent group-hover:border-[#D4AF37] p-0.5 transition-all">
+              <button 
+                key={cat._id} 
+                onClick={() => setSelectedCategory(cat._id)}
+                className={`flex flex-col items-center gap-3 p-5 border-r border-b border-gray-100 transition-all duration-300 group ${selectedCategory === cat._id ? 'bg-gray-50 border-b-2 border-b-[#D4AF37]' : 'hover:bg-gray-50'}`}
+              >
+                <div className={`w-[85px] h-[85px] rounded-full overflow-hidden bg-gray-50 border-2 transition-all ${selectedCategory === cat._id ? 'border-[#D4AF37]' : 'border-transparent group-hover:border-[#D4AF37]'} p-0.5`}>
                   <div className="w-full h-full rounded-full overflow-hidden">
                     <img src={cat.image ? `http://localhost:5000${cat.image}` : `https://picsum.photos/seed/${cat._id}/150/150`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={cat.name} />
                   </div>
                 </div>
-                <span className="text-sm text-gray-700 text-center group-hover:text-[#D4AF37] font-medium line-clamp-2 leading-tight h-10">{cat.name}</span>
-              </a>
+                <span className={`text-sm text-center font-medium line-clamp-2 leading-tight h-10 transition-colors ${selectedCategory === cat._id ? 'text-[#D4AF37]' : 'text-gray-700 group-hover:text-[#D4AF37]'}`}>{cat.name}</span>
+              </button>
             ))}
           </div>
         </div>
@@ -265,7 +283,7 @@ export default function Home() {
           </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 lg:gap-4">
-          {products.length > 0 ? products.map((product) => (
+          {filteredProducts.length > 0 ? filteredProducts.map((product) => (
             <div key={product._id} onClick={() => openProductModal(product)} className="group bg-white rounded-sm shadow-sm hover:shadow-md transition-all border border-gray-100 flex flex-col h-full cursor-pointer">
               <div className="w-full aspect-square bg-gray-50 overflow-hidden relative">
                 <img src={product.images && product.images.length > 0 ? (product.images[0].url.startsWith('http') ? product.images[0].url : `http://localhost:5000${product.images[0].url}`) : `https://picsum.photos/seed/${product._id}/400/400`} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700" />

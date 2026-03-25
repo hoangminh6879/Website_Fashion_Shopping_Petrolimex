@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import Swal from 'sweetalert2';
+import Navbar from '../components/Navbar';
 
 export default function Cart() {
   const navigate = useNavigate();
@@ -11,8 +12,14 @@ export default function Cart() {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token || userRole !== 'user') {
-      navigate('/login');
+    if (!token || (userRole !== 'user' && userRole !== 'guest')) {
+      // If userRole is guest, it's fine for now, but usually we want 'user'
+      // Based on previous rules, only 'user' role can cart. 
+      if (userRole === 'admin' || userRole === 'seller') {
+          // Stay on page but show blocked UI
+      } else if (!token) {
+          navigate('/login');
+      }
     }
   }, [userRole, navigate]);
 
@@ -30,304 +37,328 @@ export default function Cart() {
     return product.stock[index] || 0;
   };
 
+  const getVariantImage = (item) => {
+    const { product, color, size } = item;
+    if (!product) return null;
+
+    // 🔥 Check variantImages array (Old system)
+    if (product.variantImages && product.variantImages.length > 0) {
+      const colorIdx = (product.colors || []).indexOf(color);
+      const sizeIdx = (product.sizes || []).indexOf(size);
+      if (colorIdx !== -1 && sizeIdx !== -1) {
+        const index = colorIdx * (product.sizes?.length || 0) + sizeIdx;
+        if (product.variantImages[index]) return `http://localhost:5000${product.variantImages[index]}`;
+      }
+    }
+
+    // 🔥 Fallback to first image
+    if (product.images && product.images.length > 0) {
+      return `http://localhost:5000${product.images[0].url}`;
+    }
+
+    return `https://picsum.photos/seed/${product._id}/200/200`;
+  };
+
+  const handleRemove = (productId, color, size) => {
+    Swal.fire({
+      title: 'Xác nhận xóa?',
+      text: "Bạn có chắc chắn muốn xóa sản phẩm này khỏi giỏ hàng?",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Xóa ngay',
+      cancelButtonText: 'Hủy'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        removeFromCart(productId, color, size);
+        Swal.fire({
+          icon: 'success',
+          title: 'Đã xóa!',
+          timer: 800,
+          showConfirmButton: false,
+          toast: true,
+          position: 'top-end'
+        });
+      }
+    });
+  };
+
+  const handleClearCart = () => {
+    Swal.fire({
+      title: 'Dọn dẹp giỏ hàng?',
+      text: "Tất cả sản phẩm sẽ bị xóa khỏi giỏ hàng của bạn.",
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#9ca3af',
+      cancelButtonColor: '#f59e0b',
+      confirmButtonText: 'Xóa tất cả',
+      cancelButtonText: 'Giữ lại'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        clearCart();
+        Swal.fire({
+          icon: 'success',
+          title: 'Giỏ hàng đã trống',
+          timer: 1000,
+          showConfirmButton: false
+        });
+      }
+    });
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
-      {/* HEADER SECTION */}
-      <header className="bg-gradient-to-r from-gray-900 via-black to-gray-900 border-b border-amber-900/50 sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between text-white">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="text-3xl font-extrabold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-amber-600">
-              PETROLIMEX
-            </div>
-            <div className="text-sm font-light uppercase tracking-widest text-amber-500/80">
-              Fashion
-            </div>
-          </Link>
-          <div className="flex items-center gap-4">
-            <div className="text-xl font-bold text-amber-500 border-l-2 border-amber-500 pl-4">Giỏ hàng</div>
-            <Link to="/cart" className="relative cursor-pointer hover:text-amber-500 transition p-2 block">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.35 5.4a1 1 0 00.97 1.25h11.76a1 1 0 00.97-1.25L17 13M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17" />
-              </svg>
-              <span className="absolute top-0 -right-1 bg-amber-500 text-gray-900 border-2 border-gray-900 text-[10px] font-extrabold px-1.5 py-0 rounded-full">
-                {getCartCount()}
-              </span>
-            </Link>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-[#FBFBFB] flex flex-col font-sans">
+      <Navbar />
 
       {/* MAIN CONTENT */}
-      <main className="flex-1 container mx-auto px-4 py-8">
+      <main className="flex-1 container mx-auto px-4 py-8 mt-44">
         {(userRole === 'admin' || userRole === 'seller') ? (
-          <div className="bg-white p-12 rounded-2xl shadow-xl shadow-gray-200/50 text-center mx-auto max-w-lg w-full mt-8">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-32 w-32 mx-auto text-red-200 mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <h2 className="text-2xl font-black text-gray-900 mb-4 tracking-tight">Tài khoản quản trị</h2>
-            <p className="text-gray-500 mb-8">Tính năng giỏ hàng và mua sắm chỉ dành riêng cho tài khoản Khách hàng (User).</p>
-            <Link to="/" className="inline-block bg-gray-900 text-white font-black tracking-widest uppercase px-8 py-4 rounded-xl hover:bg-gray-800 transition-all shadow-lg">
-              Vị trí Của Tôi
+          <div className="bg-white p-12 rounded-[2rem] shadow-2xl shadow-gray-200/50 text-center mx-auto max-w-lg w-full mt-8 border border-gray-100">
+            <div className="text-6xl mb-6">🚫</div>
+            <h2 className="text-2xl font-black text-gray-900 mb-4 tracking-tight uppercase italic">Tài khoản hạn chế</h2>
+            <p className="text-gray-500 mb-8 font-medium">Tính năng mua sắm chỉ dành riêng cho tài khoản Khách hàng.</p>
+            <Link to="/" className="inline-block bg-gray-900 text-white font-black tracking-widest uppercase px-10 py-4 rounded-2xl hover:bg-amber-500 hover:text-gray-900 transition-all shadow-xl">
+              Về Trang Chủ
             </Link>
           </div>
         ) : cart.length === 0 ? (
-          <div className="bg-white p-12 rounded-2xl shadow-xl shadow-gray-200/50 text-center mx-auto max-w-lg w-full mt-8">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-32 w-32 mx-auto text-gray-200 mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.35 5.4a1 1 0 00.97 1.25h11.76a1 1 0 00.97-1.25L17 13M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17" />
-            </svg>
-            <h2 className="text-2xl font-black text-gray-900 mb-4 tracking-tight">Giỏ hàng của bạn đang trống</h2>
-            <p className="text-gray-500 mb-8">Hãy chọn thêm các sản phẩm tuyệt vời từ cửa hàng của chúng tôi.</p>
-            <Link to="/" className="inline-block bg-amber-500 text-gray-900 font-black tracking-widest uppercase px-8 py-4 rounded-xl hover:bg-amber-400 transition-all shadow-lg shadow-amber-500/30">
-              Tiếp Tục Mua Sắm
+          <div className="bg-white p-20 rounded-[3rem] shadow-2xl shadow-gray-200/50 text-center mx-auto max-w-2xl w-full mt-12 border border-gray-100 animate-fadeIn">
+            <div className="text-8xl mb-10 opacity-20">🛒</div>
+            <h2 className="text-3xl font-black text-gray-900 mb-4 tracking-tighter uppercase italic">Giỏ hàng đang trống</h2>
+            <p className="text-gray-400 font-bold text-[10px] uppercase tracking-[0.3em] mb-12">Hãy lấp đầy nó bằng những món đồ thời thượng nhất</p>
+            <Link to="/" className="inline-block bg-gradient-to-r from-gray-900 to-black text-amber-500 font-black tracking-widest uppercase px-12 py-5 rounded-3xl hover:from-amber-500 hover:to-amber-500 hover:text-gray-900 transition-all shadow-2xl shadow-gray-300">
+              Khám Phá Ngay
             </Link>
           </div>
         ) : (
-          <div className="flex flex-col lg:flex-row gap-8">
+          <div className="flex flex-col lg:flex-row gap-10">
             {/* Danh sách sản phẩm */}
-            <div className="flex-1 space-y-4">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hidden md:grid grid-cols-12 gap-4 text-sm font-bold text-gray-500 uppercase tracking-wider">
-                <div className="col-span-6">Sản phẩm</div>
-                <div className="col-span-2 text-center">Đơn giá</div>
-                <div className="col-span-2 text-center">Số lượng</div>
-                <div className="col-span-2 text-right">Tổng tiền</div>
+            <div className="flex-1 space-y-6">
+              <div className="flex items-center justify-between mb-2">
+                 <h1 className="text-3xl font-black italic tracking-tighter uppercase">Giỏ <span className="text-amber-500">Hàng</span></h1>
+                 <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest bg-white px-4 py-2 rounded-full border border-gray-100 shadow-sm">{getCartCount()} Sản phẩm</span>
               </div>
 
-              {cart.map((item, index) => {
-                const imgUrl = item.product.images && item.product.images.length > 0 
-                  ? `http://localhost:5000${item.product.images[0].url}`
-                  : `https://picsum.photos/seed/${item.product._id}/100/100`;
+              <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-6 hidden md:grid grid-cols-12 gap-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                <div className="col-span-6 pl-4">Thông tin sản phẩm</div>
+                <div className="col-span-2 text-center">Đơn giá</div>
+                <div className="col-span-2 text-center">Số lượng</div>
+                <div className="col-span-2 text-right pr-4">Tổng cộng</div>
+              </div>
 
-                return (
-                  <div key={`${item.product._id}-${item.color}-${item.size}`} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 grid grid-cols-1 md:grid-cols-12 gap-4 items-center relative">
-                    {/* Nút xóa mobile */}
-                    <button 
-                      onClick={() => removeFromCart(item.product._id, item.color, item.size)}
-                      className="absolute top-4 right-4 text-gray-300 hover:text-red-500 md:hidden transition-colors"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                    </button>
+              {cart.map((item) => (
+                <div key={`${item.product._id}-${item.color}-${item.size}`} className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 p-8 grid grid-cols-1 md:grid-cols-12 gap-6 items-center relative hover:shadow-xl hover:shadow-gray-100 transition-all group">
+                  {/* Nút xóa mobile */}
+                  <button 
+                    onClick={() => handleRemove(item.product._id, item.color, item.size)}
+                    className="absolute top-6 right-6 text-gray-200 hover:text-red-500 md:hidden transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
 
-                    <div className="col-span-1 md:col-span-6 flex gap-4">
-                      <div className="w-24 h-24 rounded-lg overflow-hidden bg-gray-50 flex-shrink-0 border border-gray-100">
-                        <img src={imgUrl} alt={item.product.name} className="w-full h-full object-cover" />
-                      </div>
-                      <div className="flex flex-col justify-center">
-                        <Link to={`/product/${item.product._id}`} className="font-bold text-gray-800 hover:text-amber-600 line-clamp-2 transition-colors">
-                          {item.product.name}
-                        </Link>
-                          <div className="flex items-center gap-2 mt-1">
-                            <p className="text-gray-500 text-sm">
-                              Biến thể: <span className="font-bold text-gray-900">{item.color}</span> / <span className="font-bold text-gray-900">{item.size}</span>
-                            </p>
-                            <button 
-                              onClick={() => {
-                                setEditingItem({ productId: item.product._id, color: item.color, size: item.size, product: item.product });
-                                setEditForm({ color: item.color, size: item.size });
-                              }}
-                              className="text-amber-600 hover:text-amber-700 text-[10px] font-bold uppercase underline"
-                            >
-                              Thay đổi
-                            </button>
-                          </div>
-
-                          {editingItem && editingItem.productId === item.product._id && editingItem.color === item.color && editingItem.size === item.size && (
-                            <div className="mt-3 p-4 bg-amber-50 rounded-xl border border-amber-200 shadow-sm space-y-3">
-                               <div className="flex flex-col gap-2">
-                                  <label className="text-[10px] font-black uppercase text-amber-800 tracking-widest">Màu sắc</label>
-                                  <div className="flex flex-wrap gap-2">
-                                     {item.product.colors?.map(c => (
-                                        <button 
-                                          key={c}
-                                          onClick={() => setEditForm({...editForm, color: c})}
-                                          className={`px-3 py-1 text-xs font-bold rounded-lg border transition-all ${editForm.color === c ? 'bg-amber-500 border-amber-500 text-white shadow-md' : 'bg-white border-gray-200 text-gray-600 hover:border-amber-300'}`}
-                                        >
-                                           {c}
-                                        </button>
-                                     ))}
-                                  </div>
-                               </div>
-                               <div className="flex flex-col gap-2">
-                                  <label className="text-[10px] font-black uppercase text-amber-800 tracking-widest">Kích cỡ</label>
-                                  <div className="flex flex-wrap gap-2">
-                                     {item.product.sizes?.map(s => (
-                                        <button 
-                                          key={s}
-                                          onClick={() => setEditForm({...editForm, size: s})}
-                                          className={`px-3 py-1 text-xs font-bold rounded-lg border transition-all ${editForm.size === s ? 'bg-amber-500 border-amber-500 text-white shadow-md' : 'bg-white border-gray-200 text-gray-600 hover:border-amber-300'}`}
-                                        >
-                                           {s}
-                                        </button>
-                                     ))}
-                                  </div>
-                               </div>
-                               <div className="flex flex-col gap-1">
-                                  <div className="flex items-center justify-between">
-                                    <p className="text-[11px] text-gray-600 font-medium">
-                                      Tồn kho hiện tại: <span className={`font-bold ${getEditStock() >= item.quantity ? 'text-green-600' : 'text-red-600'}`}>{getEditStock()}</span>
-                                    </p>
-                                    {getEditStock() < item.quantity && (
-                                      <span className="text-[10px] text-red-500 font-bold italic">Không đủ hàng cho số lượng {item.quantity}</span>
-                                    )}
-                                  </div>
-                               </div>
-
-                               <div className="flex gap-2 pt-2">
-                                  <button 
-                                    onClick={async () => {
-                                      try {
-                                        await updateVariant(item.product._id, item.color, item.size, editForm.color, editForm.size);
-                                        setEditingItem(null);
-                                        Swal.fire({
-                                          icon: 'success',
-                                          title: 'Cập nhật thành công',
-                                          timer: 1000,
-                                          toast: true,
-                                          position: 'top-end',
-                                          showConfirmButton: false
-                                        });
-                                      } catch (err) {
-                                        Swal.fire({
-                                          icon: 'error',
-                                          title: 'Lỗi',
-                                          text: err.response?.data?.message || 'Không thể cập nhật biến thể'
-                                        });
-                                      }
-                                    }}
-                                    disabled={getEditStock() < item.quantity}
-                                    className={`px-4 py-2 text-white text-[10px] font-black uppercase rounded-lg shadow-lg transition-all ${getEditStock() < item.quantity ? 'bg-gray-300 cursor-not-allowed' : 'bg-amber-500 hover:bg-amber-600 active:scale-95'}`}
-                                  >
-                                     Xác nhận
-                                  </button>
-                                  <button 
-                                    onClick={() => setEditingItem(null)}
-                                    className="px-4 py-2 bg-white text-gray-400 text-[10px] font-black uppercase rounded-lg border border-gray-200"
-                                  >
-                                     Hủy
-                                  </button>
-                               </div>
-                            </div>
-                          )}
-                          
-                          {/* Shop Information */}
-                          {item.product?.shop && (
-                            <div className="mt-2 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                               <div className="flex items-center gap-2 text-[10px] font-black uppercase text-amber-600 tracking-widest mb-1">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                                  Cung cấp bởi: <Link to={`/shop/${item.product.shop._id}`} className="hover:underline hover:text-amber-700 transition-all font-black">{item.product.shop.name}</Link>
-                                </div>
-                               <p className="text-[11px] text-gray-500 flex items-start gap-1">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                  {item.product.shop.address || 'Địa chỉ đang cập nhật'}
-                               </p>
-                            </div>
-                          )}
+                  <div className="col-span-1 md:col-span-6 flex gap-8">
+                    <div className="w-32 h-32 rounded-[2rem] overflow-hidden bg-gray-50 flex-shrink-0 border border-gray-100 shadow-inner">
+                      <img src={getVariantImage(item)} alt={item.product.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                    </div>
+                    <div className="flex flex-col justify-center space-y-3">
+                      <Link to={`/product/${item.product._id}`} className="text-xl font-black text-gray-900 hover:text-amber-500 line-clamp-1 transition-colors uppercase tracking-tight">
+                        {item.product.name}
+                      </Link>
+                      <div className="flex items-center gap-3">
+                        <div className="px-3 py-1 bg-gray-50 rounded-lg text-[10px] font-bold text-gray-500 uppercase tracking-wider border border-gray-100">
+                          Màu: <span className="text-gray-900">{item.color}</span>
                         </div>
-                    </div>
-                    
-                    <div className="col-span-1 md:col-span-2 flex md:justify-center items-center">
-                      <span className="md:hidden font-bold text-gray-500 mr-2 text-sm">Đơn giá:</span>
-                      <span className="font-bold text-gray-700">{formatPrice(item.product.price)}</span>
-                    </div>
-                    
-                    <div className="col-span-1 md:col-span-2 flex md:justify-center items-center">
-                      <span className="md:hidden font-bold text-gray-500 mr-2 text-sm">Số lượng:</span>
-                      <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden h-9">
+                        <div className="px-3 py-1 bg-gray-50 rounded-lg text-[10px] font-bold text-gray-500 uppercase tracking-wider border border-gray-100">
+                          Size: <span className="text-gray-900">{item.size}</span>
+                        </div>
                         <button 
-                          onClick={() => updateQuantity(item.product._id, item.color, item.size, item.quantity - 1)}
-                          className="w-8 h-full bg-gray-50 hover:bg-gray-100 text-gray-600 flex items-center justify-center transition-colors"
-                        >-</button>
-                        <input 
-                          type="text" 
-                          value={item.quantity} 
-                          readOnly 
-                          className="w-10 h-full text-center text-sm font-bold text-gray-800 focus:outline-none"
-                        />
-                        <button 
-                          onClick={() => updateQuantity(item.product._id, item.color, item.size, item.quantity + 1)}
-                          className="w-8 h-full bg-gray-50 hover:bg-gray-100 text-gray-600 flex items-center justify-center transition-colors"
-                        >+</button>
+                          onClick={() => {
+                            setEditingItem({ productId: item.product._id, color: item.color, size: item.size, product: item.product });
+                            setEditForm({ color: item.color, size: item.size });
+                          }}
+                          className="text-amber-500 hover:text-amber-600 text-[9px] font-black uppercase underline tracking-widest ml-1 transition-colors"
+                        >
+                          Thay đổi
+                        </button>
                       </div>
-                    </div>
-                    
-                    <div className="col-span-1 md:col-span-2 flex justify-between md:justify-end items-center">
-                      <span className="md:hidden font-bold text-gray-500 text-sm">Tổng phụ:</span>
-                      <span className="font-black text-amber-600 text-lg">{formatPrice(item.product.price * item.quantity)}</span>
-                      {/* Nút xóa desktop */}
-                      <button 
-                        onClick={() => removeFromCart(item.product._id, item.color, item.size)}
-                        className="hidden md:ml-4 md:block text-gray-300 hover:text-red-500 transition-colors p-1"
-                        title="Xóa sản phẩm"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                      </button>
+
+                      {editingItem && editingItem.productId === item.product._id && editingItem.color === item.color && editingItem.size === item.size && (
+                        <div className="mt-4 p-6 bg-white rounded-[2rem] border-2 border-amber-500/30 shadow-2xl space-y-4 animate-scaleIn z-10 relative">
+                           <div className="space-y-3">
+                              <label className="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block">Chọn màu mới</label>
+                              <div className="flex flex-wrap gap-2">
+                                 {item.product.colors?.map(c => (
+                                    <button 
+                                      key={c}
+                                      onClick={() => setEditForm({...editForm, color: c})}
+                                      className={`px-4 py-2 text-[10px] font-black rounded-xl border transition-all uppercase tracking-widest ${editForm.color === c ? 'bg-gray-900 border-gray-900 text-white shadow-lg' : 'bg-white border-gray-100 text-gray-500 hover:border-amber-300'}`}
+                                    >
+                                       {c}
+                                    </button>
+                                 ))}
+                              </div>
+                           </div>
+                           <div className="space-y-3">
+                              <label className="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block">Chọn size mới</label>
+                              <div className="flex flex-wrap gap-2">
+                                 {item.product.sizes?.map(s => (
+                                    <button 
+                                      key={s}
+                                      onClick={() => setEditForm({...editForm, size: s})}
+                                      className={`px-4 py-2 text-[10px] font-black rounded-xl border transition-all uppercase tracking-widest ${editForm.size === s ? 'bg-gray-900 border-gray-900 text-white shadow-lg' : 'bg-white border-gray-100 text-gray-500 hover:border-amber-300'}`}
+                                    >
+                                       {s}
+                                    </button>
+                                 ))}
+                              </div>
+                           </div>
+                           <div className="flex items-center justify-between py-2 border-t border-gray-50 mt-2">
+                              <span className="text-[10px] text-gray-400 font-bold">Tồn kho: <span className={getEditStock() >= item.quantity ? 'text-green-500' : 'text-red-500'}>{getEditStock()}</span></span>
+                              <div className="flex gap-2">
+                                <button 
+                                  onClick={() => setEditingItem(null)}
+                                  className="px-6 py-2 bg-gray-50 text-gray-400 text-[9px] font-black uppercase rounded-xl border border-gray-100"
+                                >
+                                   Hủy
+                                </button>
+                                <button 
+                                  onClick={async () => {
+                                    try {
+                                      await updateVariant(item.product._id, item.color, item.size, editForm.color, editForm.size);
+                                      setEditingItem(null);
+                                      Swal.fire({ icon: 'success', title: 'Đã cập nhật', timer: 800, toast: true, position: 'top-end', showConfirmButton: false });
+                                    } catch (err) {
+                                      Swal.fire({ icon: 'error', title: 'Lỗi', text: err.response?.data?.message || 'Không thể cập nhật' });
+                                    }
+                                  }}
+                                  disabled={getEditStock() < item.quantity}
+                                  className="px-6 py-2 bg-amber-500 text-gray-900 text-[9px] font-black uppercase rounded-xl shadow-lg shadow-amber-500/20 disabled:opacity-30"
+                                >
+                                   Xác nhận
+                                </button>
+                              </div>
+                           </div>
+                        </div>
+                      )}
+                      
+                      {/* Shop Information */}
+                      {item.product?.shop && (
+                        <div className="flex items-center gap-4 pt-2 group/shop">
+                           <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 rounded-full border border-amber-100 text-[9px] font-black uppercase tracking-widest transition-all group-hover/shop:bg-amber-100">
+                             🏦 {item.product.shop.name}
+                           </div>
+                           <span className="text-[9px] text-gray-400 font-bold truncate max-w-[150px]">📍 {item.product.shop.address || 'Hà Nội'}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                );
-              })}
+                  
+                  <div className="col-span-1 md:col-span-2 flex md:justify-center items-center">
+                    <span className="md:hidden font-black text-gray-400 mr-2 text-[10px] uppercase tracking-widest">Đơn giá:</span>
+                    <span className="font-bold text-gray-800 text-lg tracking-tight">{formatPrice(item.product.price)}</span>
+                  </div>
+                  
+                  <div className="col-span-1 md:col-span-2 flex md:justify-center items-center">
+                    <span className="md:hidden font-black text-gray-400 mr-2 text-[10px] uppercase tracking-widest">Số lượng:</span>
+                    <div className="flex items-center bg-gray-50 rounded-2xl p-1 border border-gray-100 h-10 w-28">
+                      <button 
+                        onClick={() => updateQuantity(item.product._id, item.color, item.size, item.quantity - 1)}
+                        className="w-8 h-8 rounded-xl bg-white text-gray-800 flex items-center justify-center transition-all hover:bg-amber-500 hover:text-white shadow-sm active:scale-90"
+                      >-</button>
+                      <input 
+                        type="text" 
+                        value={item.quantity} 
+                        readOnly 
+                        className="flex-1 bg-transparent text-center text-sm font-black text-gray-900 outline-none"
+                      />
+                      <button 
+                        onClick={() => updateQuantity(item.product._id, item.color, item.size, item.quantity + 1)}
+                        className="w-8 h-8 rounded-xl bg-white text-gray-800 flex items-center justify-center transition-all hover:bg-amber-500 hover:text-white shadow-sm active:scale-90"
+                      >+</button>
+                    </div>
+                  </div>
+                  
+                  <div className="col-span-1 md:col-span-2 flex justify-between md:justify-end items-center pr-4">
+                    <span className="md:hidden font-black text-gray-400 text-[10px] uppercase tracking-widest">Giá tạm tính:</span>
+                    <div className="text-right">
+                       <div className="font-black text-amber-500 text-xl tracking-tighter italic">{formatPrice(item.product.price * item.quantity)}</div>
+                    </div>
+                    {/* Nút xóa desktop */}
+                    <button 
+                      onClick={() => handleRemove(item.product._id, item.color, item.size)}
+                      className="hidden md:flex ml-6 text-gray-200 hover:text-red-500 transition-all p-2 bg-gray-50 hover:bg-red-50 border border-transparent hover:border-red-100 rounded-2xl group/del"
+                      title="Xóa sản phẩm"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 group-hover/del:scale-110 transition-transform" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
 
-              <div className="flex justify-between mt-4">
+              <div className="flex justify-between items-center pt-4">
                 <Link 
                   to="/" 
-                  className="text-sm font-bold text-amber-600 flex items-center gap-1 hover:text-amber-700 transition-colors"
+                  className="px-8 py-4 bg-white rounded-2xl border border-gray-100 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 hover:text-amber-500 hover:border-amber-500 transition-all shadow-sm flex items-center gap-3"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                  </svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                   Tiếp Tục Mua Sắm
                 </Link>
                 <button 
-                  onClick={clearCart}
-                  className="text-sm font-bold text-gray-500 flex items-center gap-1 hover:text-red-500 transition-colors"
+                  onClick={handleClearCart}
+                  className="px-8 py-4 bg-red-50/50 rounded-2xl border border-red-100 text-[10px] font-black uppercase tracking-[0.2em] text-red-400 hover:bg-red-500 hover:text-white transition-all shadow-sm flex items-center gap-3"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  Xóa tất cả sản phẩm
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  Dọn dẹp giỏ hàng
                 </button>
               </div>
             </div>
 
             {/* Panel Thanh toán */}
-            <div className="w-full lg:w-[350px]">
-              <div className="bg-white rounded-xl shadow-xl shadow-gray-200/40 border border-amber-100 p-6 sticky top-24">
-                <h3 className="text-lg font-black text-gray-900 mb-6 uppercase tracking-wide border-b pb-4">Tóm tắt đơn hàng</h3>
+            <div className="w-full lg:w-[400px]">
+              <div className="bg-white rounded-[3rem] shadow-2xl shadow-gray-200/50 border border-gray-100 p-10 sticky top-32 overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full -mr-16 -mt-16 blur-3xl"></div>
                 
-                <div className="space-y-4 mb-6 text-sm text-gray-600">
-                  <div className="flex justify-between">
-                    <span>Tổng tiền hàng</span>
-                    <span className="font-semibold text-gray-900">{formatPrice(getCartTotal())}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Phí vận chuyển</span>
-                    <span className="font-semibold text-gray-900">Tính khi thanh toán</span>
-                  </div>
-                </div>
-
-                <div className="border-t border-dashed border-gray-200 pt-4 mb-8">
+                <h3 className="text-xl font-black text-gray-900 mb-8 uppercase tracking-tighter italic border-b border-gray-50 pb-6 flex items-center justify-between">
+                   Tạm Tính <span className="text-amber-500">Đơn Hàng</span>
+                </h3>
+                
+                <div className="space-y-5 mb-10">
                   <div className="flex justify-between items-center">
-                    <span className="font-bold text-gray-900 uppercase">Tổng cộng</span>
-                    <span className="text-2xl font-black text-amber-600">{formatPrice(getCartTotal())}</span>
+                    <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Tổng tiền hàng</span>
+                    <span className="font-bold text-gray-900 text-lg tracking-tight">{formatPrice(getCartTotal())}</span>
                   </div>
-                  <p className="text-right text-xs text-gray-400 mt-1">(Đã bao gồm VAT nếu có)</p>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Phí vận chuyển</span>
+                    <span className="text-[10px] font-black uppercase text-green-500 tracking-widest bg-green-50 px-3 py-1 rounded-full border border-green-100">Miễn Phí 🚀</span>
+                  </div>
+                  <div className="flex justify-between items-center py-4 border-t border-dashed border-gray-100 mt-6">
+                    <span className="font-black text-gray-900 uppercase tracking-tighter text-sm italic">Tổng cộng thanh toán</span>
+                    <div className="text-right">
+                       <div className="text-3xl font-black text-amber-500 tracking-tighter italic">{formatPrice(getCartTotal())}</div>
+                       <p className="text-[9px] text-gray-400 font-bold uppercase mt-1">(Đã bao gồm thuế GTGT)</p>
+                    </div>
+                  </div>
                 </div>
 
                 <button 
-                  onClick={() => alert("Chức năng thanh toán đang được phát triển")}
-                  className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white font-black uppercase tracking-widest py-4 rounded-xl hover:shadow-lg hover:shadow-amber-500/30 transition-all active:scale-[0.98]"
+                  onClick={() => alert("Hệ thống thanh toán Petrolimex đang được nâng cấp!")}
+                  className="w-full bg-gray-900 text-white font-black uppercase tracking-[0.2em] py-6 rounded-[2rem] hover:bg-amber-500 hover:text-gray-900 transition-all shadow-2xl shadow-gray-300 active:scale-95 text-xs"
                 >
-                  Tiến Hành Đặt Hàng
+                  THANH TOÁN NGAY
                 </button>
                 
-                <div className="mt-4 flex justify-between items-center text-xs text-gray-500 font-medium bg-gray-50 p-3 rounded-lg border border-gray-100">
-                  <span className="flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" /></svg>
-                    Bảo mật 100%
-                  </span>
-                  <span>Hoàn trả 7 ngày</span>
+                <div className="mt-8 grid grid-cols-2 gap-4">
+                   <div className="bg-gray-50 p-4 rounded-[1.5rem] border border-gray-100 text-center">
+                      <div className="text-xl mb-1">🛡️</div>
+                      <p className="text-[8px] font-black uppercase text-gray-400 tracking-widest">Bảo mật tuyệt đối</p>
+                   </div>
+                   <div className="bg-gray-50 p-4 rounded-[1.5rem] border border-gray-100 text-center">
+                      <div className="text-xl mb-1">🚚</div>
+                      <p className="text-[8px] font-black uppercase text-gray-400 tracking-widest">Giao hàng 2h</p>
+                   </div>
                 </div>
               </div>
             </div>
@@ -335,10 +366,16 @@ export default function Cart() {
         )}
       </main>
 
-      {/* FOOTER */}
-      <footer className="bg-white border-t-4 border-amber-500 py-6 text-center text-gray-500 text-sm mt-auto">
-         <p>© 2026 Petrolimex Fashion. All Rights Reserved.</p>
+      <footer className="bg-white border-t border-gray-100 py-10 text-center text-[10px] font-black uppercase tracking-[0.3em] text-gray-300 mt-20">
+         <p>© 2026 Petrolimex Fashion. Sự lựa chọn của đẳng cấp.</p>
       </footer>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .animate-fadeIn { animation: fadeIn 0.6s ease-out forwards; }
+        .animate-scaleIn { animation: scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+      `}} />
     </div>
   );
 }

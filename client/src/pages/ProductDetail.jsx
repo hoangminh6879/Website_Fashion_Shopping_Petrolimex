@@ -161,7 +161,7 @@ export default function ProductDetail() {
   );
 
   return (
-    <div className="bg-gray-50 min-h-screen font-sans pb-20">
+    <div className="bg-gray-50 min-h-screen font-sans pb-20 pt-32 md:pt-44">
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 bg-white p-8 rounded-3xl shadow-xl shadow-gray-200/50">

@@ -3,13 +3,31 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import Swal from 'sweetalert2';
 import Cropper from 'react-easy-crop';
+import Navbar from '../components/Navbar';
 
 export default function Profile() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('personal'); // 'personal', 'addresses', 'security', 'seller'
+  
+  // Personal Info State
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({ name: '', phone: '', address: '' });
   const [isSaving, setIsSaving] = useState(false);
+
+  // Addresses State
+  const [addresses, setAddresses] = useState([]);
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState(null);
+  const [addressForm, setAddressForm] = useState({
+    receiverName: '',
+    phone: '',
+    street: '',
+    ward: '',
+    district: '',
+    city: '',
+    isDefault: false
+  });
 
   // Seller Request State
   const [showSellerModal, setShowSellerModal] = useState(false);
@@ -18,7 +36,6 @@ export default function Profile() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   // Change Password State
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
@@ -34,24 +51,35 @@ export default function Profile() {
   const [showCropper, setShowCropper] = useState(false);
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const res = await api.get('/auth/me');
-        setUser(res.data);
-        setForm({
-          name: res.data.name || '',
-          phone: res.data.phone || '',
-          address: res.data.address || ''
-        });
-      } catch (err) {
-        console.error("Error fetching profile:", err);
-        navigate('/login');
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchProfile();
-  }, [navigate]);
+    fetchAddresses();
+  }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const res = await api.get('/auth/me');
+      setUser(res.data);
+      setForm({
+        name: res.data.name || '',
+        phone: res.data.phone || '',
+        address: res.data.address || ''
+      });
+    } catch (err) {
+      console.error("Error fetching profile:", err);
+      navigate('/login');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchAddresses = async () => {
+    try {
+      const res = await api.get('/users/addresses');
+      setAddresses(res.data);
+    } catch (err) {
+      console.error("Error fetching addresses:", err);
+    }
+  };
 
   const onCropComplete = useCallback((croppedArea, croppedAreaPixels) => {
     setCroppedAreaPixels(croppedAreaPixels);
@@ -68,61 +96,39 @@ export default function Profile() {
 
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-
     canvas.width = pixelCrop.width;
     canvas.height = pixelCrop.height;
-
     ctx.drawImage(
       image,
-      pixelCrop.x,
-      pixelCrop.y,
-      pixelCrop.width,
-      pixelCrop.height,
-      0,
-      0,
-      pixelCrop.width,
-      pixelCrop.height
+      pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height,
+      0, 0, pixelCrop.width, pixelCrop.height
     );
-
     return new Promise((resolve) => {
-      canvas.toBlob((blob) => {
-        resolve(blob);
-      }, 'image/jpeg');
+      canvas.toBlob((blob) => resolve(blob), 'image/jpeg');
     });
   };
 
-  const handleSave = async () => {
+  const handleSaveProfile = async () => {
     setIsSaving(true);
     try {
       const res = await api.put('/auth/me', form);
       setUser(res.data);
       setIsEditing(false);
-      Swal.fire({
-        icon: 'success',
-        title: 'Tuyệt vời!',
-        text: 'Cập nhật thông tin tài khoản thành công!',
-        confirmButtonColor: '#f59e0b'
-      });
+      Swal.fire({ icon: 'success', title: 'Thành công', text: 'Đã cập nhật thông tin cá nhân!', confirmButtonColor: '#f59e0b' });
     } catch (err) {
-      console.error("Error updating profile:", err);
-      Swal.fire({
-        icon: 'error',
-        title: 'Lỗi!',
-        text: err.response?.data?.message || 'Không thể cập nhật hồ sơ!',
-        confirmButtonColor: '#f59e0b'
-      });
+      Swal.fire({ icon: 'error', title: 'Lỗi', text: err.response?.data?.message || 'Không thể cập nhật!', confirmButtonColor: '#f59e0b' });
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleFileChange = (e) => {
-    if (e.target.files && e.target.files.length > 0) {
+    if (e.target.files?.[0]) {
       const reader = new FileReader();
-      reader.addEventListener('load', () => {
+      reader.onload = () => {
         setImageToCrop(reader.result);
         setShowCropper(true);
-      });
+      };
       reader.readAsDataURL(e.target.files[0]);
     }
   };
@@ -131,97 +137,74 @@ export default function Profile() {
     try {
       const croppedImageBlob = await getCroppedImg(imageToCrop, croppedAreaPixels);
       const file = new File([croppedImageBlob], "avatar.jpg", { type: "image/jpeg" });
-
       const formData = new FormData();
       formData.append('image', file);
-
       setShowCropper(false);
-      Swal.fire({
-        title: 'Đang tải lên...',
-        didOpen: () => { Swal.showLoading(); }
-      });
-
+      Swal.fire({ title: 'Đang tải lên...', didOpen: () => Swal.showLoading() });
       const uploadRes = await api.post('/images/upload', formData);
-      const imageUrl = uploadRes.data.image.url;
-
-      const updateRes = await api.put('/auth/me', { avatar: imageUrl });
+      const updateRes = await api.put('/auth/me', { avatar: uploadRes.data.image.url });
       setUser(updateRes.data);
-
-      Swal.fire({
-        icon: 'success',
-        title: 'Thành công!',
-        text: 'Cập nhật ảnh đại diện thành công!',
-        confirmButtonColor: '#f59e0b'
-      });
+      Swal.fire({ icon: 'success', title: 'Thành công', text: 'Đã đổi ảnh đại diện!', confirmButtonColor: '#f59e0b' });
     } catch (err) {
-      console.error("Error uploading avatar:", err);
-      Swal.fire({
-        icon: 'error',
-        title: 'Lỗi!',
-        text: 'Không thể xử lý ảnh!',
-        confirmButtonColor: '#f59e0b'
-      });
+      Swal.fire({ icon: 'error', title: 'Lỗi', text: 'Lỗi xử lý ảnh!', confirmButtonColor: '#f59e0b' });
     }
   };
 
-  const handleProofChange = async (e) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      const formData = new FormData();
-      formData.append('image', file);
+  const handleAddressSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingAddressId) {
+        await api.put(`/users/addresses/${editingAddressId}`, addressForm);
+        Swal.fire('Thành công', 'Đã cập nhật địa chỉ', 'success');
+      } else {
+        await api.post('/users/addresses', addressForm);
+        Swal.fire('Thành công', 'Đã thêm địa chỉ mới', 'success');
+      }
+      setShowAddressModal(false);
+      setEditingAddressId(null);
+      setAddressForm({ receiverName: '', phone: '', street: '', ward: '', district: '', city: '', isDefault: false });
+      fetchAddresses();
+    } catch (err) {
+      Swal.fire('Lỗi', err.response?.data?.message || 'Lỗi thao tác địa chỉ', 'error');
+    }
+  };
 
-      Swal.fire({
-        title: 'Đang tải lên...',
-        didOpen: () => { Swal.showLoading(); }
-      });
+  const handleDeleteAddress = async (id) => {
+    const result = await Swal.fire({
+      title: 'Xác nhận xóa?',
+      text: "Bạn không thể hoàn tác hành động này!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Xóa ngay',
+      cancelButtonText: 'Hủy'
+    });
 
+    if (result.isConfirmed) {
       try {
-        const uploadRes = await api.post('/images/upload', formData);
-        setSellerForm({ ...sellerForm, proofImage: uploadRes.data.image.url });
-        Swal.close();
+        await api.delete(`/users/addresses/${id}`);
+        fetchAddresses();
+        Swal.fire('Đã xóa!', 'Địa chỉ đã được gỡ bỏ.', 'success');
       } catch (err) {
-        Swal.fire("Lỗi", "Tải ảnh lên thất bại", "error");
+        Swal.fire('Lỗi', 'Không thể xóa địa chỉ', 'error');
       }
     }
   };
 
-  const handleSellerSubmit = async () => {
-    if (!sellerForm.reason || !sellerForm.proofImage) {
-      Swal.fire("Lỗi", "Vui lòng nhập lý do và tải ảnh minh chứng", "warning");
-      return;
-    }
-    if (!showTerms) {
-      setShowTerms(true);
-      return;
-    }
-    if (!acceptedTerms) {
-      Swal.fire("Lỗi", "Bạn phải đồng ý với điều khoản", "warning");
-      return;
-    }
-
+  const handleSetDefaultAddress = async (id) => {
     try {
-      const res = await api.post('/users/request-seller', {
-        reason: sellerForm.reason,
-        proofImage: sellerForm.proofImage
-      });
-      setUser(res.data.user);
-      setShowSellerModal(false);
-      setShowTerms(false);
-      setAcceptedTerms(false);
-      Swal.fire("Thành công", "Đã gửi yêu cầu", "success");
+      await api.put(`/users/addresses/${id}`, { isDefault: true });
+      fetchAddresses();
     } catch (err) {
-      Swal.fire("Lỗi", err.response?.data?.message || "Lỗi gửi yêu cầu", "error");
+      Swal.fire('Lỗi', 'Không thể đặt mặc định', 'error');
     }
   };
 
   const handlePasswordChange = async () => {
-    if (!passwordForm.newPassword || !passwordForm.confirmPassword) {
-      return Swal.fire("Lỗi", "Vui lòng nhập đầy đủ thông tin", "warning");
-    }
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      return Swal.fire("Lỗi", "Mật khẩu mới không khớp", "warning");
+      return Swal.fire("Lỗi", "Mật khẩu xác nhận không khớp", "warning");
     }
-
     setIsChangingPassword(true);
     try {
       await api.post('/auth/change-password', {
@@ -229,7 +212,6 @@ export default function Profile() {
         newPassword: passwordForm.newPassword
       });
       Swal.fire("Thành công", "Đã đổi mật khẩu", "success");
-      setShowPasswordModal(false);
       setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
     } catch (err) {
       Swal.fire("Lỗi", err.response?.data?.message || "Lỗi đổi mật khẩu", "error");
@@ -238,382 +220,537 @@ export default function Profile() {
     }
   };
 
-  const getFullUrl = (url) => {
-    if (!url) return null;
-    if (url.startsWith('http')) return url;
-    return `http://localhost:5000${url}`;
+  const handleSellerSubmit = async () => {
+    if (!sellerForm.reason || !sellerForm.proofImage) {
+      return Swal.fire("Lỗi", "Vui lòng nhập lý do và tải ảnh minh chứng", "warning");
+    }
+    if (!acceptedTerms) {
+      return Swal.fire("Lỗi", "Bạn phải đồng ý với điều khoản", "warning");
+    }
+    try {
+      const res = await api.post('/users/request-seller', sellerForm);
+      setUser(res.data.user);
+      setShowSellerModal(false);
+      Swal.fire("Thành công", "Yêu cầu đã được gửi, vui lòng chờ duyệt!", "success");
+    } catch (err) {
+      Swal.fire("Lỗi", err.response?.data?.message || "Lỗi gửi yêu cầu", "error");
+    }
   };
 
-  if (loading) {
+  const formatAddress = (addr) => {
+    return `${addr.street}, ${addr.ward}, ${addr.district}, ${addr.city}`;
+  };
+
+  if (loading || !user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center font-sans">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500"></div>
       </div>
     );
   }
 
-  if (!user) return null;
-
   return (
-    <div className="min-h-screen bg-gray-50 font-sans pb-20">
-      {/* HEADER BAR */}
-      <div className="bg-white border-b border-gray-100 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <button onClick={() => navigate('/')} className="flex items-center gap-2 text-gray-400 hover:text-amber-500 transition font-black uppercase text-[10px] tracking-widest">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-            QUAY LẠI TRANG CHỦ
-          </button>
-          <div className="text-xl font-black italic tracking-tighter text-gray-900">
-            HỒ SƠ <span className="text-amber-500">CỦA TÔI</span>
-          </div>
-          <div className="w-24"></div> {/* Spacer */}
-        </div>
-      </div>
-
-      <div className="max-w-4xl mx-auto px-4 py-12">
-        <div className="bg-white rounded-3xl shadow-xl shadow-gray-200/50 overflow-hidden border border-gray-100 flex flex-col md:flex-row">
-
-          {/* LEFT: AVATAR & QUICK INFO */}
-          <div className="bg-gradient-to-br from-gray-900 via-black to-gray-800 p-12 text-center md:w-1/3 flex flex-col items-center justify-center relative">
-            <div className="absolute top-0 left-0 w-full h-full opacity-10 mix-blend-overlay bg-gradient-to-tr from-amber-500 to-transparent"></div>
-            <div
-              className="relative mb-6 cursor-pointer group"
-              onClick={() => fileInputRef.current.click()}
-            >
-              <img
-                src={getFullUrl(user.avatar) || `https://ui-avatars.com/api/?name=${user.name}&background=f59e0b&color=fff&size=200`}
-                className="w-32 h-32 rounded-full border-4 border-amber-500/30 p-1 bg-white object-cover shadow-2xl transition duration-500 group-hover:scale-105 group-hover:border-amber-500"
-                alt="avatar"
-              />
-              <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition flex items-center justify-center border-4 border-amber-500/50">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-              </div>
-              <div className="absolute -bottom-1 -right-1 bg-amber-500 text-gray-900 p-2 rounded-full border-2 border-gray-900 shadow-lg">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path></svg>
-              </div>
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                className="hidden"
-                accept="image/*"
-              />
-            </div>
-            <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-1 select-none">{user.name}</h2>
-            <div className="px-3 py-1 bg-amber-500/20 text-amber-500 border border-amber-500/30 rounded-full text-[10px] font-black uppercase tracking-[0.2em] mb-4">
-              {user.role} Account
-            </div>
-            <p className="text-gray-400 text-xs font-medium italic select-none">ID: #{user._id.slice(-8).toUpperCase()}</p>
-          </div>
-
-          {/* RIGHT: DETAILS */}
-          <div className="p-12 flex-1 space-y-8">
-            <div className="space-y-6">
-              <h3 className="text-xs font-black uppercase text-gray-400 tracking-[0.3em] border-b border-gray-100 pb-3 flex items-center justify-between">
-                Thông tin cá nhân
-                <span className="text-amber-500">Petrolimex Fashion</span>
-              </h3>
-
-              <div className="grid grid-cols-1 gap-6">
-                <div>
-                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block">Họ và tên</label>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={form.name}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      className="w-full bg-gray-50 px-4 py-3 rounded-xl border-2 border-amber-500/20 focus:border-amber-500 focus:bg-white outline-none transition font-bold text-gray-800 shadow-inner"
-                    />
-                  ) : (
-                    <div className="bg-gray-50 px-4 py-3 rounded-xl border border-gray-100 font-bold text-gray-800">{user.name}</div>
-                  )}
-                </div>
-                <div>
-                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block">Địa chỉ Email</label>
-                  <div className="bg-gray-50 px-4 py-3 rounded-xl border border-gray-100 font-bold text-gray-400 italic">{user.email} (Không thể chỉnh sửa)</div>
-                </div>
-                <div>
-                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block">Số điện thoại</label>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      placeholder="Nhập số điện thoại"
-                      value={form.phone}
-                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                      className="w-full bg-gray-50 px-4 py-3 rounded-xl border-2 border-amber-500/20 focus:border-amber-500 focus:bg-white outline-none transition font-bold text-gray-800 shadow-inner"
-                    />
-                  ) : (
-                    <div className={`bg-gray-50 px-4 py-3 rounded-xl border border-gray-100 font-bold ${user.phone ? 'text-gray-800' : 'text-gray-400 italic'}`}>
-                      {user.phone || 'Chưa cập nhật'}
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block">Địa chỉ giao hàng</label>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      placeholder="Nhập địa chỉ nhận hàng"
-                      value={form.address}
-                      onChange={(e) => setForm({ ...form, address: e.target.value })}
-                      className="w-full bg-gray-50 px-4 py-3 rounded-xl border-2 border-amber-500/20 focus:border-amber-500 focus:bg-white outline-none transition font-bold text-gray-800 shadow-inner"
-                    />
-                  ) : (
-                    <div className={`bg-gray-50 px-4 py-3 rounded-xl border border-gray-100 font-bold ${user.address ? 'text-gray-800' : 'text-gray-400 italic'}`}>
-                      {user.address || 'Chưa cập nhật'}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-8 flex gap-4">
-              {isEditing ? (
-                <>
-                  <button
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    className="flex-1 bg-amber-500 text-white font-black uppercase tracking-widest py-4 rounded-2xl hover:bg-amber-600 transition shadow-lg shadow-amber-500/20 text-[10px] transform active:scale-95 disabled:opacity-50"
-                  >
-                    {isSaving ? 'ĐANG LƯU...' : 'LƯU THÔNG TIN'}
-                  </button>
-                  <button
-                    onClick={() => { setIsEditing(false); setForm({ name: user.name, phone: user.phone || '', address: user.address || '' }); }}
-                    className="px-8 bg-gray-100 text-gray-500 font-black uppercase tracking-widest py-4 rounded-2xl hover:bg-gray-200 transition text-[10px]"
-                  >
-                    HUỶ
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="flex-1 bg-amber-500 text-white font-black uppercase tracking-widest py-4 rounded-2xl hover:bg-amber-600 transition shadow-lg shadow-amber-500/20 text-[10px] transform active:scale-95"
+    <div className="min-h-screen bg-[#FBFBFB] font-sans pb-20 overflow-x-hidden">
+      <Navbar />
+      
+      <div className="max-w-6xl mx-auto px-4 py-12 mt-44">
+        <div className="flex flex-col lg:flex-row gap-8 items-start">
+          
+          {/* SIDEBAR */}
+          <div className="w-full lg:w-72 space-y-6 flex-shrink-0 animate-fadeInLeft">
+            <div className="bg-white rounded-[2.5rem] p-8 shadow-2xl shadow-gray-200/50 border border-gray-100 flex flex-col items-center">
+              <div className="relative group mb-6">
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full blur-[20px] opacity-20 group-hover:opacity-40 transition-opacity"></div>
+                <img
+                  src={user.avatar ? (user.avatar.startsWith('http') ? user.avatar : `http://localhost:5000${user.avatar}`) : `https://ui-avatars.com/api/?name=${user.name}&background=f59e0b&color=fff&size=200`}
+                  className="w-32 h-32 rounded-full border-2 border-white p-1 object-cover shadow-2xl relative z-10 transition-transform duration-500 group-hover:scale-105"
+                  alt="avatar"
+                />
+                <button 
+                  onClick={() => fileInputRef.current.click()}
+                  className="absolute bottom-1 right-1 bg-gray-900 text-white p-2.5 rounded-full border-2 border-white shadow-xl hover:bg-amber-500 transition-all z-20 hover:scale-110 active:scale-90"
                 >
-                  CHỈNH SỬA HỒ SƠ
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                 </button>
-              )}
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+              </div>
+              <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter text-center line-clamp-1">{user.name}</h2>
+              <p className="text-gray-400 text-[9px] font-black uppercase tracking-[0.3em] mt-2 mb-4">MEMBER ID: {user._id.slice(-6).toUpperCase()}</p>
+              <div className="px-6 py-2 bg-gradient-to-r from-gray-900 to-black text-amber-500 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-gray-800 shadow-lg">
+                {user.role} Status
+              </div>
+            </div>
 
-              {!isEditing && (
-                <button
+            <nav className="bg-white rounded-[2.5rem] p-4 shadow-2xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
+              <div className="space-y-1">
+                {[
+                  { id: 'personal', label: 'Hồ Sơ Cá Nhân', icon: '👤' },
+                  { id: 'addresses', label: 'Sổ Địa Chỉ', icon: '📍' },
+                  { id: 'security', label: 'Bảo Mật', icon: '🔒' },
+                  { id: 'seller', label: 'Kênh Người Bán', icon: '💰', hide: user.role !== 'user' }
+                ].filter(item => !item.hide).map(item => (
+                  <button 
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    className={`w-full flex items-center gap-4 px-6 py-4 rounded-3xl transition-all font-black text-[11px] uppercase tracking-widest ${activeTab === item.id ? 'bg-gray-900 text-amber-500 shadow-xl shadow-gray-300' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-900'}`}
+                  >
+                    <span className="text-xl opacity-80">{item.icon}</span> {item.label}
+                  </button>
+                ))}
+              </div>
+              <div className="border-t border-gray-50 mt-4 pt-4">
+                <button 
                   onClick={() => { localStorage.removeItem('token'); navigate('/'); window.location.reload(); }}
-                  className="px-8 bg-red-50 text-red-500 font-black uppercase tracking-widest py-4 rounded-2xl hover:bg-red-100 transition text-[10px]"
+                  className="w-full flex items-center gap-4 px-6 py-4 rounded-3xl text-red-500 font-black text-[11px] uppercase tracking-widest hover:bg-red-50 transition-all"
                 >
-                  ĐĂNG XUẤT
+                  <span className="text-xl opacity-80">🚪</span> Đăng Xuất
                 </button>
+              </div>
+            </nav>
+          </div>
+
+          {/* MAIN CONTENT AREA */}
+          <div className="flex-1 w-full animate-fadeInUp">
+            <div className="bg-white rounded-[3rem] shadow-2xl shadow-gray-200/50 border border-gray-100 p-8 md:p-12 min-h-[650px] relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full -mr-32 -mt-32 blur-[80px]"></div>
+              
+              {/* TAB: Personal Info */}
+              {activeTab === 'personal' && (
+                <div className="space-y-10">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-50 pb-8">
+                    <div>
+                        <h3 className="text-3xl font-black italic uppercase tracking-tighter text-gray-900">Chi Tiết <span className="text-amber-500">Tài Khoản</span></h3>
+                        <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest mt-1">Cập nhật thông tin định danh của bạn</p>
+                    </div>
+                    <button 
+                      onClick={() => isEditing ? handleSaveProfile() : setIsEditing(true)}
+                      className={`px-10 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-xl ${isEditing ? 'bg-amber-500 text-gray-900 hover:bg-amber-600' : 'bg-gray-900 text-white hover:bg-amber-500 hover:text-gray-900'}`}
+                    >
+                      {isEditing ? (isSaving ? 'ĐANG LƯU...' : 'LƯU THÔNG TIN') : 'CHỈNH SỬA'}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8">
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest flex items-center gap-2">
+                         Họ và tên <span className="text-red-500">*</span>
+                      </label>
+                      <input 
+                        disabled={!isEditing}
+                        value={form.name}
+                        onChange={(e) => setForm({...form, name: e.target.value})}
+                        className={`w-full px-6 py-4 rounded-2xl font-bold transition-all border-2 text-sm ${isEditing ? 'bg-white border-amber-500/30 focus:border-amber-500 outline-none shadow-xl shadow-amber-500/5' : 'bg-gray-50/50 border-gray-100 text-gray-400 italic cursor-not-allowed'}`}
+                        placeholder="Nhập họ và tên đầy đủ"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Địa chỉ Email</label>
+                      <div className="relative">
+                        <input 
+                          disabled
+                          value={user.email}
+                          className="w-full px-6 py-4 rounded-2xl font-bold bg-gray-50/50 border-2 border-gray-100 text-gray-400 italic cursor-not-allowed text-sm"
+                        />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-200">🔒</span>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Số điện thoại liên hệ</label>
+                      <input 
+                        disabled={!isEditing}
+                        value={form.phone}
+                        onChange={(e) => setForm({...form, phone: e.target.value})}
+                        className={`w-full px-6 py-4 rounded-2xl font-bold transition-all border-2 text-sm ${isEditing ? 'bg-white border-amber-500/30 focus:border-amber-500 outline-none shadow-xl shadow-amber-500/5' : 'bg-gray-50/50 border-gray-100 text-gray-400 italic cursor-not-allowed'}`}
+                        placeholder="09xx xxx xxx"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="pt-10 bg-gray-50/50 p-8 rounded-[2rem] border border-gray-100 mt-12">
+                     <div className="flex items-center gap-4 text-amber-600 mb-2">
+                        <span className="text-2xl">⚡</span>
+                        <h4 className="text-xs font-black uppercase tracking-widest">Đặc quyền Thành viên</h4>
+                     </div>
+                     <p className="text-[11px] text-gray-400 font-medium leading-relaxed">Là thành viên của Petrolimex Fashion, bạn được hưởng các ưu đãi độc quyền: Miễn phí vận chuyển cho đơn từ 2 triệu, Ưu tiên hỗ trợ 24/7 và Hoàn tiền 2% cho mỗi đơn hàng thành công.</p>
+                  </div>
+                </div>
               )}
 
-              {!isEditing && (
-                <button
-                  onClick={() => setShowPasswordModal(true)}
-                  className="px-8 bg-amber-50 text-amber-600 font-black uppercase tracking-widest py-4 rounded-2xl hover:bg-amber-100 transition text-[10px]"
-                >
-                  ĐỔI MẬT KHẨU
-                </button>
+              {/* TAB: Address Book */}
+              {activeTab === 'addresses' && (
+                <div className="space-y-10">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-50 pb-8">
+                     <div>
+                        <h3 className="text-3xl font-black italic uppercase tracking-tighter text-gray-900">Sổ <span className="text-amber-500">Địa Chỉ</span></h3>
+                        <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest mt-1">Quản lý các điểm giao nhận hàng của bạn</p>
+                     </div>
+                    <button 
+                      onClick={() => {
+                        setEditingAddressId(null);
+                        setAddressForm({ receiverName: '', phone: '', street: '', ward: '', district: '', city: '', isDefault: false });
+                        setShowAddressModal(true);
+                      }}
+                      className="bg-gray-900 text-amber-500 px-10 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-amber-500 hover:text-gray-900 transition-all shadow-xl shadow-gray-200"
+                    >
+                      + THÊM ĐỊA CHỈ MỚI
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-6">
+                    {addresses.length > 0 ? addresses.map(addr => (
+                      <div key={addr._id} className={`p-8 rounded-[2.5rem] border-2 transition-all relative group overflow-hidden ${addr.isDefault ? 'border-amber-500 bg-amber-50/10' : 'border-gray-50 hover:border-gray-200 bg-gray-50/30'}`}>
+                        {addr.isDefault && (
+                           <div className="absolute top-0 right-0 bg-amber-500 text-gray-900 px-8 py-1.5 font-black uppercase text-[8px] tracking-[0.2em] rotate-45 translate-x-10 translate-y-4 shadow-lg">
+                              MẶC ĐỊNH
+                           </div>
+                        )}
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-xl shadow-lg border border-gray-100">
+                                 👤
+                              </div>
+                              <div>
+                                 <span className="font-black text-gray-900 uppercase tracking-tight text-lg">{addr.receiverName}</span>
+                                 <p className="text-xs text-amber-600 font-bold">📞 {addr.phone}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-start gap-3 pl-2">
+                               <span className="text-amber-500 mt-0.5">📍</span>
+                               <span className="text-sm text-gray-600 font-bold leading-relaxed">{formatAddress(addr)}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4 w-full md:w-auto">
+                             <button 
+                                onClick={() => {
+                                  setEditingAddressId(addr._id);
+                                  setAddressForm({...addr});
+                                  setShowAddressModal(true);
+                                }}
+                                className="flex-1 md:flex-none px-6 py-2.5 bg-white border border-gray-200 rounded-xl text-[9px] font-black uppercase tracking-widest text-gray-500 hover:border-amber-500 hover:text-amber-600 transition-all shadow-sm"
+                             >
+                               SỬA
+                             </button>
+                             {!addr.isDefault && (
+                               <>
+                                 <button 
+                                   onClick={() => handleDeleteAddress(addr._id)}
+                                   className="flex-1 md:flex-none px-6 py-2.5 bg-white border border-gray-200 rounded-xl text-[9px] font-black uppercase tracking-widest text-gray-400 hover:border-red-500 hover:text-red-500 transition-all shadow-sm"
+                                 >
+                                   XÓA
+                                 </button>
+                                 <button 
+                                   onClick={() => handleSetDefaultAddress(addr._id)}
+                                   className="flex-1 md:flex-none px-6 py-2.5 bg-amber-50 text-amber-600 border border-amber-100 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-amber-500 hover:text-white transition-all shadow-sm"
+                                 >
+                                   MẶC ĐỊNH
+                                 </button>
+                               </>
+                             )}
+                          </div>
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="py-24 text-center bg-gray-50/50 rounded-[3rem] border-2 border-dashed border-gray-200">
+                         <div className="text-6xl mb-6 opacity-20">📫</div>
+                         <p className="text-gray-400 font-black uppercase text-[10px] tracking-[0.3em]">Chưa có địa chỉ nào được lưu</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
+
+              {/* TAB: Security */}
+              {activeTab === 'security' && (
+                <div className="space-y-10">
+                   <div className="border-b border-gray-50 pb-8">
+                      <h3 className="text-3xl font-black italic uppercase tracking-tighter text-gray-900">Bảo Mật <span className="text-amber-500">Tài Khoản</span></h3>
+                      <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest mt-1">Quản lý mật khẩu và các yếu tố an ninh</p>
+                   </div>
+
+                  <div className="max-w-md space-y-8">
+                    <div className="bg-gradient-to-br from-amber-500 to-amber-600 p-8 rounded-[2.5rem] text-gray-900 shadow-xl shadow-amber-500/10">
+                       <h4 className="font-black uppercase text-xs mb-3 italic">Khuyến nghị bảo mật</h4>
+                       <p className="text-[11px] font-bold leading-relaxed opacity-90">Hãy thay đổi mật khẩu ít nhất 3 tháng một lần và sử dụng các ký tự đặc biệt để đảm bảo an toàn tối đa cho tài khoản của bạn.</p>
+                    </div>
+
+                    <div className="space-y-5">
+                      {[
+                        { label: 'Mật khẩu hiện tại', key: 'oldPassword' },
+                        { label: 'Mật khẩu mới', key: 'newPassword' },
+                        { label: 'Xác nhận mật khẩu mới', key: 'confirmPassword' }
+                      ].map(field => (
+                        <div key={field.key} className="space-y-3">
+                          <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest">{field.label}</label>
+                          <input 
+                            type="password"
+                            value={passwordForm[field.key]}
+                            onChange={(e) => setPasswordForm({...passwordForm, [field.key]: e.target.value})}
+                            className="w-full px-6 py-4 rounded-2xl bg-gray-50/50 border-2 border-gray-100 focus:border-amber-500 outline-none font-bold transition-all shadow-inner text-sm"
+                            placeholder="••••••••"
+                          />
+                        </div>
+                      ))}
+                      <button 
+                        onClick={handlePasswordChange}
+                        disabled={isChangingPassword}
+                        className="w-full bg-gray-900 text-white py-6 rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-amber-500 hover:text-gray-900 transition-all shadow-2xl shadow-gray-300 mt-6 active:scale-95"
+                      >
+                        {isChangingPassword ? 'ĐANG CẬP NHẬT...' : 'CẬP NHẬT MẬT KHẨU TÀI KHOẢN'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: Seller Request */}
+              {activeTab === 'seller' && (
+                <div className="space-y-10">
+                   <div className="border-b border-gray-50 pb-8">
+                      <h3 className="text-3xl font-black italic uppercase tracking-tighter text-gray-900">Trở Thành <span className="text-amber-500">Đối Tác</span></h3>
+                      <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest mt-1">Đăng ký gian hàng kinh doanh trên hệ thống</p>
+                   </div>
+
+                  {user.sellerRequest?.status === 'pending' ? (
+                     <div className="bg-amber-50 p-12 rounded-[3rem] border border-amber-100 text-center py-24 shadow-inner">
+                        <div className="text-7xl mb-8 animate-bounce">⏳</div>
+                        <h4 className="text-2xl font-black uppercase tracking-tighter text-gray-900 mb-3 italic">Yêu cầu đang được xác thực</h4>
+                        <p className="text-sm text-gray-500 font-bold max-w-sm mx-auto leading-relaxed">Đội ngũ kiểm duyệt đang xem xét hồ sơ của bạn. Quy trình này thường mất từ 12-24 giờ làm việc.</p>
+                     </div>
+                  ) : (
+                    <div className="bg-gray-900 text-white p-12 md:p-16 rounded-[4rem] relative overflow-hidden shadow-2xl group">
+                       <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/20 blur-[100px] rounded-full -mr-40 -mt-40 group-hover:scale-125 transition-transform duration-1000"></div>
+                       <div className="absolute bottom-0 left-0 w-64 h-64 bg-amber-500/10 blur-[80px] rounded-full -ml-32 -mb-32"></div>
+                       
+                       <div className="relative z-10 space-y-8">
+                          <h4 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter leading-none">Kiến tạo <br/> <span className="text-amber-500">Sự Thắng Lợi</span></h4>
+                          <p className="text-gray-400 max-w-lg font-medium text-sm leading-relaxed">Gia nhập cộng đồng người bán cao cấp, nơi thương hiệu của bạn được nâng tầm với hệ sinh thái vận chuyển và marketing hàng đầu Việt Nam.</p>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 pt-4">
+                             {[
+                               'Không phí đăng ký', 'Marketing đa kênh', 'Báo cáo doanh thu realtime', 'Hỗ trợ logistics 24/7'
+                             ].map(benefit => (
+                               <div key={benefit} className="flex items-center gap-3 text-xs font-black uppercase tracking-widest text-amber-500/80">
+                                  <span className="w-5 h-5 bg-amber-500/20 rounded-full flex items-center justify-center text-[8px] text-amber-500">✔</span>
+                                  {benefit}
+                               </div>
+                             ))}
+                          </div>
+
+                          <button 
+                            onClick={() => setShowSellerModal(true)}
+                            className="bg-amber-500 text-gray-900 px-12 py-6 rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-white transition-all shadow-2xl shadow-amber-500/20 hover:scale-105 active:scale-95 mt-4"
+                          >
+                            ĐĂNG KÝ GIAN HÀNG NGAY
+                          </button>
+                       </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
             </div>
           </div>
         </div>
-
-        {/* Nâng Cấp Seller Section */}
-        {user.role === 'user' && (
-          <div className="mt-8 bg-white p-8 rounded-3xl shadow-xl shadow-gray-200/50 border border-amber-100 flex flex-col md:flex-row gap-6 items-center justify-between">
-            <div>
-              <h3 className="text-xl font-black text-gray-900 mb-2">Trở Thành Đối Tác Bán Hàng</h3>
-              <p className="text-gray-500 text-sm">Mở gian hàng của riêng bạn và bắt đầu kinh doanh trên Petrolimex Fashion.</p>
-
-              {user.sellerRequest?.status === "pending" && (
-                <div className="mt-4 px-4 py-2 bg-amber-50 text-amber-700 font-bold text-sm border border-amber-200 rounded-lg inline-block">
-                  Yêu cầu của bạn đang chờ phê duyệt.
-                </div>
-              )}
-              {user.sellerRequest?.status === "rejected" && (
-                <div className="mt-4 px-4 py-2 bg-red-50 text-red-700 font-bold text-sm border border-red-200 rounded-lg inline-block">
-                  Yêu cầu của bạn bị từ chối. Lời nhắn: Vui lòng kiểm tra lại thông tin.
-                </div>
-              )}
-            </div>
-            {user.sellerRequest?.status !== "pending" && (
-              <button
-                onClick={() => setShowSellerModal(true)}
-                className="bg-gray-900 text-white font-black uppercase tracking-widest px-8 py-4 rounded-xl hover:bg-amber-500 hover:text-gray-900 shadow-xl transition"
-              >
-                Gửi Yêu Cầu
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
-      {/* Change Password Modal */}
-      {showPasswordModal && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl relative">
-            <button
-              onClick={() => setShowPasswordModal(false)}
-              className="absolute top-6 right-6 text-gray-400 hover:text-red-500 transition"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
-
-            <h3 className="text-2xl font-black text-gray-900 mb-6 uppercase tracking-tighter border-b pb-4">Đổi Mật Khẩu</h3>
-
-            <div className="space-y-4">
-              {user.googleId && !user.password ? (
-                <div className="mb-4 p-3 bg-blue-50 text-blue-700 text-xs rounded-lg border border-blue-100 font-medium">
-                  Tài khoản của bạn chưa có mật khẩu (đăng nhập bằng Google). Hãy thiết lập mật khẩu mới ngay!
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1.5">Mật khẩu cũ</label>
-                  <input
-                    type="password"
-                    value={passwordForm.oldPassword}
-                    onChange={(e) => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })}
-                    placeholder="••••••••"
-                    className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 outline-none focus:border-amber-500 transition shadow-inner"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">Mật khẩu mới</label>
-                <input
-                  type="password"
-                  value={passwordForm.newPassword}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                  placeholder="••••••••"
-                  className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 outline-none focus:border-amber-500 transition shadow-inner"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">Xác nhận mật khẩu mới</label>
-                <input
-                  type="password"
-                  value={passwordForm.confirmPassword}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                  placeholder="••••••••"
-                  className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 outline-none focus:border-amber-500 transition shadow-inner"
-                />
-              </div>
-
-              <button
-                onClick={handlePasswordChange}
-                disabled={isChangingPassword}
-                className="w-full bg-amber-500 text-white font-black uppercase tracking-widest py-4 rounded-xl shadow-lg hover:bg-amber-600 transition transform active:scale-95 disabled:opacity-50"
-              >
-                {isChangingPassword ? 'ĐANG CẬP NHẬT...' : 'CẬP NHẬT MẬT KHẨU'}
+      {/* MODALS */}
+      {/* Address Modal */}
+      {showAddressModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
+           <div className="bg-white rounded-[3rem] w-full max-w-2xl p-10 md:p-14 shadow-2xl animate-scaleIn my-10 border border-gray-100 relative">
+              <button onClick={() => setShowAddressModal(false)} className="absolute top-8 right-8 text-gray-300 hover:text-red-500 transition-colors">
+                 <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
-            </div>
-          </div>
+
+              <div className="mb-10">
+                 <h3 className="text-2xl font-black uppercase italic tracking-tighter text-gray-900">{editingAddressId ? 'Cập nhật' : 'Thêm'} <span className="text-amber-500">địa chỉ</span></h3>
+                 <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest mt-1">Thông tin này sẽ được dùng để giao hàng cho bạn</p>
+              </div>
+
+              <form onSubmit={handleAddressSubmit} className="space-y-8">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-3">
+                       <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-2">Tên người nhận</label>
+                       <input 
+                         required
+                         value={addressForm.receiverName}
+                         onChange={(e) => setAddressForm({...addressForm, receiverName: e.target.value})}
+                         className="w-full px-6 py-4 rounded-2xl bg-gray-50 border-2 border-gray-50 focus:border-amber-500 outline-none font-bold transition-all shadow-sm text-sm"
+                         placeholder="Họ và tên..."
+                       />
+                    </div>
+                    <div className="space-y-3">
+                       <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-2">Số điện thoại</label>
+                       <input 
+                         required
+                         value={addressForm.phone}
+                         onChange={(e) => setAddressForm({...addressForm, phone: e.target.value})}
+                         className="w-full px-6 py-4 rounded-2xl bg-gray-50 border-2 border-gray-50 focus:border-amber-500 outline-none font-bold transition-all shadow-sm text-sm"
+                         placeholder="09xx..."
+                       />
+                    </div>
+                 </div>
+
+                 <div className="space-y-3">
+                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-2">Địa chỉ chi tiết (Số nhà, tòa nhà...)</label>
+                    <input 
+                      required
+                      value={addressForm.street}
+                      onChange={(e) => setAddressForm({...addressForm, street: e.target.value})}
+                      className="w-full px-6 py-4 rounded-2xl bg-gray-50 border-2 border-gray-50 focus:border-amber-500 outline-none font-bold transition-all shadow-sm text-sm"
+                      placeholder="VD: 45 Lê Lợi, Tòa nhà Vincom..."
+                    />
+                 </div>
+
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-3">
+                       <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-2">Phường/Xã</label>
+                       <input required value={addressForm.ward} onChange={(e) => setAddressForm({...addressForm, ward: e.target.value})} className="w-full px-6 py-4 rounded-2xl bg-gray-50 border-2 border-gray-50 outline-none focus:border-amber-500 font-bold text-sm"/>
+                    </div>
+                    <div className="space-y-3">
+                       <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-2">Quận/Huyện</label>
+                       <input required value={addressForm.district} onChange={(e) => setAddressForm({...addressForm, district: e.target.value})} className="w-full px-6 py-4 rounded-2xl bg-gray-50 border-2 border-gray-50 outline-none focus:border-amber-500 font-bold text-sm"/>
+                    </div>
+                    <div className="space-y-3">
+                       <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-2">Tỉnh/Thành</label>
+                       <input required value={addressForm.city} onChange={(e) => setAddressForm({...addressForm, city: e.target.value})} className="w-full px-6 py-4 rounded-2xl bg-gray-50 border-2 border-gray-50 outline-none focus:border-amber-500 font-bold text-sm"/>
+                    </div>
+                 </div>
+
+                 <label className="flex items-center gap-4 cursor-pointer group w-fit pl-2">
+                    <div className="relative">
+                       <input 
+                         type="checkbox"
+                         checked={addressForm.isDefault}
+                         onChange={(e) => setAddressForm({...addressForm, isDefault: e.target.checked})}
+                         className="w-6 h-6 rounded-lg border-2 border-gray-200 checked:bg-gray-900 checked:border-gray-900 transition-all appearance-none cursor-pointer"
+                       />
+                       {addressForm.isDefault && <span className="absolute inset-0 flex items-center justify-center text-white text-[10px] font-black pointer-events-none">✓</span>}
+                    </div>
+                    <span className="text-[10px] font-black uppercase text-gray-400 group-hover:text-gray-900 transition-colors tracking-widest">Đặt làm địa chỉ nhận hàng mặc định</span>
+                 </label>
+
+                 <div className="flex gap-6 pt-10">
+                    <button type="button" onClick={() => setShowAddressModal(false)} className="flex-1 py-5 bg-gray-50 text-gray-400 rounded-3xl font-black uppercase tracking-widest text-[10px] hover:bg-gray-100 transition-all">HUỶ BỎ</button>
+                    <button type="submit" className="flex-1 py-5 bg-gray-900 text-white rounded-3xl font-black uppercase tracking-widest text-[10px] hover:bg-amber-500 hover:text-gray-900 transition-all shadow-xl shadow-gray-200">LƯU ĐỊA CHỈ NÀY</button>
+                 </div>
+              </form>
+           </div>
         </div>
       )}
 
-      {/* Seller Request Modal */}
+      {/* Seller Modal */}
       {showSellerModal && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur p-4">
-          <div className="bg-white rounded-3xl w-full max-w-lg p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => { setShowSellerModal(false); setShowTerms(false); setAcceptedTerms(false); }}
-              className="absolute top-6 right-6 text-gray-400 hover:text-red-500 transition"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
+           <div className="bg-white rounded-[3.5rem] w-full max-w-2xl p-10 md:p-14 shadow-2xl animate-scaleIn my-10 border border-gray-100 relative">
+              <button onClick={() => setShowSellerModal(false)} className="absolute top-8 right-8 text-gray-300 hover:text-red-500 transition-colors">
+                 <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
 
-            <h3 className="text-2xl font-black text-gray-900 mb-6 uppercase tracking-tighter border-b pb-4">Đăng Ký Làm Seller</h3>
+              <div className="mb-10 text-center">
+                 <h3 className="text-3xl font-black uppercase italic tracking-tighter text-gray-900">Đăng Ký <span className="text-amber-500">Người Bán</span></h3>
+                 <p className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em] mt-2">Bắt đầu hành trình triệu đô của bạn</p>
+              </div>
 
-            {!showTerms ? (
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Lý do mở shop</label>
-                  <textarea
-                    rows="4"
-                    value={sellerForm.reason}
-                    onChange={(e) => setSellerForm({ ...sellerForm, reason: e.target.value })}
-                    placeholder="Mô tả ngành hàng, quy mô và kinh nghiệm của bạn..."
-                    className="w-full bg-gray-50 p-4 rounded-xl border border-gray-200 focus:border-amber-500 focus:bg-white outline-none transition"
-                  ></textarea>
+              {!showTerms ? (
+                <div className="space-y-10">
+                   <div className="space-y-4">
+                      <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-2">Câu chuyện thương hiệu của bạn</label>
+                      <textarea 
+                        rows="4"
+                        value={sellerForm.reason}
+                        onChange={(e) => setSellerForm({...sellerForm, reason: e.target.value})}
+                        className="w-full p-8 bg-gray-50 rounded-[2.5rem] border-2 border-gray-50 focus:border-amber-500 focus:bg-white transition-all outline-none font-medium shadow-inner text-sm leading-relaxed"
+                        placeholder="Hãy chia sẻ kế hoạch kinh doanh và dòng sản phẩm định hướng của bạn..."
+                      />
+                   </div>
+
+                   <div className="space-y-4">
+                      <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-2">Giấy tờ tùy thân hoặc GPKD (Ảnh chụp)</label>
+                      <div 
+                        onClick={() => proofInputRef.current.click()}
+                        className="w-full h-56 bg-gray-50 rounded-[3rem] border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:border-amber-500 hover:bg-amber-50 transition-all group overflow-hidden relative shadow-inner"
+                      >
+                         {sellerForm.proofImage ? (
+                           <>
+                             <img src={`http://localhost:5000${sellerForm.proofImage}`} className="w-full h-full object-cover" />
+                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-black uppercase tracking-widest">Thay đổi ảnh</div>
+                           </>
+                         ) : (
+                           <div className="text-center p-8">
+                             <span className="text-5xl mb-4 block group-hover:scale-125 transition-transform duration-500">📸</span>
+                             <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest group-hover:text-amber-600 transition-colors">Tải ảnh chụp minh chứng tại đây</span>
+                             <p className="text-[8px] text-gray-300 font-bold mt-2 uppercase">(Định dạng: JPG, PNG, tối đa 5MB)</p>
+                           </div>
+                         )}
+                         <input type="file" ref={proofInputRef} className="hidden" accept="image/*" onChange={async (e) => {
+                           if (e.target.files?.[0]) {
+                             const formData = new FormData();
+                             formData.append('image', e.target.files[0]);
+                             Swal.fire({ title: 'Đang tải lên...', didOpen: () => Swal.showLoading(), allowOutsideClick: false });
+                             const res = await api.post('/images/upload', formData);
+                             setSellerForm({...sellerForm, proofImage: res.data.image.url});
+                             Swal.close();
+                           }
+                         }} />
+                      </div>
+                   </div>
+
+                   <button 
+                     onClick={() => setShowTerms(true)}
+                     className="w-full py-7 bg-gray-900 text-white rounded-[2.5rem] font-black uppercase tracking-[0.2em] text-[11px] hover:bg-amber-500 hover:text-gray-900 transition-all shadow-2xl shadow-gray-200"
+                   >
+                     TIẾP TỤC BƯỚC CUỐI
+                   </button>
                 </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Ảnh minh chứng (CCCD, Giấy phép KD)</label>
-                  <div
-                    onClick={() => proofInputRef.current.click()}
-                    className="w-full bg-gray-50 p-6 rounded-xl border-2 border-dashed border-gray-300 hover:border-amber-500 text-center cursor-pointer transition flex flex-col items-center gap-2"
-                  >
-                    {sellerForm.proofImage ? (
-                      <img src={`http://localhost:5000${sellerForm.proofImage}`} className="h-32 object-contain rounded" />
-                    ) : (
-                      <>
-                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                        <span className="text-sm font-semibold text-gray-500">Tải ảnh lên tại đây</span>
-                      </>
-                    )}
-                  </div>
-                  <input type="file" ref={proofInputRef} className="hidden" accept="image/*" onChange={handleProofChange} />
+              ) : (
+                <div className="space-y-10">
+                   <div className="bg-gray-50 p-10 rounded-[3rem] border border-gray-100 h-72 overflow-y-auto custom-scrollbar shadow-inner">
+                      <h4 className="font-black text-gray-900 uppercase tracking-tighter mb-6 text-sm italic border-b border-gray-200 pb-2">Điều khoản đối tác chiến lược</h4>
+                      <div className="space-y-6 text-[11px] text-gray-400 font-bold uppercase tracking-widest leading-relaxed">
+                        <p className="flex gap-3"><span className="text-amber-500">01.</span> Cam kết tuyệt đối về chất lượng sản phẩm chính hãng hoặc tự thiết kế cao cấp.</p>
+                        <p className="flex gap-3"><span className="text-amber-500">02.</span> Tuân thủ quy tắc đóng gói và bộ nhận diện thương hiệu Petrolimex Fashion.</p>
+                        <p className="flex gap-3"><span className="text-amber-500">03.</span> Phối hợp vận hành theo đúng quy trình của sàn để đảm bảo trải nghiệm khách hàng.</p>
+                        <p className="flex gap-3"><span className="text-amber-500">04.</span> Phí duy trì sàn cố định: 5% trên mỗi đơn hàng thành công.</p>
+                        <p className="flex gap-3"><span className="text-amber-500">05.</span> Không được phép tự ý thu thập thông tin khách hàng cho mục đích ngoài sàn.</p>
+                      </div>
+                   </div>
+
+                   <label className="flex items-center gap-5 cursor-pointer group px-4">
+                      <div className="relative">
+                        <input 
+                          type="checkbox"
+                          checked={acceptedTerms}
+                          onChange={(e) => setAcceptedTerms(e.target.checked)}
+                          className="w-7 h-7 rounded-xl border-2 border-gray-200 checked:bg-gray-900 checked:border-gray-900 appearance-none transition-all cursor-pointer"
+                        />
+                        {acceptedTerms && <span className="absolute inset-0 flex items-center justify-center text-white text-xs font-black pointer-events-none">✓</span>}
+                      </div>
+                      <span className="text-[10px] font-black uppercase text-gray-400 group-hover:text-gray-900 transition-colors tracking-widest leading-none">Tôi xác nhận đã thấu hiểu và đồng ý hoàn toàn</span>
+                   </label>
+
+                   <div className="flex gap-6">
+                      <button onClick={() => setShowTerms(false)} className="flex-1 py-6 bg-gray-50 text-gray-400 rounded-3xl font-black uppercase text-[10px] tracking-widest">QUAY LẠI</button>
+                      <button onClick={handleSellerSubmit} disabled={!acceptedTerms} className="flex-1 py-6 bg-gray-900 text-white rounded-3xl font-black uppercase text-[10px] tracking-widest disabled:opacity-20 shadow-2xl shadow-gray-200">GỬI HỒ SƠ DUYỆT</button>
+                   </div>
                 </div>
-                <button
-                  onClick={handleSellerSubmit}
-                  className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white font-black uppercase tracking-widest py-4 rounded-xl shadow-lg shadow-amber-500/30 hover:shadow-xl transition"
-                >
-                  Nâng Cấp
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-600 h-64 overflow-y-auto border border-gray-200">
-                  <h4 className="font-black text-gray-800 mb-2">ĐIỀU KHOẢN TRỞ THÀNH NGƯỜI BÁN</h4>
-                  <p className="mb-2">1. Cam kết hàng hóa chính hãng, không bán hàng giả, hàng nhái.</p>
-                  <p className="mb-2">2. Tuân thủ quy định đóng gói và giao hàng của Petrolimex Fashion.</p>
-                  <p className="mb-2">3. Mọi tranh chấp với khách hàng cần được giải quyết thỏa đáng trong 48 giờ.</p>
-                  <p className="mb-2">4. Phí sàn áp dụng cho mỗi đơn hàng thành công là 5% tổng doanh thu.</p>
-                  <p className="mb-2">5. Vi phạm nhiều lần sẽ bị khóa shop vĩnh viễn không cần báo trước.</p>
-                  <p className="font-bold text-red-500 mt-4">Thông tin đăng ký của bạn sẽ được đội ngũ Admin xét duyệt trong 24-48 giờ.</p>
-                </div>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={acceptedTerms}
-                    onChange={(e) => setAcceptedTerms(e.target.checked)}
-                    className="w-5 h-5 accent-amber-500"
-                  />
-                  <span className="text-sm font-bold text-gray-800">Tôi đã đọc và đồng ý với điều khoản</span>
-                </label>
-                <div className="flex gap-4">
-                  <button
-                    onClick={() => setShowTerms(false)}
-                    className="flex-1 bg-gray-100 text-gray-600 font-black uppercase py-4 rounded-xl"
-                  >
-                    Quay Lại
-                  </button>
-                  <button
-                    onClick={handleSellerSubmit}
-                    disabled={!acceptedTerms}
-                    className="flex-1 bg-amber-500 text-gray-900 font-black uppercase py-4 rounded-xl disabled:opacity-50"
-                  >
-                    Hoàn Tất Gửi
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+           </div>
         </div>
       )}
 
       {/* Cropper Modal */}
       {showCropper && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
-          <div className="bg-white rounded-3xl w-full max-w-xl overflow-hidden shadow-2xl border border-white/20">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-              <h3 className="text-sm font-black uppercase tracking-widest text-gray-900 italic">CẮT XÉN ẢNH ĐẠI DIỆN</h3>
-              <button
-                onClick={() => setShowCropper(false)}
-                className="text-gray-400 hover:text-red-500 transition"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4 animate-fadeIn">
+          <div className="bg-white rounded-[3rem] w-full max-w-xl overflow-hidden shadow-2xl relative animate-scaleIn">
+            <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+              <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-gray-900 italic">CÂN CHỈNH ẢNH DIỆN MẠO</h3>
+              <button onClick={() => setShowCropper(false)} className="text-gray-400 hover:text-red-500 transition-colors">
+                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
-
-            <div className="relative h-96 bg-gray-900">
+            <div className="relative h-[400px] bg-black">
               <Cropper
                 image={imageToCrop}
                 crop={crop}
@@ -626,40 +763,48 @@ export default function Profile() {
                 onZoomChange={setZoom}
               />
             </div>
-
-            <div className="p-8 space-y-6">
-              <div className="space-y-4">
-                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest block text-center">Phóng to / Thu nhỏ</label>
+            <div className="p-10 space-y-8 bg-white">
+              <div className="px-4">
                 <input
                   type="range"
                   value={zoom}
                   min={1}
                   max={3}
                   step={0.1}
-                  aria-labelledby="Zoom"
                   onChange={(e) => setZoom(e.target.value)}
-                  className="w-full h-1.5 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                  className="w-full h-2 bg-gray-100 rounded-full appearance-none cursor-pointer accent-gray-900"
                 />
+                <div className="flex justify-between mt-2 text-[8px] font-black text-gray-300 uppercase tracking-widest">
+                   <span>Thu nhỏ</span>
+                   <span>Phóng to</span>
+                </div>
               </div>
-
-              <div className="flex gap-4">
-                <button
-                  onClick={() => setShowCropper(false)}
-                  className="flex-1 px-8 py-4 bg-gray-50 text-gray-400 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-gray-100 transition"
-                >
-                  HUỶ BỎ
-                </button>
-                <button
-                  onClick={handleApplyCrop}
-                  className="flex-1 px-8 py-4 bg-gray-900 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-amber-500 hover:text-gray-900 transition shadow-xl"
-                >
-                  CẮT & LƯU ẢNH
-                </button>
-              </div>
+              <button
+                onClick={handleApplyCrop}
+                className="w-full py-6 bg-gray-900 text-amber-500 rounded-[2rem] font-black uppercase tracking-[0.3em] text-[10px] hover:bg-amber-500 hover:text-gray-900 transition-all shadow-2xl shadow-gray-200"
+              >
+                XÁC NHẬN DIỆN MẠO MỚI
+              </button>
             </div>
           </div>
         </div>
       )}
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes fadeInLeft { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .animate-fadeInLeft { animation: fadeInLeft 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-fadeInUp { animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-fadeIn { animation: fadeIn 0.4s ease-out forwards; }
+        .animate-scaleIn { animation: scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+        
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f9f9f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e2e2; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #d1d1d1; }
+      `}} />
     </div>
   );
 }
