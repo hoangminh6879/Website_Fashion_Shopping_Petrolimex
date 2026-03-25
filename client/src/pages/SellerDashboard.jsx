@@ -1496,29 +1496,29 @@ export default function SellerDashboard() {
       {/* MODAL ĐĂNG KÝ SỰ KIỆN */}
       {isRegisterModalOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="bg-white rounded-[3rem] w-full max-w-2xl overflow-hidden shadow-2xl border border-gray-100 relative">
-            <div className="bg-gray-900 p-10 text-white relative overflow-hidden">
+          <div className="bg-white rounded-[3rem] w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl border border-gray-100 relative flex flex-col">
+            <div className="bg-gray-900 p-8 text-white relative overflow-hidden flex-shrink-0 shadow-lg z-30">
                <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/10 rounded-full -mr-24 -mt-24 blur-3xl"></div>
                <div className="relative z-10">
-                  <h2 className="text-3xl font-black uppercase tracking-tight italic leading-none">ĐĂNG KÝ SỰ KIỆN</h2>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-500 mt-3">Thiết lập sản phẩm tham gia chương trình</p>
+                  <h2 className="text-2xl font-black uppercase tracking-tight italic leading-none">ĐĂNG KÝ SỰ KIỆN</h2>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-amber-500 mt-2">Thiết lập sản phẩm tham gia chương trình</p>
                </div>
                <button 
                 onClick={() => setIsRegisterModalOpen(false)}
-                className="absolute top-10 right-10 text-gray-500 hover:text-white transition-all hover:rotate-90 duration-300"
+                className="absolute top-8 right-8 text-gray-400 hover:text-white transition-all hover:rotate-90 duration-300"
                >
-                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                </button>
             </div>
 
-            <form onSubmit={handleRegisterProductToEvent} className="p-10 space-y-10 bg-gray-50/50">
-              <div>
-                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-4 block italic">1. Chọn chương trình tham gia *</label>
+            <form onSubmit={handleRegisterProductToEvent} className="flex-1 overflow-y-auto p-8 space-y-8 bg-white scrollbar-thin scrollbar-thumb-amber-200">
+              <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100">
+                <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3 block italic">1. Chọn chương trình tham gia *</label>
                 <select 
                   required 
                   value={registerForm.eventId} 
                   onChange={e => setRegisterForm({...registerForm, eventId: e.target.value})}
-                  className="w-full bg-white border-2 border-gray-100 rounded-[1.5rem] px-6 py-5 font-black text-gray-900 focus:border-amber-500 outline-none transition shadow-sm text-lg"
+                  className="w-full bg-white border-2 border-gray-100 rounded-2xl px-5 py-4 font-black text-gray-900 focus:border-amber-500 outline-none transition shadow-sm text-base"
                 >
                   <option value="">-- CHỌN SỰ KIỆN --</option>
                   {events.filter(ev => ev.status !== 'ended').map(ev => (
@@ -1527,27 +1527,27 @@ export default function SellerDashboard() {
                 </select>
               </div>
 
-              <div>
+              <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100">
                 <div className="flex justify-between items-center mb-4">
-                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest italic">2. Chọn các sản phẩm đăng ký tham gia *</label>
-                  <div className="flex gap-2">
+                  <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest italic">2. Chọn các sản phẩm đăng ký tham gia *</label>
+                  <div className="flex gap-3">
                     <button type="button" onClick={selectAllProducts} className="text-[9px] font-black text-amber-600 uppercase tracking-widest hover:underline">Chọn tất cả</button>
                     <span className="text-gray-300">|</span>
                     <button type="button" onClick={deselectAllProducts} className="text-[9px] font-black text-gray-400 uppercase tracking-widest hover:underline">Bỏ chọn hết</button>
                   </div>
                 </div>
                 
-                <div className="bg-white border-2 border-gray-100 rounded-[2rem] overflow-hidden shadow-sm">
-                  <div className="p-4 border-b border-gray-50 bg-gray-50/50">
+                <div className="bg-white border-2 border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+                  <div className="p-3 border-b border-gray-100">
                     <input 
                       type="text" 
                       placeholder="Tìm nhanh sản phẩm..." 
                       value={productSearch}
                       onChange={e => setProductSearch(e.target.value)}
-                      className="w-full bg-white border-2 border-gray-100 rounded-xl px-4 py-3 text-sm font-bold focus:border-amber-500 outline-none transition"
+                      className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2 text-xs font-bold focus:border-amber-500 focus:bg-white outline-none transition"
                     />
                   </div>
-                  <div className="max-h-[350px] overflow-y-auto p-4 space-y-2 scrollbar-thin scrollbar-thumb-amber-200">
+                  <div className="p-3 space-y-2">
                     {products
                       .filter(p => !productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase()))
                       .map(p => (
@@ -1595,19 +1595,18 @@ export default function SellerDashboard() {
                   <span className="text-gray-300 italic">Lưu ý: Sản phẩm sẽ sử dụng giá và tồn kho hiện tại</span>
                 </div>
               </div>
-
-              <div className="flex gap-6 pt-6 border-t border-gray-100">
+              <div className="p-8 border-t border-gray-100 bg-white shadow-[0_-10px_20px_rgba(0,0,0,0.02)] sticky bottom-0 z-20 flex gap-4">
                 <button 
                   type="button" 
                   onClick={() => setIsRegisterModalOpen(false)} 
-                  className="flex-1 px-8 py-5 bg-white border-2 border-gray-200 text-gray-400 rounded-[1.5rem] font-black uppercase tracking-widest text-[10px] hover:bg-gray-100 hover:text-gray-600 transition-all active:scale-95"
+                  className="flex-1 px-6 py-4 bg-white border-2 border-gray-200 text-gray-400 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-gray-100 hover:text-gray-600 transition-all active:scale-95"
                 >
                   HUỶ BỎ
                 </button>
                 <button 
                   type="submit" 
                   disabled={isRegisteringEvent || registerForm.productIds.length === 0}
-                  className="flex-[2] px-8 py-5 bg-gray-900 text-white rounded-[1.5rem] font-black uppercase tracking-widest text-[10px] hover:bg-amber-500 hover:text-gray-900 transition-all shadow-2xl shadow-gray-200 hover:shadow-amber-500/30 active:scale-95 disabled:opacity-50"
+                  className="flex-[2] px-6 py-4 bg-gray-900 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-amber-500 hover:text-gray-900 transition-all shadow-xl active:scale-95 disabled:opacity-50"
                 >
                   {isRegisteringEvent ? 'ĐANG GỬI...' : '🚀 XÁC NHẬN ĐĂNG KÝ BÙNG NỔ'}
                 </button>
