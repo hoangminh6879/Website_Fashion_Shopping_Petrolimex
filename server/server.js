@@ -20,6 +20,8 @@ import wishlistRoutes from "./src/routes/wishlist.routes.js";
 import eventTypeRoutes from "./src/routes/eventType.routes.js";
 import eventRoutes from "./src/routes/event.routes.js";
 import productEventRoutes from "./src/routes/productEvent.routes.js";
+import orderRoutes from "./src/routes/order.route.js";
+
 import path from "path";
 
 
@@ -108,6 +110,8 @@ app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/event-types", eventTypeRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/product-events", productEventRoutes);
+app.use("/api/orders", orderRoutes);
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

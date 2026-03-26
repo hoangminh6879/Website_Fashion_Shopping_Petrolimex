@@ -88,7 +88,7 @@ export const CartProvider = ({ children }) => {
           size,
           quantity
         });
-        
+
         // Cập nhật lại UI dựa trên kết quả trả về từ API
         setCart(prevCart => {
           const existingItemIndex = prevCart.findIndex(
@@ -166,16 +166,16 @@ export const CartProvider = ({ children }) => {
   const updateVariant = async (productId, oldColor, oldSize, newColor, newSize) => {
     if (userId && userId !== 'guest') {
       try {
-        const res = await api.put('/cart/update-variant', { 
-          productId, 
-          oldColor, 
-          oldSize, 
-          newColor, 
-          newSize 
+        const res = await api.put('/cart/update-variant', {
+          productId,
+          oldColor,
+          oldSize,
+          newColor,
+          newSize
         });
-        
+
         const { item, merged } = res.data;
-        
+
         setCart(prevCart => {
           if (merged) {
             // Nếu bị merged: Xóa item cũ, cập nhật item mới (variant mới)
@@ -261,6 +261,7 @@ export const CartProvider = ({ children }) => {
       cart,
       user,
       userRole,
+      isInitialized,
       handleLogout,
       addToCart,
       removeFromCart,
