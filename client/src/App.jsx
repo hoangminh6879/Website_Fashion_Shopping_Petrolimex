@@ -16,6 +16,7 @@ import LoginSuccess from "./pages/LoginSuccess";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Checkout from "./pages/Checkout";
+import OrderHistory from "./pages/OrderHistory";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 
@@ -68,6 +69,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['user']}>
               <Wishlist />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/order-history"
+          element={
+            <ProtectedRoute allowedRoles={['user']}>
+              <OrderHistory />
             </ProtectedRoute>
           }
         />

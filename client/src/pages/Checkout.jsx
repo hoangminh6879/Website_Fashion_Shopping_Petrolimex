@@ -11,6 +11,10 @@ export default function Checkout() {
     const { cart, getCartTotal, clearCart, user } = useCart();
     const [loading, setLoading] = useState(false);
 
+    // Voucher State
+    const [vouchers, setVouchers] = useState([]);
+    const [selectedVouchers, setSelectedVouchers] = useState({}); // { typeId: voucherObject }
+
     const [formData, setFormData] = useState({
         name: '',
         phone: '',
@@ -30,6 +34,57 @@ export default function Checkout() {
         }
     }, [user]);
 
+    // Fetch Available Vouchers
+    React.useEffect(() => {
+        const fetchVouchers = async () => {
+            try {
+                const res = await api.get('/coupons/available');
+                setVouchers(res.data);
+            } catch (err) {
+                console.error("Error fetching vouchers:", err);
+            }
+        };
+        fetchVouchers();
+    }, []);
+
+    // Group vouchers by type
+    const groupedVouchers = vouchers.reduce((acc, v) => {
+        const typeId = v.couponType?._id;
+        if (!acc[typeId]) {
+            acc[typeId] = {
+                type: v.couponType,
+                list: []
+            };
+        }
+        acc[typeId].list.push(v);
+        return acc;
+    }, {});
+
+    const calculateTotalDiscount = () => {
+        let totalDiscount = 0;
+        const subtotal = getCartTotal();
+
+        Object.values(selectedVouchers).forEach(voucher => {
+            if (!voucher) return;
+            const typeName = voucher.couponType?.name || "";
+            const value = voucher.discount || 0;
+
+            if (typeName.includes('PERCENT')) {
+                totalDiscount += (subtotal * value) / 100;
+            } else {
+                // Mặc định trừ thẳng số tiền nếu không phải là phần trăm
+                totalDiscount += value;
+            }
+        });
+
+        return totalDiscount;
+    };
+
+    const getFinalTotal = () => {
+        const total = getCartTotal() - calculateTotalDiscount();
+        return total > 0 ? total : 0;
+    };
+
     const formatPrice = (price) => {
         return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
     };
@@ -44,9 +99,16 @@ export default function Checkout() {
 
         setLoading(true);
         try {
+            // Lấy danh sách ID voucher đã chọn
+            const voucherIds = Object.values(selectedVouchers)
+                .filter(v => v !== null)
+                .map(v => v._id);
+
             const response = await api.post('/orders', {
                 items: cart,
-                totalPrice: getCartTotal(),
+                totalPrice: getFinalTotal(),
+                discountAmount: calculateTotalDiscount(),
+                vouchers: voucherIds, // Gửi mảng voucherIds thay vì 1 cái
                 address: formData.address,
                 phone: formData.phone,
                 paymentMethod: formData.paymentMethod
@@ -61,7 +123,7 @@ export default function Checkout() {
             });
 
             clearCart();
-            navigate('/profile'); // Redirect to profile to see orders
+            navigate('/order-history'); // Redirect to order history
         } catch (error) {
             Swal.fire({
                 icon: 'error',
@@ -226,11 +288,70 @@ export default function Checkout() {
                                 ))}
                             </div>
 
-                            <div className="space-y-4 pt-6 border-t border-dashed border-gray-200">
+                            {/* Voucher Selection Groups */}
+                            <div className="mt-8 pt-8 border-t border-dashed border-gray-100 space-y-8">
+                                {Object.keys(groupedVouchers).length > 0 ? (
+                                    Object.entries(groupedVouchers).map(([typeId, group]) => (
+                                        <div key={typeId} className="space-y-4">
+                                            <label className="text-[10px] font-black uppercase text-gray-400 tracking-[0.3em] ml-4 mb-1 block">
+                                                Loại: {group.type?.description || group.type?.name}
+                                            </label>
+                                            <div className="relative">
+                                                <select
+                                                    className="w-full bg-gray-50 border border-gray-100 rounded-[1.5rem] px-6 py-4 outline-none focus:border-amber-500/50 focus:bg-white transition-all font-bold text-gray-900 shadow-inner text-sm appearance-none cursor-pointer"
+                                                    onChange={(e) => {
+                                                        const v = group.list.find(v => v._id === e.target.value);
+                                                        setSelectedVouchers(prev => ({
+                                                            ...prev,
+                                                            [typeId]: v || null
+                                                        }));
+                                                    }}
+                                                    value={selectedVouchers[typeId]?._id || ""}
+                                                >
+                                                    <option value="">-- Không sử dụng --</option>
+                                                    {group.list.map(v => (
+                                                        <option key={v._id} value={v._id}>
+                                                            {v.code} - Giảm {v.discount}{v.couponType?.name === 'PERCENT_DISCOUNT' ? '%' : ' đ'}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">▼</div>
+                                            </div>
+
+                                            {selectedVouchers[typeId] && (
+                                                <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100 flex items-center gap-3 animate-fadeIn">
+                                                    <span className="text-xl">✨</span>
+                                                    <div className="flex-1">
+                                                        <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Đã áp dụng: {selectedVouchers[typeId].code}</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => setSelectedVouchers(prev => ({ ...prev, [typeId]: null }))}
+                                                        className="text-amber-400 hover:text-amber-600 font-bold"
+                                                    >
+                                                        BỎ CHỌN
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="text-center py-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                                        <p className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Không có ưu đãi khả dụng</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="space-y-4 pt-10 border-t border-dashed border-gray-200 mt-8">
                                 <div className="flex justify-between items-center">
                                     <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Tạm tính</span>
                                     <span className="font-bold text-gray-900 tracking-tight">{formatPrice(getCartTotal())}</span>
                                 </div>
+                                {calculateTotalDiscount() > 0 && (
+                                    <div className="flex justify-between items-center text-amber-500 animate-fadeInUp">
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Tổng giảm giá</span>
+                                        <span className="font-bold tracking-tight">-{formatPrice(calculateTotalDiscount())}</span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between items-center">
                                     <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Phí vận chuyển</span>
                                     <span className="text-[10px] font-black uppercase text-green-500 tracking-widest bg-green-50 px-3 py-1 rounded-full border border-green-100">Miễn Phí</span>
@@ -238,15 +359,15 @@ export default function Checkout() {
                                 <div className="flex justify-between items-center py-6 border-t border-gray-50 mt-2">
                                     <span className="font-black text-gray-900 uppercase tracking-tighter text-lg italic">Tổng cộng</span>
                                     <div className="text-right">
-                                        <div className="text-3xl font-black text-amber-500 tracking-tighter italic">{formatPrice(getCartTotal())}</div>
+                                        <div className="text-3xl font-black text-amber-500 tracking-tighter italic scale-110 origin-right transition-all">{formatPrice(getFinalTotal())}</div>
                                         <p className="text-[8px] text-gray-400 font-bold uppercase mt-1">Bao gồm thuế GTGT</p>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="mt-8 bg-gray-900 rounded-[2rem] p-6 text-center shadow-xl shadow-gray-200">
-                                <p className="text-[10px] font-black text-amber-500 uppercase tracking-[0.3em] mb-2">Cam Kết Petrolimex</p>
-                                <p className="text-[9px] text-gray-400 font-bold uppercase leading-relaxed">Sản phẩm chính hãng 100% - Đổi trả trong 7 ngày - Hỗ trợ tận tâm 24/7</p>
+                            <div className="mt-8 bg-gray-900 rounded-[2rem] p-6 text-center shadow-xl shadow-gray-200 group hover:bg-amber-500 transition-colors duration-500">
+                                <p className="text-[10px] font-black text-amber-500 uppercase tracking-[0.3em] mb-2 group-hover:text-gray-900">Cam Kết Petrolimex</p>
+                                <p className="text-[9px] text-gray-400 font-bold uppercase leading-relaxed group-hover:text-gray-800">Sản phẩm chính hãng 100% - Đổi trả trong 7 ngày - Hỗ trợ tận tâm 24/7</p>
                             </div>
                         </div>
                     </div>
@@ -259,6 +380,10 @@ export default function Checkout() {
 
             <style dangerouslySetInnerHTML={{
                 __html: `
+                @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                .animate-fadeInUp { animation: fadeInUp 0.4s ease-out forwards; }
+                .animate-fadeIn { animation: fadeIn 0.4s ease-out forwards; }
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-track { background: #f9fafb; border-radius: 10px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 10px; }

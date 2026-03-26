@@ -32,16 +32,17 @@ export default function Navbar() {
             {user ? (
               <div className="relative group">
                 <button className="flex items-center gap-2 hover:text-amber-500 transition py-1">
-                  <img 
-                    src={user && user.avatar ? (user.avatar.startsWith('http') ? user.avatar : `http://localhost:5000${user.avatar}`) : `https://ui-avatars.com/api/?name=${user?.name || 'Guest'}&background=f59e0b&color=fff`} 
-                    className="w-5 h-5 rounded-full border border-amber-500/50 object-cover" 
-                    alt="avatar" 
+                  <img
+                    src={user && user.avatar ? (user.avatar.startsWith('http') ? user.avatar : `http://localhost:5000${user.avatar}`) : `https://ui-avatars.com/api/?name=${user?.name || 'Guest'}&background=f59e0b&color=fff`}
+                    className="w-5 h-5 rounded-full border border-amber-500/50 object-cover"
+                    alt="avatar"
                   />
                   <span className="font-bold text-gray-200">{user.name}</span>
                 </button>
                 <div className="absolute right-0 top-full pt-1 w-44 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[60]">
                   <div className="bg-white rounded-lg shadow-xl border border-gray-100 py-1.5 text-gray-800 overflow-hidden mt-1">
                     <Link to="/profile" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest">Tài khoản</Link>
+                    <Link to="/order-history" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50">Lịch sử giao dịch</Link>
                     {user.role !== 'admin' && (
                       <Link to="/followed-shops" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50">Shop Đang Theo Dõi</Link>
                     )}
@@ -49,7 +50,7 @@ export default function Navbar() {
                       <Link to="/seller/dashboard" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50 text-amber-600">Quản lý Shop</Link>
                     )}
                     {user.role === 'admin' && (
-                       <Link to="/admin/dashboard" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50 text-amber-600">Quản lý Website</Link>
+                      <Link to="/admin/dashboard" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50 text-amber-600">Quản lý Website</Link>
                     )}
                     <button onClick={handleLogout} className="w-full text-left block px-4 py-2 hover:bg-red-50 hover:text-red-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50">Đăng xuất</button>
                   </div>
