@@ -1,14 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import ProductModal from '../components/ProductModal';
+import FilterSidebar from '../components/FilterSidebar';
 import Navbar from '../components/Navbar';
+import AutoText from "../components/AutoText";
+import { useTranslation } from 'react-i18next';
+import { liveTranslate } from '../i18n';
+import { translateContent } from '../services/translate';
 
 export default function Home() {
   const { addToCart, getCartCount, userRole } = useCart() || {};
   const { toggleWishlist, isInWishlist, wishlist = [] } = useWishlist() || {};
+  const { t, i18n } = useTranslation();
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [productGroupMap, setProductGroupMap] = useState({});
@@ -18,18 +24,30 @@ export default function Home() {
   const [ongoingEvents, setOngoingEvents] = useState([]);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [timeLeft, setTimeLeft] = useState({});
+  
   const navigate = useNavigate();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const searchTerm = queryParams.get("search") || "";
+  const categoryParam = queryParams.get("category") || "";
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState(categoryParam);
+  const [filterPrice, setFilterPrice] = useState({ min: null, max: null });
+  const [selectedRating, setSelectedRating] = useState(0);
+  const [filterPromotion, setFilterPromotion] = useState({ flashSale: false, event: false });
+  const [sort, setSort] = useState("newest");
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       try {
+        let finalSearch = searchTerm;
+
         const [catRes, prodRes, eventRes] = await Promise.all([
           api.get('/categories'),
-          api.get('/products'),
+          api.get(`/products?search=${finalSearch}&category=${selectedCategory || ""}&sort=${sort}`),
           api.get('/events/ongoing')
         ]);
         setCategories(catRes.data);
@@ -38,7 +56,14 @@ export default function Home() {
         const prods = prodRes.data;
         const unique = [];
         const groupMap = {};
-        prods.forEach(p => {
+        
+        // Lọc ở frontend để đảm bảo tính năng tìm kiếm hoạt động chính xác
+        const finalProds = prods.filter(p => 
+          p.name.toLowerCase().includes(finalSearch.toLowerCase()) ||
+          p.description.toLowerCase().includes(finalSearch.toLowerCase())
+        );
+
+        finalProds.forEach(p => {
           if (!groupMap[p.name]) {
             groupMap[p.name] = [];
             unique.push(p);
@@ -63,7 +88,9 @@ export default function Home() {
       }
     };
     fetchData();
+  }, [searchTerm, selectedCategory, sort, i18n.language]);
 
+  useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
       api.get('/auth/me')
@@ -115,6 +142,15 @@ export default function Home() {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
   };
 
+  const getFlashSalePrice = (product) => {
+    if (!product) return 0;
+    let price = product.price;
+    if (product.isFlashSale && product.flashSaleEndDate && new Date(product.flashSaleEndDate) > new Date() && product.flashSaleStock > 0) {
+       price = product.flashSalePrice || price;
+    }
+    return price;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -123,9 +159,21 @@ export default function Home() {
     );
   }
 
-  const filteredProducts = selectedCategory 
-    ? products.filter(p => p.category === selectedCategory || (p.category?._id === selectedCategory))
-    : products;
+  const currentList = searchTerm ? products : products;
+  
+  const filteredProducts = currentList.filter(p => {
+    const matchesCat = selectedCategory ? (p.category === selectedCategory || p.category?._id === selectedCategory) : true;
+    const matchesMinPrice = filterPrice.min ? p.price >= filterPrice.min : true;
+    const matchesMaxPrice = filterPrice.max ? p.price <= filterPrice.max : true;
+    const matchesRating = selectedRating > 0 ? (p.rating && Math.round(p.rating) >= selectedRating) : true;
+    
+    // Evaluate Khuyen Mai
+    const isFlashSaleActive = p.isFlashSale && p.flashSaleEndDate && new Date(p.flashSaleEndDate) > new Date() && p.flashSaleStock > 0;
+    const matchesFlashSale = filterPromotion.flashSale ? isFlashSaleActive : true;
+    const matchesEvent = filterPromotion.event ? Boolean(p.event || p.eventPrice || (p.events && p.events.length > 0)) : true; // Assuming typical event schema mappings
+
+    return matchesCat && matchesMinPrice && matchesMaxPrice && matchesRating && matchesFlashSale && matchesEvent;
+  });
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans pb-10 relative pt-40 md:pt-48">
@@ -152,14 +200,14 @@ export default function Home() {
                       <span className="text-white font-black uppercase tracking-[0.4em] text-[11px] brightness-150 drop-shadow-md">{ev.eventType?.label}</span>
                     </div>
                     <h2 className="text-4xl md:text-7xl font-black text-white mb-4 uppercase italic tracking-tighter leading-none drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)] animate-fadeInUp">
-                      {ev.name.split(' ').map((word, i) => i % 2 === 1 ? <span key={i} className="text-[#D4AF37] ml-2">{word}</span> : (i === 0 ? word : <span key={i} className="ml-2">{word}</span>))}
+                      <AutoText text={ev.name} />
                     </h2>
-                    <p className="text-gray-200 mb-8 drop-shadow-lg max-w-xl text-sm md:text-base font-medium line-clamp-2 opacity-90 animate-fadeInUp delay-100">{ev.description}</p>
+                    <p className="text-gray-200 mb-8 drop-shadow-lg max-w-xl text-sm md:text-base font-medium line-clamp-2 opacity-90 animate-fadeInUp delay-100"><AutoText text={ev.description} /></p>
                     <button 
                       onClick={() => navigate(`/event/${ev._id}`)}
                       className="bg-gradient-to-r from-[#D4AF37] to-[#B8860B] hover:from-white hover:to-gray-100 text-gray-900 font-black px-10 py-4 rounded-2xl w-max transition-all shadow-2xl shadow-[#D4AF37]/40 uppercase tracking-[0.2em] text-[11px] active:scale-95 animate-fadeInUp delay-200 group/btn flex items-center gap-2"
                     >
-                      Khám Phá Ngay
+                      <AutoText text="Khám Phá Ngay" />
                       <span className="group-hover/btn:translate-x-1 transition-transform">→</span>
                     </button>
                   </div>
@@ -184,8 +232,8 @@ export default function Home() {
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-gray-900 to-black rounded-lg relative overflow-hidden shadow-md flex items-center justify-center">
               <div className="text-center">
-                <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter">Chào mừng đến với <span className="text-[#D4AF37]">Petrolimex Fashion</span></h2>
-                <p className="text-gray-400 mt-2 font-bold uppercase tracking-widest text-[10px]">Đang cập nhật các sự kiện hot nhất...</p>
+                <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter"><AutoText text="Chào mừng đến với" /> <span className="text-[#D4AF37]">Petrolimex Fashion</span></h2>
+                <p className="text-gray-400 mt-2 font-bold uppercase tracking-widest text-[10px]"><AutoText text="Đang cập nhật các sự kiện hot nhất..." /></p>
               </div>
             </div>
           )}
@@ -199,16 +247,16 @@ export default function Home() {
             <div className="absolute inset-0 bg-gradient-to-tr from-gray-900 to-gray-700 opacity-80 transition group-hover:scale-105 duration-500"></div>
             <img src="https://picsum.photos/seed/flash/600/300" className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay group-hover:scale-110 transition-transform duration-1000" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent p-6 flex flex-col justify-end">
-              <span className="text-[#D4AF37] font-black text-[10px] bg-black/60 w-max px-3 py-1 rounded-full uppercase tracking-widest border border-[#D4AF37]/30 mb-2">⚡ Flash Sale</span>
-              <h3 className="text-white text-xl font-black uppercase italic leading-tight">Deal Thời Trang Nam <br /> <span className="text-[#D4AF37]">Săn Ngay 0Đ</span></h3>
+              <span className="text-[#D4AF37] font-black text-[10px] bg-black/60 w-max px-3 py-1 rounded-full uppercase tracking-widest border border-[#D4AF37]/30 mb-2">⚡ <AutoText text="Flash Sale" /></span>
+              <h3 className="text-white text-xl font-black uppercase italic leading-tight"><AutoText text="Deal Thời Trang Nam" /> <br /> <span className="text-[#D4AF37]"><AutoText text="Săn Ngay 0Đ" /></span></h3>
             </div>
           </div>
           <div className="flex-1 lg:h-1/2 bg-gray-800 rounded-2xl overflow-hidden relative shadow-xl group border border-gray-200/10 cursor-pointer">
             <div className="absolute inset-0 bg-gradient-to-tr from-gray-900 to-gray-700 opacity-60 transition group-hover:scale-105 duration-500"></div>
             <img src="https://picsum.photos/seed/shipping/600/300" className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay group-hover:scale-110 transition-transform duration-1000" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent p-6 flex flex-col justify-end">
-              <span className="text-[#D4AF37] font-black text-[10px] bg-black/60 w-max px-3 py-1 rounded-full uppercase tracking-widest border border-[#D4AF37]/30 mb-2">🚚 Giao Siêu Tốc</span>
-              <h3 className="text-white text-xl font-black uppercase italic leading-tight">Miễn phí vận chuyển <br /> <span className="text-[#D4AF37]">Toàn quốc</span></h3>
+              <span className="text-[#D4AF37] font-black text-[10px] bg-black/60 w-max px-3 py-1 rounded-full uppercase tracking-widest border border-[#D4AF37]/30 mb-2">🚚 <AutoText text="Giao Siêu Tốc" /></span>
+              <h3 className="text-white text-xl font-black uppercase italic leading-tight"><AutoText text="Miễn phí vận chuyển" /> <br /> <span className="text-[#D4AF37]"><AutoText text="Toàn quốc" /></span></h3>
             </div>
           </div>
         </div>
@@ -220,7 +268,7 @@ export default function Home() {
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white">
             <h2 className="uppercase text-gray-800 font-bold tracking-wide text-lg flex items-center gap-2">
               <span className="w-1.5 h-6 bg-[#D4AF37] rounded-full inline-block"></span>
-              Danh Mục Sản Phẩm
+              <AutoText text="Danh Mục Sản Phẩm" />
             </h2>
           </div>
           <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-6 border-l border-t border-gray-100">
@@ -231,7 +279,7 @@ export default function Home() {
               <div className={`w-[85px] h-[85px] rounded-full overflow-hidden bg-gray-100 flex items-center justify-center border-2 transition-all ${!selectedCategory ? 'border-[#D4AF37]' : 'border-transparent group-hover:border-[#D4AF37]'}`}>
                 <span className="text-2xl">🛍️</span>
               </div>
-              <span className={`text-sm text-center font-bold uppercase tracking-tighter transition-colors ${!selectedCategory ? 'text-[#D4AF37]' : 'text-gray-700 group-hover:text-[#D4AF37]'}`}>Tất Cả</span>
+              <span className={`text-sm text-center font-bold uppercase tracking-tighter transition-colors ${!selectedCategory ? 'text-[#D4AF37]' : 'text-gray-700 group-hover:text-[#D4AF37]'}`}><AutoText text="Tất Cả" /></span>
             </button>
             {categories.map((cat) => (
               <button 
@@ -244,7 +292,7 @@ export default function Home() {
                     <img src={cat.image ? `http://localhost:5000${cat.image}` : `https://picsum.photos/seed/${cat._id}/150/150`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={cat.name} />
                   </div>
                 </div>
-                <span className={`text-sm text-center font-medium line-clamp-2 leading-tight h-10 transition-colors ${selectedCategory === cat._id ? 'text-[#D4AF37]' : 'text-gray-700 group-hover:text-[#D4AF37]'}`}>{cat.name}</span>
+                <span className={`text-sm text-center font-medium line-clamp-2 leading-tight h-10 transition-colors ${selectedCategory === cat._id ? 'text-[#D4AF37]' : 'text-gray-700 group-hover:text-[#D4AF37]'}`}><AutoText text={cat.name} /></span>
               </button>
             ))}
           </div>
@@ -270,7 +318,7 @@ export default function Home() {
                   </div>
                </div>
                <Link to="/flash-sale" className="text-[#D4AF37] text-xs font-bold hover:text-white transition flex items-center gap-1 uppercase tracking-widest">
-                 XEM TẤT CẢ
+                 <AutoText text="XEM TẤT CẢ" />
                </Link>
             </div>
             
@@ -288,9 +336,9 @@ export default function Home() {
                     <div className="text-[10px] text-gray-400 line-through">{formatPrice(p.price)}</div>
                     <div className="w-full h-3.5 bg-gray-100 rounded-full relative overflow-hidden mt-2 border border-gray-200 shadow-inner">
                       <div className="h-full bg-gradient-to-r from-[#D4AF37] to-[#8B7355] transition-all duration-1000" style={{ width: `${Math.min(100, (p.sold / (p.flashSaleStock + p.sold)) * 100 || 20)}%` }}></div>
-                      <span className="absolute inset-0 flex items-center justify-center text-[8px] font-black italic text-gray-900 uppercase tracking-tighter">Đang cháy hàng 🔥</span>
+                      <span className="absolute inset-0 flex items-center justify-center text-[8px] font-black italic text-gray-900 uppercase tracking-tighter"><AutoText text="Đang cháy hàng 🔥" /></span>
                     </div>
-                    <div className="text-[9px] font-bold text-[#D4AF37] uppercase tracking-widest mt-1">Còn lại: {p.flashSaleStock}</div>
+                    <div className="text-[9px] font-bold text-[#D4AF37] uppercase tracking-widest mt-1"><AutoText text="Còn lại" />: {p.flashSaleStock}</div>
                   </div>
                 </div>
               ))}
@@ -304,11 +352,11 @@ export default function Home() {
         <div className="flex items-center justify-between mb-8">
            <div className="flex flex-col">
              <h2 className="text-2xl font-black italic tracking-tighter text-gray-900 uppercase leading-none">
-                Sản phẩm <span className="text-[#D4AF37]">Đánh Giá Cao</span>
+                <AutoText text="Sản phẩm" /> <span className="text-[#D4AF37]"><AutoText text="Đánh Giá Cao" /></span>
              </h2>
-             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.3em] mt-2">Được hàng nghìn khách hàng tin dùng</p>
+             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.3em] mt-2"><AutoText text="Được hàng nghìn khách hàng tin dùng" /></p>
            </div>
-           <button className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-[#D4AF37] transition-colors border-b-2 border-transparent hover:border-[#D4AF37] pb-1">Xem tất cả</button>
+           <button className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-[#D4AF37] transition-colors border-b-2 border-transparent hover:border-[#D4AF37] pb-1"><AutoText text="XEM TẤT CẢ" /></button>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
           {products.filter(p => p.rating && p.rating >= 4.0).sort((a,b) => (b.rating)-(a.rating)).slice(0, 6).map(product => (
@@ -319,18 +367,23 @@ export default function Home() {
                   <span>★</span> {product.rating ? product.rating.toFixed(1) : 'Chưa có'}
                 </div>
                 <div className="absolute inset-x-0 bottom-0 top-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 z-20">
-                  <button onClick={(e) => { e.stopPropagation(); openProductModal(product); }} className="w-4/5 bg-[#D4AF37] text-gray-900 font-bold py-2 rounded-lg text-[10px] uppercase transition-all hover:bg-white active:scale-95">XEM CHI TIẾT</button>
+                  <button onClick={(e) => { e.stopPropagation(); openProductModal(product); }} className="w-4/5 bg-[#D4AF37] text-gray-900 font-bold py-2 rounded-lg text-[10px] uppercase transition-all hover:bg-white active:scale-95"><AutoText text="XEM CHI TIẾT" /></button>
                 </div>
               </div>
               <div className="p-2.5 flex-1 flex flex-col">
-                <h3 className="text-[12px] text-gray-800 line-clamp-2 leading-tight mb-2 font-medium group-hover:text-[#D4AF37] uppercase italic">{product.name}</h3>
+                <h3 className="text-[12px] text-gray-800 line-clamp-2 leading-tight mb-2 font-medium group-hover:text-[#D4AF37] uppercase italic"><AutoText text={product.name} /></h3>
                 <div className="mt-auto">
-                    <div className="text-[#D4AF37] font-black text-sm">{formatPrice(product.price)}</div>
+                    <div className="flex items-center gap-2">
+                        <div className="text-[#D4AF37] font-black text-sm">{formatPrice(getFlashSalePrice(product))}</div>
+                        {product.isFlashSale && new Date(product.flashSaleEndDate) > new Date() && product.flashSaleStock > 0 && (
+                          <div className="text-[9px] text-gray-400 line-through">{formatPrice(product.price)}</div>
+                        )}
+                    </div>
                     <div className="flex justify-between items-center mt-1">
                       <div className="text-[10px] text-yellow-400">
                         {product.rating ? '★'.repeat(Math.round(product.rating)) : '☆'.repeat(5)}
                       </div>
-                      <span className="text-[9px] text-gray-400 uppercase font-bold">Đã bán {product.sold || 0}</span>
+                      <span className="text-[9px] text-gray-400 uppercase font-bold"><AutoText text="Còn hàng" /> {product.sold || 0}</span>
                     </div>
                 </div>
               </div>
@@ -340,13 +393,29 @@ export default function Home() {
       </section>
 
       {/* PRODUCT FEED */}
-      <section className="container mx-auto px-4 mt-8 pb-12">
-        <div className="bg-white rounded-t-xl overflow-hidden shadow-sm flex items-center border-b-2 border-[#D4AF37] mb-4 sticky top-16 z-40">
-          <div className="bg-white text-[#D4AF37] text-center font-bold px-8 py-4 uppercase tracking-wide border-b-4 border-[#D4AF37]">
-            Gợi Ý Hôm Nay
+      <section className={`container mx-auto px-4 mt-8 pb-12 ${searchTerm ? 'flex gap-8 items-start' : ''}`}>
+        {/* Lọc Tìm Kiếm */}
+        {searchTerm && (
+          <FilterSidebar 
+            categories={categories}
+            selectedCategory={selectedCategory}
+            setSelectedCategory={setSelectedCategory}
+            filterPrice={filterPrice}
+            setFilterPrice={setFilterPrice}
+            selectedRating={selectedRating}
+            setSelectedRating={setSelectedRating}
+            filterPromotion={filterPromotion}
+            setFilterPromotion={setFilterPromotion}
+          />
+        )}
+
+        <div className={searchTerm ? 'flex-1' : 'w-full'}>
+          <div className="bg-white rounded-t-xl overflow-hidden shadow-sm flex items-center border-b-2 border-[#D4AF37] mb-4 sticky top-16 z-40">
+            <div className="bg-white text-[#D4AF37] text-center font-bold px-8 py-4 uppercase tracking-wide border-b-4 border-[#D4AF37]">
+              <AutoText text={searchTerm ? `Kết quả tìm kiếm: ${searchTerm}` : "Sản phẩm mới"} />
+            </div>
           </div>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 lg:gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
           {filteredProducts.length > 0 ? filteredProducts.map((product) => (
             <div key={product._id} onClick={() => openProductModal(product)} className="group bg-white rounded-sm shadow-sm hover:shadow-md transition-all border border-gray-100 flex flex-col h-full cursor-pointer">
               <div className="w-full aspect-square bg-gray-50 overflow-hidden relative">
@@ -354,57 +423,68 @@ export default function Home() {
                 <button onClick={(e) => { e.stopPropagation(); toggleWishlist(product._id); }} className="absolute top-2 right-2 z-30 p-2 rounded-full bg-white/80 backdrop-blur shadow-sm hover:scale-110 transition-all">
                   <svg className={`w-4 h-4 transition-colors ${isInWishlist(product._id) ? 'text-red-500 fill-current' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
                 </button>
+                {product.isFlashSale && new Date(product.flashSaleEndDate) > new Date() && product.flashSaleStock > 0 && (
+                  <div className="absolute top-2 left-2 z-30 bg-[#D4AF37] text-white text-[9px] font-black px-1.5 py-0.5 rounded-sm shadow-sm">
+                    -{product.flashSaleDiscount}%
+                  </div>
+                )}
                 <div className="absolute inset-x-0 bottom-0 top-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 z-20">
-                  <button onClick={(e) => { e.stopPropagation(); openProductModal(product); }} className="w-4/5 bg-[#D4AF37] text-gray-900 font-bold py-2 rounded-lg text-[10px] uppercase hover:bg-white active:scale-95">Thêm vào giỏ</button>
-                  <button onClick={(e) => { e.stopPropagation(); openProductModal(product); }} className="w-4/5 bg-white text-gray-900 font-bold py-2 rounded-lg text-[10px] uppercase hover:bg-gray-100 active:scale-95">Mua Ngay</button>
+                  <button onClick={(e) => { e.stopPropagation(); openProductModal(product); }} className="w-4/5 bg-[#D4AF37] text-gray-900 font-bold py-2 rounded-lg text-[10px] uppercase hover:bg-white active:scale-95"><AutoText text="THÊM VÀO GIỎ" /></button>
+                  <button onClick={(e) => { e.stopPropagation(); openProductModal(product); }} className="w-4/5 bg-white text-gray-900 font-bold py-2 rounded-lg text-[10px] uppercase hover:bg-gray-100 active:scale-95"><AutoText text="MUA NGAY" /></button>
                 </div>
               </div>
               <div className="p-2.5 flex-1 flex flex-col">
-                <h3 className="text-[12.5px] text-gray-800 line-clamp-2 leading-tight mb-2 font-medium group-hover:text-[#D4AF37]">{product.name}</h3>
+                <h3 className="text-[12.5px] text-gray-800 line-clamp-2 leading-tight mb-2 font-medium group-hover:text-[#D4AF37]"><AutoText text={product.name} /></h3>
                 <div className="mt-auto">
-                    <div className="text-[#D4AF37] font-black text-sm">{formatPrice(product.price)}</div>
+                    <div className="flex items-center gap-2">
+                        <div className="text-[#D4AF37] font-black text-sm">{formatPrice(getFlashSalePrice(product))}</div>
+                        {product.isFlashSale && new Date(product.flashSaleEndDate) > new Date() && product.flashSaleStock > 0 && (
+                          <div className="text-[9px] text-gray-400 line-through">{formatPrice(product.price)}</div>
+                        )}
+                    </div>
                     <div className="flex justify-between items-center mt-1">
                       <div className="text-[10px] text-yellow-400">
                         {product.rating ? '★'.repeat(Math.round(product.rating)) : '☆'.repeat(5)}
                       </div>
-                      <span className="text-[11px] text-gray-600 font-medium">Đã bán {product.sold || 0}</span>
+                      <span className="text-[11px] text-gray-600 font-medium"><AutoText text="Đã bán" /> {product.sold || 0}</span>
                     </div>
                 </div>
               </div>
             </div>
           )) : (
-            <div className="col-span-full p-8 text-center text-gray-500">Đang cập nhật sản phẩm...</div>
+            <div className="col-span-full p-8 text-center text-gray-500"><AutoText text="Không tìm thấy sản phẩm nào..." /></div>
+          )}
+          </div>
+          {filteredProducts.length > 0 && (
+            <div className="mt-10 flex justify-center">
+              <button className="bg-white hover:bg-gray-50 text-gray-700 font-medium py-3 px-32 rounded-sm shadow-sm border border-gray-200 hover:border-[#D4AF37] transition duration-300 text-sm z-10 relative overflow-hidden group">
+                <span className="relative z-10 block transition-transform group-hover:scale-105">{t('see_all')}</span>
+              </button>
+            </div>
           )}
         </div>
-        {products.length > 0 && (
-          <div className="mt-10 flex justify-center">
-            <button className="bg-white hover:bg-gray-50 text-gray-700 font-medium py-3 px-32 rounded-sm shadow-sm border border-gray-200 hover:border-[#D4AF37] transition duration-300 text-sm z-10 relative overflow-hidden group">
-              <span className="relative z-10 block transition-transform group-hover:scale-105">Xem Thêm</span>
-            </button>
-          </div>
-        )}
       </section>
 
       <footer className="bg-white border-t-4 border-[#D4AF37] text-sm mt-auto pt-10 pb-6 text-gray-600">
         <div className="container mx-auto px-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 mb-8">
           <div>
-            <h4 className="text-gray-900 font-bold mb-4 uppercase text-xs">Chăm Sóc Khách Hàng</h4>
+            <h4 className="text-gray-900 font-bold mb-4 uppercase text-xs"><AutoText text="Chăm Sóc Khách Hàng" /></h4>
             <ul className="space-y-2 text-[13px]">
-              <li><a href="#" className="hover:text-[#D4AF37]">Trung Tâm Trợ Giúp</a></li>
+              <li><a href="#" className="hover:text-[#D4AF37]"><AutoText text="Trung Tâm Trợ Giúp" /></a></li>
               <li><a href="#" className="hover:text-[#D4AF37]">PETROLIMEX Fashion Blog</a></li>
-              <li><a href="#" className="hover:text-[#D4AF37]">Hướng Dẫn Mua Hàng</a></li>
+              <li><a href="#" className="hover:text-[#D4AF37]"><AutoText text="Hướng Dẫn Mua Hàng" /></a></li>
             </ul>
           </div>
           <div>
-            <h4 className="text-gray-900 font-bold mb-4 uppercase text-xs">Về PETROLIMEX Fashion</h4>
+            <h4 className="text-gray-900 font-bold mb-4 uppercase text-xs"><AutoText text="Về PETROLIMEX Fashion" /></h4>
             <ul className="space-y-2 text-[13px]">
-              <li><a href="#" className="hover:text-[#D4AF37]">Giới Thiệu</a></li>
-              <li><a href="#" className="hover:text-[#D4AF37]">Tuyển Dụng</a></li>
-              <li><a href="#" className="hover:text-[#D4AF37]">Điều Khoản</a></li>
+              <li><a href="#" className="hover:text-[#D4AF37]"><AutoText text="Giới Thiệu" /></a></li>
+              <li><a href="#" className="hover:text-[#D4AF37]"><AutoText text="Tuyển Dụng" /></a></li>
+              <li><a href="#" className="hover:text-[#D4AF37]"><AutoText text="Điều Khoản" /></a></li>
             </ul>
           </div>
           <div>
-            <h4 className="text-gray-900 font-bold mb-4 uppercase text-xs">Thanh Toán</h4>
+            <h4 className="text-gray-900 font-bold mb-4 uppercase text-xs"><AutoText text="Thanh Toán" /></h4>
             <div className="flex gap-2 text-md flex-wrap font-bold">
               <span className="border rounded px-2 py-1 text-blue-800">VISA</span>
               <span className="border rounded px-2 py-1 text-orange-600">JCB</span>
@@ -412,7 +492,7 @@ export default function Home() {
             </div>
           </div>
           <div>
-            <h4 className="text-gray-900 font-bold mb-4 uppercase text-xs">Theo Dõi Chúng Tôi</h4>
+            <h4 className="text-gray-900 font-bold mb-4 uppercase text-xs"><AutoText text="Theo Dõi Chúng Tôi" /></h4>
             <ul className="space-y-2 text-[13px]">
               <li><a href="#" className="hover:text-[#D4AF37]">📘 Facebook</a></li>
               <li><a href="#" className="hover:text-[#D4AF37]">📸 Instagram</a></li>

@@ -4,9 +4,12 @@ import api from '../services/api';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import Navbar from '../components/Navbar';
+import AutoText from '../components/AutoText';
+import { useTranslation } from 'react-i18next';
 
 export default function ProductDetail() {
   const { addToCart } = useCart();
+  const { t } = useTranslation();
   const { toggleWishlist, isInWishlist } = useWishlist() || {};
   const { id } = useParams();
   const navigate = useNavigate();
@@ -70,7 +73,7 @@ export default function ProductDetail() {
   };
 
   const submitReview = async () => {
-    if (!newReview.comment) return alert("Vui lòng nhập bình luận!");
+    if (!newReview.comment) return alert(t('enter_comment_msg', { defaultValue: 'Vui lòng nhập bình luận!' }));
     try {
       await api.post('/reviews', {
         productId: id,
@@ -78,13 +81,13 @@ export default function ProductDetail() {
         comment: newReview.comment,
         images: reviewImages
       });
-      alert("Đã đăng đánh giá thành công! ⭐");
+      alert(t('review_success_msg', { defaultValue: 'Đã đăng đánh giá thành công! ⭐' }));
       setNewReview({ rating: 5, comment: '', images: [] });
       setReviewImages([]);
       setIsReviewing(false);
       fetchReviews();
     } catch (err) {
-      alert(err.response?.data?.message || "Lỗi khi đăng đánh giá");
+      alert(err.response?.data?.message || t('review_error_msg', { defaultValue: 'Lỗi khi đăng đánh giá' }));
     }
   };
 
@@ -141,13 +144,13 @@ export default function ProductDetail() {
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 uppercase font-black text-gray-400">
-      Đang tải sản phẩm...
+      <AutoText text="Đang tải sản phẩm..." />
     </div>
   );
 
   if (!product) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 uppercase font-black text-gray-400">
-      Không tìm thấy sản phẩm
+      <AutoText text="Không tìm thấy sản phẩm" />
     </div>
   );
 
@@ -197,22 +200,36 @@ export default function ProductDetail() {
           {/* RIGHT: INFO */}
           <div className="flex flex-col gap-8">
             <div className="space-y-2">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-amber-500 bg-amber-50 px-3 py-1 rounded-full border border-amber-100">Sản phẩm chính hãng</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-amber-500 bg-amber-50 px-3 py-1 rounded-full border border-amber-100"><AutoText text="Sản phẩm chính hãng" /></span>
               <h1 className="text-4xl font-black text-gray-900 leading-tight uppercase tracking-tighter">
-                {product.name}
+                <AutoText text={product.name} />
               </h1>
-              <p className="text-gray-400 text-sm font-medium italic">Mã sản phẩm: #{product._id?.slice(-8).toUpperCase()}</p>
+              <p className="text-gray-400 text-sm font-medium italic"><AutoText text="Mã sản phẩm" />: #{product._id?.slice(-8).toUpperCase()}</p>
             </div>
 
-            <div className="text-4xl font-black text-amber-600 bg-amber-50/50 p-6 rounded-2xl border-l-8 border-amber-500">
-              {formatPrice(product.price || 0)}
-            </div>
+            {product.isFlashSale && new Date(product.flashSaleEndDate) > new Date() && product.flashSaleStock > 0 ? (
+              <div className="flex items-center gap-4">
+                <div className="text-4xl font-black text-amber-600 bg-amber-50/50 p-6 rounded-2xl border-l-8 border-amber-500">
+                  {formatPrice(product.flashSalePrice || 0)}
+                </div>
+                <div className="text-xl font-bold text-gray-400 line-through decoration-amber-500/50 decoration-2">
+                  {formatPrice(product.price || 0)}
+                </div>
+                <div className="px-3 py-1 bg-amber-500 text-white font-black text-sm uppercase rounded-lg shadow-md">
+                  -{product.flashSaleDiscount}%
+                </div>
+              </div>
+            ) : (
+              <div className="text-4xl font-black text-amber-600 bg-amber-50/50 p-6 rounded-2xl border-l-8 border-amber-500">
+                {formatPrice(product.price || 0)}
+              </div>
+            )}
 
             <div className="space-y-6">
               {/* COLORS */}
               {product.colors?.length > 0 && (
                 <div className="space-y-3">
-                  <label className="text-xs font-black uppercase text-gray-400 tracking-widest">Màu sắc: <span className="text-gray-900">{selectedColor}</span></label>
+                  <label className="text-xs font-black uppercase text-gray-400 tracking-widest">{t('color')}: <span className="text-gray-900"><AutoText text={selectedColor} /></span></label>
                   <div className="flex flex-wrap gap-3">
                     {product.colors.map(color => (
                       <button
@@ -220,7 +237,7 @@ export default function ProductDetail() {
                         onClick={() => setSelectedColor(color)}
                         className={`px-6 py-3 rounded-xl border-2 font-bold transition-all text-sm uppercase ${selectedColor === color ? 'border-amber-500 bg-amber-500 text-gray-900 shadow-lg shadow-amber-500/20' : 'border-gray-100 hover:border-amber-200 text-gray-500 hover:text-gray-900'}`}
                       >
-                        {color}
+                        <AutoText text={color} />
                       </button>
                     ))}
                   </div>
@@ -230,7 +247,7 @@ export default function ProductDetail() {
               {/* SIZES */}
               {product.sizes?.length > 0 && (
                 <div className="space-y-3">
-                  <label className="text-xs font-black uppercase text-gray-400 tracking-widest">Kích cỡ: <span className="text-gray-900">{selectedSize}</span></label>
+                  <label className="text-xs font-black uppercase text-gray-400 tracking-widest">{t('size')}: <span className="text-gray-900"><AutoText text={selectedSize} /></span></label>
                   <div className="flex flex-wrap gap-3">
                     {product.sizes.map(size => (
                       <button
@@ -238,7 +255,7 @@ export default function ProductDetail() {
                         onClick={() => setSelectedSize(size)}
                         className={`px-8 py-3 rounded-xl border-2 font-black transition-all text-sm uppercase ${selectedSize === size ? 'border-gray-900 bg-gray-900 text-white shadow-xl shadow-gray-200' : 'border-gray-100 hover:border-gray-300 text-gray-500 hover:text-gray-900'}`}
                       >
-                        {size}
+                        <AutoText text={size} />
                       </button>
                     ))}
                   </div>
@@ -248,21 +265,24 @@ export default function ProductDetail() {
 
             <div className="pt-8 border-t border-gray-100 mt-auto flex flex-col gap-4">
                <div className="flex items-center gap-2 text-gray-500 text-sm mb-4">
-                  <span>Tồn kho: <span className="font-bold text-gray-800">{getSelectedStock()}</span> sản phẩm</span>
+                  <span>{t('stock')}: <span className="font-bold text-gray-800">{getSelectedStock()}</span> {t('products')}</span>
                </div>
                <div className="flex gap-4">
                   <button 
                     onClick={() => {
                       if (!selectedColor || !selectedSize) {
-                        alert("Vui lòng chọn màu sắc và kích cỡ!");
+                        alert(t('select_options_msg'));
                         return;
                       }
+                      // Calculate active price
+                      const isFlashSale = product.isFlashSale && new Date(product.flashSaleEndDate) > new Date() && product.flashSaleStock > 0;
+                      // Pass to cart (make sure Cart context uses the updated price or product object)
                       addToCart(product, selectedColor, selectedSize, 1);
-                      alert('Đã thêm vào giỏ hàng!');
+                      alert(t('added_to_cart'));
                     }}
                     className="flex-1 py-5 bg-gray-900 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-amber-500 hover:text-gray-900 transition-all shadow-xl active:scale-[0.98]"
                   >
-                    THÊM VÀO GIỎ HÀNG
+                    {t('add_to_cart')}
                   </button>
                   <button 
                     onClick={() => toggleWishlist(product._id)}
@@ -277,22 +297,22 @@ export default function ProductDetail() {
 
         {/* DESCRIPTION */}
         <div className="mt-12 bg-white p-12 rounded-3xl shadow-lg shadow-gray-200/50">
-          <h2 className="text-xl font-black uppercase tracking-tight mb-8 border-b-2 border-gray-900 inline-block pb-2">Mô tả sản phẩm</h2>
+          <h2 className="text-xl font-black uppercase tracking-tight mb-8 border-b-2 border-gray-900 inline-block pb-2"><AutoText text="Mô tả sản phẩm" /></h2>
           <div className="prose prose-lg max-w-none text-gray-600 font-medium leading-relaxed">
-            {product.description || "Đang cập nhật nội dung cho sản phẩm này..."}
+            <AutoText text={product.description || "Đang cập nhật nội dung cho sản phẩm này..."} />
           </div>
         </div>
 
         {/* REVIEWS SECTION */}
         <div className="mt-12 space-y-8">
            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-black uppercase tracking-tighter">Đánh giá từ khách hàng ({reviews.length})</h2>
+              <h2 className="text-2xl font-black uppercase tracking-tighter"><AutoText text="Đánh giá từ khách hàng" /> ({reviews.length})</h2>
               {user && !isReviewing && (
                 <button 
                   onClick={() => setIsReviewing(true)}
                   className="bg-gray-900 text-white px-8 py-3 rounded-2xl font-black uppercase text-xs hover:bg-amber-500 hover:text-gray-900 transition-all shadow-lg active:scale-95"
                 >
-                  Viết Đánh Giá
+                  <AutoText text="Viết Đánh Giá" />
                 </button>
               )}
            </div>
@@ -301,8 +321,8 @@ export default function ProductDetail() {
            {isReviewing && (
              <div className="bg-white p-8 rounded-3xl shadow-xl shadow-gray-200/50 border-2 border-amber-500">
                 <div className="flex justify-between items-center mb-6">
-                   <h3 className="font-black uppercase italic tracking-tight text-lg">Đánh giá của bạn</h3>
-                   <button onClick={() => setIsReviewing(false)} className="text-gray-400 hover:text-red-500 uppercase font-black text-[10px] tracking-widest">Đóng</button>
+                   <h3 className="font-black uppercase italic tracking-tight text-lg"><AutoText text="Đánh giá của bạn" /></h3>
+                   <button onClick={() => setIsReviewing(false)} className="text-gray-400 hover:text-red-500 uppercase font-black text-[10px] tracking-widest">{t('close')}</button>
                 </div>
 
                 <div className="space-y-6">
@@ -322,7 +342,7 @@ export default function ProductDetail() {
                    </div>
 
                    <div className="space-y-2">
-                      <label className="text-xs font-black uppercase text-gray-400 tracking-widest block">Bình luận:</label>
+                      <label className="text-xs font-black uppercase text-gray-400 tracking-widest block"><AutoText text="Bình luận" />:</label>
                       <textarea 
                         className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-4 font-medium outline-none focus:border-amber-500 transition shadow-inner font-sans"
                         rows="4"
@@ -348,7 +368,7 @@ export default function ProductDetail() {
                         ))}
                         <label className="w-24 h-24 rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:border-amber-500 hover:bg-amber-50 transition-all text-gray-400">
                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
-                           <span className="text-[8px] font-black uppercase tracking-widest mt-1">Thêm ảnh</span>
+                           <span className="text-[8px] font-black uppercase tracking-widest mt-1"><AutoText text="Thêm ảnh" /></span>
                            <input type="file" className="hidden" multiple accept="image/*" onChange={handleReviewImageUpload} />
                         </label>
                       </div>
@@ -358,7 +378,7 @@ export default function ProductDetail() {
                      onClick={submitReview}
                      className="w-full py-5 bg-gray-900 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-amber-500 hover:text-gray-900 transition-all shadow-xl shadow-gray-200"
                    >
-                     GỬI ĐÁNH GIÁ NGAY
+                     <AutoText text="GỬI ĐÁNH GIÁ NGAY" />
                    </button>
                 </div>
              </div>
@@ -400,7 +420,7 @@ export default function ProductDetail() {
               )) : (
                 <div className="bg-white p-20 rounded-[3rem] text-center border-2 border-dashed border-gray-100">
                    <span className="text-6xl opacity-20 block mb-6">📝</span>
-                   <p className="font-black uppercase tracking-widest text-gray-300 text-xs">Chưa có đánh giá nào cho sản phẩm này.</p>
+                   <p className="font-black uppercase tracking-widest text-gray-300 text-xs"><AutoText text="Chưa có đánh giá nào cho sản phẩm này." /></p>
                 </div>
               )}
            </div>

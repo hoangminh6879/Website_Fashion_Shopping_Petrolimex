@@ -38,6 +38,15 @@ export default function Checkout() {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
+    const getItemPrice = (item) => {
+        if (!item.product) return 0;
+        let price = item.product.price;
+        if (item.product.isFlashSale && item.product.flashSaleEndDate && new Date(item.product.flashSaleEndDate) > new Date() && item.product.flashSaleStock > 0) {
+           price = item.product.flashSalePrice || price;
+        }
+        return price;
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (cart.length === 0) return;
@@ -220,7 +229,7 @@ export default function Checkout() {
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <p className="font-black text-sm text-gray-900 tracking-tighter">{formatPrice(item.product?.price * item.quantity)}</p>
+                                            <p className="font-black text-sm text-gray-900 tracking-tighter">{formatPrice(getItemPrice(item) * item.quantity)}</p>
                                         </div>
                                     </div>
                                 ))}

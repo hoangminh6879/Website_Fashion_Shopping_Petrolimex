@@ -248,7 +248,14 @@ export const CartProvider = ({ children }) => {
   const getCartTotal = () => {
     return cart.reduce((total, item) => {
       if (!item.product || !item.product.price) return total;
-      return total + (item.product.price * item.quantity);
+      
+      let currentPrice = item.product.price;
+      // Check if product is in an active flash sale
+      if (item.product.isFlashSale && item.product.flashSaleEndDate && new Date(item.product.flashSaleEndDate) > new Date() && item.product.flashSaleStock > 0) {
+         currentPrice = item.product.flashSalePrice || currentPrice;
+      }
+      
+      return total + (currentPrice * item.quantity);
     }, 0);
   };
 

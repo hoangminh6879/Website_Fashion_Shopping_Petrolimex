@@ -497,23 +497,61 @@ export default function AdminDashboard() {
           {activeTab === "overview" && (
             <div>
               <h2 className="text-2xl font-black text-gray-900 mb-6">Thống kê hệ thống</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-blue-50 border border-blue-100 p-6 rounded-2xl text-center">
-                  <div className="text-blue-500 text-4xl mb-2 font-black">{stats.totalUsers || 0}</div>
-                  <div className="text-blue-800 font-semibold text-sm uppercase">Người dùng</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+                <div className="bg-blue-50 border border-blue-100 p-6 rounded-2xl shadow-sm">
+                  <div className="text-blue-500 text-4xl mb-2 font-black">{stats.summary?.totalUsers || 0}</div>
+                  <div className="text-blue-800 font-bold text-[10px] uppercase tracking-widest">Người dùng</div>
                 </div>
-                <div className="bg-green-50 border border-green-100 p-6 rounded-2xl text-center">
-                  <div className="text-green-500 text-4xl mb-2 font-black">{stats.totalShops || 0}</div>
-                  <div className="text-green-800 font-semibold text-sm uppercase">Cửa hàng</div>
+                <div className="bg-green-50 border border-green-100 p-6 rounded-2xl shadow-sm">
+                  <div className="text-green-500 text-4xl mb-2 font-black font-mono">
+                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(stats.summary?.totalRevenue || 0)}
+                  </div>
+                  <div className="text-green-800 font-bold text-[10px] uppercase tracking-widest">Doanh thu hoàn tất</div>
                 </div>
-                <div className="bg-purple-50 border border-purple-100 p-6 rounded-2xl text-center">
-                  <div className="text-purple-500 text-4xl mb-2 font-black">{stats.totalProducts || 0}</div>
-                  <div className="text-purple-800 font-semibold text-sm uppercase">Sản phẩm</div>
+                <div className="bg-purple-50 border border-purple-100 p-6 rounded-2xl shadow-sm">
+                  <div className="text-purple-500 text-4xl mb-2 font-black">{stats.summary?.totalOrders || 0}</div>
+                  <div className="text-purple-800 font-bold text-[10px] uppercase tracking-widest">Tổng số đơn hàng</div>
                 </div>
-                <div className="bg-amber-50 border border-amber-100 p-6 rounded-2xl text-center">
-                  <div className="text-amber-500 text-4xl mb-2 font-black">{stats.totalOrders || 0}</div>
-                  <div className="text-amber-800 font-semibold text-sm uppercase">Đơn hàng</div>
+                <div className="bg-amber-50 border border-amber-100 p-6 rounded-2xl shadow-sm">
+                   <div className="text-amber-500 text-4xl mb-2 font-black">{stats.summary?.activeShops || 0} / {stats.summary?.totalShops || 0}</div>
+                   <div className="text-amber-800 font-bold text-[10px] uppercase tracking-widest">Shop đang hoạt động</div>
                 </div>
+              </div>
+
+              <h3 className="text-lg font-black text-gray-900 mb-4 uppercase italic tracking-tighter">Đơn hàng mới nhất</h3>
+              <div className="overflow-x-auto rounded-xl border border-gray-100 shadow-sm">
+                 <table className="w-full text-left text-xs">
+                    <thead className="bg-gray-50 text-gray-400 font-black uppercase tracking-widest">
+                       <tr>
+                          <th className="px-6 py-3">Khách hàng</th>
+                          <th className="px-6 py-3">Tổng tiền</th>
+                          <th className="px-6 py-3">Trạng thái</th>
+                          <th className="px-6 py-3">Ngày đặt</th>
+                       </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                       {stats.latestOrders?.map(order => (
+                          <tr key={order._id} className="hover:bg-gray-50 transition">
+                             <td className="px-6 py-4 font-bold">{order.user?.name}</td>
+                             <td className="px-6 py-4 font-mono font-bold text-amber-600">
+                                {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.totalPrice)}
+                             </td>
+                             <td className="px-6 py-4">
+                                <span className={`px-2 py-0.5 rounded-full font-bold text-[9px] uppercase ${
+                                   order.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                   order.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                                   'bg-blue-100 text-blue-700'
+                                }`}>
+                                   {order.status}
+                                </span>
+                             </td>
+                             <td className="px-6 py-4 text-gray-400">
+                                {new Date(order.createdAt).toLocaleDateString('vi-VN')}
+                             </td>
+                          </tr>
+                       ))}
+                    </tbody>
+                 </table>
               </div>
             </div>
           )}
