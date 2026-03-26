@@ -3,6 +3,7 @@ import OrderItem from "../models/OrderItem.model.js";
 import Cart from "../models/Cart.model.js";
 import CartItem from "../models/CartItem.model.js";
 import Product from "../models/Product.model.js";
+import Notification from "../models/Notification.model.js";
 import User from "../models/User.model.js";
 import sendEmail from "../utils/sendEmail.js";
 
@@ -64,6 +65,15 @@ export const createOrder = async (req, res) => {
         if (cart) {
             await CartItem.deleteMany({ cart: cart._id });
         }
+
+        // Tạo thông báo trong hệ thống cho User
+        await Notification.create({
+            recipient: req.user.id,
+            title: "Đặt hàng thành công!",
+            message: `Bạn vừa đặt thành công đơn hàng #${order._id.toString().slice(-6).toUpperCase()} với tổng tiền ${totalPrice.toLocaleString('vi-VN')} VND.`,
+            type: "order",
+            link: "/profile" // Link to profile where user can see the order
+        });
 
         // 4. Gửi email xác nhận (không làm gián đoạn response)
         const user = await User.findById(req.user.id);
@@ -145,6 +155,23 @@ export const updateOrderStatus = async (req, res) => {
             { new: true }
         );
         if (!order) return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
+
+        // Tạo thông báo cho user
+        const statusMap = {
+            paid: "đã được thanh toán",
+            shipped: "đang được giao",
+            completed: "đã hoàn thành",
+            cancelled: "đã bị hủy"
+        };
+        const statusText = statusMap[status] || status;
+        
+        await Notification.create({
+            recipient: order.user,
+            title: "Cập nhật đơn hàng",
+            message: `Đơn hàng #${order._id.toString().slice(-6).toUpperCase()} của bạn ${statusText}.`,
+            type: "order"
+        });
+
         res.json(order);
     } catch (error) {
         res.status(500).json({ message: error.message });

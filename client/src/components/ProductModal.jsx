@@ -3,9 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useCart } from '../context/CartContext';
 import Swal from 'sweetalert2';
+import AutoText from './AutoText';
+import { useTranslation } from 'react-i18next';
 
 export default function ProductModal({ product: productInfo, isOpen, onClose, productGroupMap = {} }) {
   const { addToCart, userRole } = useCart();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
 
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -80,12 +83,14 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
 
   const displayPrice = productInfo?.eventPrice > 0 
     ? productInfo.eventPrice 
-    : (selectedProduct?.price > 0
-        ? selectedProduct.price
-        : (currentVariant ? currentVariant.price : (productVariants.length > 0 ? productVariants[0].price : 0)));
+    : (selectedProduct?.isFlashSale && selectedProduct?.flashSaleEndDate && new Date(selectedProduct.flashSaleEndDate) > new Date() && selectedProduct?.flashSaleStock > 0
+        ? selectedProduct.flashSalePrice
+        : (selectedProduct?.price > 0
+            ? selectedProduct.price
+            : (currentVariant ? currentVariant.price : (productVariants.length > 0 ? productVariants[0].price : 0))));
 
   const originalPrice = productInfo?.originalPrice || selectedProduct?.price || (currentVariant ? currentVariant.originalPrice : 0);
-  const discountPercentage = productInfo?.discountPercentage || 0;
+  const discountPercentage = productInfo?.discountPercentage || (selectedProduct?.isFlashSale && selectedProduct?.flashSaleEndDate && new Date(selectedProduct.flashSaleEndDate) > new Date() && selectedProduct?.flashSaleStock > 0 ? selectedProduct.flashSaleDiscount : 0);
 
   const uniqueColors = selectedProduct?.colors?.length > 0
     ? selectedProduct.colors
@@ -142,11 +147,11 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
     if (userRole !== 'user') {
       Swal.fire({
         icon: 'warning',
-        title: 'Yêu cầu đăng nhập',
-        text: 'Vui lòng đăng nhập với tài khoản Khách hàng để mua sắm.',
+        title: t('login_required'),
+        text: t('login_required_msg'),
         showCancelButton: true,
-        confirmButtonText: 'Đăng nhập',
-        cancelButtonText: 'Đóng'
+        confirmButtonText: t('login'),
+        cancelButtonText: t('close')
       }).then((result) => {
         if (result.isConfirmed) navigate('/login');
       });
@@ -154,12 +159,12 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
     }
 
     if (!selectedColor || !selectedSize) {
-      Swal.fire('Chú ý', 'Vui lòng chọn đầy đủ màu sắc và kích cỡ', 'warning');
+      Swal.fire(t('attention'), t('select_options_msg'), 'warning');
       return;
     }
 
     if (currentStock <= 0) {
-      Swal.fire('Hết hàng', 'Sản phẩm hiện đang tạm hết hàng cho lựa chọn này', 'error');
+      Swal.fire(t('out_of_stock'), t('out_of_stock_msg'), 'error');
       return;
     }
 
@@ -172,7 +177,7 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
       } else {
         Swal.fire({
           icon: 'success',
-          title: 'Đã thêm vào giỏ hàng',
+          title: t('added_to_cart'),
           showConfirmButton: false,
           timer: 1500,
           toast: true,
@@ -181,7 +186,7 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
         onClose();
       }
     } catch (error) {
-       Swal.fire('Lỗi', 'Không thể thêm sản phẩm vào giỏ hàng', 'error');
+       Swal.fire(t('error'), t('add_to_cart_error'), 'error');
     } finally {
       setAddingToCart(false);
     }
@@ -213,7 +218,7 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
                 className="w-full max-w-sm aspect-square object-cover rounded-lg shadow-sm bg-white"
               />
               <div className="mt-4 text-gray-500 text-sm px-4 text-center">
-                {selectedProduct.description}
+                <AutoText text={selectedProduct.description} />
               </div>
             </div>
             
@@ -221,9 +226,9 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
             <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col">
               <div className="mb-3 flex items-center gap-2">
                 <span className="bg-[#d0011b] text-white text-[10px] font-bold px-2 py-0.5 rounded-sm">MALL</span>
-                <span className="text-gray-500 text-sm">Cung cấp bởi: <Link to={`/shop/${selectedProduct.shop?._id}`} className="text-amber-600 font-black hover:underline transition-all cursor-pointer">{selectedProduct.shop?.name || 'Shop Của Tôi'}</Link></span>
+                <span className="text-gray-500 text-sm">{t('provided_by')}: <Link to={`/shop/${selectedProduct.shop?._id}`} className="text-amber-600 font-black hover:underline transition-all cursor-pointer"><AutoText text={selectedProduct.shop?.name || 'Shop Của Tôi'} /></Link></span>
               </div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-4 leading-tight">{selectedProduct.name}</h2>
+              <h2 className="text-2xl font-bold text-gray-800 mb-4 leading-tight"><AutoText text={selectedProduct.name} /></h2>
 
               <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-100">
                 <div className="flex items-center gap-3">
@@ -239,11 +244,11 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
                   </div>
                   {discountPercentage > 0 && (
                      <span className="bg-[#d0011b] text-white text-[10px] font-black px-1.5 py-0.5 rounded-sm uppercase tracking-tighter">
-                       -{discountPercentage}% GIẢM
+                       -{discountPercentage}% {t('discount')}
                      </span>
                   )}
                   {!currentVariant && productVariants.length > 0 && (
-                    <span className="text-xs text-gray-400 ml-auto self-start"> (Chọn phân loại để xem giá)</span>
+                    <span className="text-xs text-gray-400 ml-auto self-start"> ({t('select_options_price')})</span>
                   )}
                 </div>
               </div>
@@ -253,7 +258,7 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
                 {/* Color */}
                 {uniqueColors.length > 0 && (
                   <div className="mb-4">
-                    <h4 className="text-gray-700 font-semibold mb-2 text-sm uppercase">Màu Sắc</h4>
+                    <h4 className="text-gray-700 font-semibold mb-2 text-sm uppercase">{t('color')}</h4>
                     <div className="flex flex-wrap gap-2">
                       {uniqueColors.map(color => (
                         <button
@@ -261,7 +266,7 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
                           onClick={() => setSelectedColor(color)}
                           className={`px-4 py-2 border rounded-md text-sm transition-all ${selectedColor === color ? 'border-amber-500 text-amber-600 bg-amber-50 font-bold shadow-sm' : 'border-gray-200 text-gray-700 hover:border-amber-300'}`}
                         >
-                          {color}
+                          <AutoText text={color} />
                         </button>
                       ))}
                     </div>
@@ -271,7 +276,7 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
                 {/* Size */}
                 {uniqueSizes.length > 0 && (
                   <div className="mb-4">
-                    <h4 className="text-gray-700 font-semibold mb-2 text-sm uppercase">Kích Cỡ</h4>
+                    <h4 className="text-gray-700 font-semibold mb-2 text-sm uppercase">{t('size')}</h4>
                     <div className="flex flex-wrap gap-2">
                       {uniqueSizes.map(size => (
                         <button
@@ -279,7 +284,7 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
                           onClick={() => setSelectedSize(size)}
                           className={`px-4 py-2 border rounded-md text-sm transition-all ${selectedSize === size ? 'border-amber-500 text-amber-600 bg-amber-50 font-bold shadow-sm' : 'border-gray-200 text-gray-700 hover:border-amber-300'}`}
                         >
-                          {size}
+                          <AutoText text={size} />
                         </button>
                       ))}
                     </div>
@@ -289,7 +294,7 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
                 {/* Quantity Selector */}
                 {currentStock > 0 && (
                   <div className="mt-6 flex items-center gap-4">
-                    <h4 className="text-gray-700 font-semibold text-sm uppercase">Số Lượng</h4>
+                    <h4 className="text-gray-700 font-semibold text-sm uppercase">{t('quantity')}</h4>
                     <div className="flex items-center border border-gray-300 rounded-md overflow-hidden bg-white">
                       <button
                         onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
@@ -315,16 +320,16 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
                         +
                       </button>
                     </div>
-                    <span className="text-xs text-gray-400">Tối đa {currentStock}</span>
+                    <span className="text-xs text-gray-400">{t('max')} {currentStock}</span>
                   </div>
                 )}
 
                 {/* Stock status */}
                 <div className="text-sm mt-4 text-gray-600 min-h-[1.5rem] font-medium">
                   {currentStock > 0 ? (
-                    <span>Tồn kho: <span className="font-bold text-gray-900">{currentStock}</span> sản phẩm</span>
+                    <span>{t('stock')}: <span className="font-bold text-gray-900">{currentStock}</span> {t('products')}</span>
                   ) : (
-                    <span className="text-red-500 font-bold uppercase tracking-tight">Hết hàng</span>
+                    <span className="text-red-500 font-bold uppercase tracking-tight">{t('out_of_stock')}</span>
                   )}
                 </div>
               </div>
@@ -333,7 +338,7 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
               <div className="flex gap-4 mt-auto pt-4 border-t border-gray-100">
                 {userRole === 'admin' || userRole === 'seller' ? (
                   <div className="w-full text-center py-3 bg-red-50 text-red-500 font-bold rounded-md border border-red-200">
-                    🛒 Tính năng mua sắm chỉ dành cho khách hàng.
+                    🛒 {t('only_for_customers')}
                   </div>
                 ) : (
                   <>
@@ -343,14 +348,14 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
                       className={`flex-1 flex items-center justify-center gap-2 py-3 border-2 border-amber-500 font-bold rounded-md transition-all ${addingToCart || currentStock <= 0 ? 'opacity-50 cursor-not-allowed bg-gray-50 border-gray-200 text-gray-400' : 'text-amber-600 bg-amber-50/50 hover:bg-amber-100 active:scale-95'}`}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.35 5.4a1 1 0 00.97 1.25h11.76a1 1 0 00.97-1.25L17 13M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17" /></svg>
-                      {addingToCart ? 'Đang thêm...' : 'Thêm vào giỏ'}
+                      {addingToCart ? t('adding') : t('add_to_cart')}
                     </button>
                     <button
                       onClick={() => handleAddToCart(true)}
                       disabled={addingToCart || currentStock <= 0}
                       className={`flex-1 py-3 font-bold rounded-md transition-all shadow-lg ${addingToCart || currentStock <= 0 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-amber-500 to-amber-600 text-gray-900 hover:from-amber-600 hover:to-amber-700 active:scale-95'}`}
                     >
-                      Mua Ngay
+                      {t('buy_now')}
                     </button>
                   </>
                 )}
