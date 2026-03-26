@@ -13,6 +13,12 @@ const orderSchema = new mongoose.Schema(
     },
 
     address: String,
+    phone: String,
+    paymentMethod: {
+      type: String,
+      default: "COD",
+    },
+
   },
   { timestamps: true }
 );

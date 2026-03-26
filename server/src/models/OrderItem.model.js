@@ -5,10 +5,9 @@ const orderItemSchema = new mongoose.Schema({
 
   product: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
 
-  variant: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "ProductVariant",
-  },
+  color: String,
+  size: String,
+
 
   quantity: Number,
   price: Number,

@@ -15,6 +15,9 @@ import EventDetail from "./pages/EventDetail"; // 🔥 thêm
 import LoginSuccess from "./pages/LoginSuccess";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import Checkout from "./pages/Checkout";
+import ProtectedRoute from "./components/ProtectedRoute";
+
 
 function App() {
   return (
@@ -24,20 +27,78 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/login-success" element={<LoginSuccess />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/cart" element={<Cart />} />
 
-        {/* 🔥 QUAN TRỌNG */}
+        {/* Protected Routes for All Logged-in Users */}
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute allowedRoles={['user', 'seller', 'admin']}>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* User Only Routes (Shopping logic) */}
+        <Route
+          path="/cart"
+          element={
+            <ProtectedRoute allowedRoles={['user']}>
+              <Cart />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/checkout"
+          element={
+            <ProtectedRoute allowedRoles={['user']}>
+              <Checkout />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/followed-shops"
+          element={
+            <ProtectedRoute allowedRoles={['user']}>
+              <FollowedShops />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/wishlist"
+          element={
+            <ProtectedRoute allowedRoles={['user']}>
+              <Wishlist />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Seller Only Routes */}
+        <Route
+          path="/seller/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['seller']}>
+              <SellerDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Admin Only Routes */}
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Public Routes */}
         <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/shop/:id" element={<ShopDetail />} />
         <Route path="/event/:id" element={<EventDetail />} />
-        <Route path="/followed-shops" element={<FollowedShops />} />
-        <Route path="/wishlist" element={<Wishlist />} />
         <Route path="/flash-sale" element={<FlashSalePage />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
-        <Route path="/seller/dashboard" element={<SellerDashboard />} />
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
       </Routes>
     </BrowserRouter>
   );
