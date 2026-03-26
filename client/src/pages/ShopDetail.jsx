@@ -3,9 +3,12 @@ import { useParams, Link } from 'react-router-dom';
 import api from '../services/api';
 import { useCart } from '../context/CartContext';
 import ProductModal from '../components/ProductModal';
+import AutoText from '../components/AutoText';
+import { useTranslation } from 'react-i18next';
 
 export default function ShopDetail() {
   const { id } = useParams();
+  const { t } = useTranslation();
   const [shop, setShop] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -68,8 +71,8 @@ export default function ShopDetail() {
   if (!shop) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 text-center">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">Không tìm thấy shop</h2>
-        <Link to="/" className="text-amber-600 font-bold hover:underline">Quay lại trang chủ</Link>
+        <h2 className="text-2xl font-bold text-gray-800 mb-2"><AutoText text="Không tìm thấy shop" /></h2>
+        <Link to="/" className="text-amber-600 font-bold hover:underline"><AutoText text="Quay lại trang chủ" /></Link>
       </div>
     );
   }
@@ -85,27 +88,27 @@ export default function ShopDetail() {
             </div>
             <div className="flex-1 text-center md:text-left">
               <h1 className="text-3xl font-black text-white uppercase tracking-tight italic mb-2">
-                {shop.name}
+                <AutoText text={shop.name} />
                 <span className="ml-3 inline-block bg-[#d0011b] text-white text-[10px] font-black not-italic px-2 py-0.5 rounded-sm align-middle">MALL</span>
               </h1>
               <p className="text-gray-300 text-sm max-w-2xl leading-relaxed font-medium">
-                {shop.description || 'Chưa có mô tả cho cửa hàng này. Petrolimex Fashion Mall tự hào cung cấp các sản phẩm chất lượng cao đến tay người tiêu dùng.'}
+                <AutoText text={shop.description || 'Chưa có mô tả cho cửa hàng này. Petrolimex Fashion Mall tự hào cung cấp các sản phẩm chất lượng cao đến tay người tiêu dùng.'} />
               </p>
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-6 mt-6">
                 <div className="flex items-center gap-2">
                    <span className="text-amber-500 font-black">4.9</span>
                    <div className="flex text-yellow-400 text-xs">★★★★★</div>
-                   <span className="text-gray-400 text-xs uppercase font-bold tracking-widest">(Đánh giá)</span>
+                   <span className="text-gray-400 text-xs uppercase font-bold tracking-widest">(<AutoText text="Đánh giá" />)</span>
                 </div>
                 <div className="h-4 w-[1px] bg-gray-700 hidden sm:block"></div>
                 <div className="flex items-center gap-2">
                    <span className="text-white font-black">{products.length}</span>
-                   <span className="text-gray-400 text-xs uppercase font-bold tracking-widest">Sản phẩm</span>
+                   <span className="text-gray-400 text-xs uppercase font-bold tracking-widest"><AutoText text="Sản phẩm" /></span>
                 </div>
                 <div className="h-4 w-[1px] bg-gray-700 hidden sm:block"></div>
                 <div className="flex items-center gap-2">
                    <span className="text-white font-black">98%</span>
-                   <span className="text-gray-400 text-xs uppercase font-bold tracking-widest">Phản hồi Chat</span>
+                   <span className="text-gray-400 text-xs uppercase font-bold tracking-widest"><AutoText text="Phản hồi Chat" /></span>
                 </div>
               </div>
             </div>
@@ -114,10 +117,10 @@ export default function ShopDetail() {
                 onClick={handleToggleFollow}
                 className={`${followed ? 'bg-white/20 text-white border-white/20' : 'bg-amber-500 text-gray-900 border-amber-500'} hover:opacity-90 font-black px-8 py-3 rounded-xl transition-all shadow-xl shadow-amber-500/10 uppercase tracking-widest text-[10px] border`}
                >
-                 {followed ? 'Đang Theo Dõi' : '+ Theo Dõi'}
+                 <AutoText text={followed ? 'Đang Theo Dõi' : '+ Theo Dõi'} />
                </button>
                <button className="bg-white/10 hover:bg-white/20 text-white font-black px-8 py-3 rounded-xl transition-all backdrop-blur border border-white/10 uppercase tracking-widest text-[10px]">
-                 Chat Ngay
+                 <AutoText text="Chat Ngay" />
                </button>
             </div>
           </div>
@@ -127,9 +130,9 @@ export default function ShopDetail() {
       {/* PRODUCTS NAV */}
       <div className="sticky top-32 md:top-44 z-40 bg-white border-b border-gray-200 shadow-sm mb-8">
          <div className="container mx-auto px-4 flex">
-            <button className="px-8 py-4 text-amber-600 font-black uppercase tracking-widest text-[11px] border-b-2 border-amber-600">Tất Cả Sản Phẩm</button>
-            <button className="px-8 py-4 text-gray-500 font-black uppercase tracking-widest text-[11px] hover:text-gray-900 transition">Sản Phẩm Mới</button>
-            <button className="px-8 py-4 text-gray-500 font-black uppercase tracking-widest text-[11px] hover:text-gray-900 transition">Bán Chạy</button>
+            <button className="px-8 py-4 text-amber-600 font-black uppercase tracking-widest text-[11px] border-b-2 border-amber-600"><AutoText text="Tất Cả Sản Phẩm" /></button>
+            <button className="px-8 py-4 text-gray-500 font-black uppercase tracking-widest text-[11px] hover:text-gray-900 transition"><AutoText text="Sản Phẩm Mới" /></button>
+            <button className="px-8 py-4 text-gray-500 font-black uppercase tracking-widest text-[11px] hover:text-gray-900 transition"><AutoText text="Bán Chạy" /></button>
          </div>
       </div>
 
@@ -160,13 +163,13 @@ export default function ShopDetail() {
                     onClick={(e) => { e.stopPropagation(); setSelectedProduct(product); setIsModalOpen(true); }}
                     className="w-4/5 bg-amber-500 text-gray-900 font-black py-2 rounded-lg text-[9px] uppercase tracking-widest shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-all border border-amber-400 hover:bg-amber-400"
                   >
-                    Thêm vào giỏ
+                    {t('add_to_cart')}
                   </button>
                   <button 
                     onClick={(e) => { e.stopPropagation(); setSelectedProduct(product); setIsModalOpen(true); }}
                     className="w-4/5 bg-white text-gray-900 font-black py-2 rounded-lg text-[9px] uppercase tracking-widest shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-all border border-gray-200 hover:bg-gray-100"
                   >
-                    Mua Ngay
+                    {t('buy_now')}
                   </button>
                 </div>
 
@@ -175,12 +178,12 @@ export default function ShopDetail() {
                 </div>
               </div>
               <div className="p-4 flex-1 flex flex-col bg-white">
-                <h3 className="text-sm font-bold text-gray-800 line-clamp-2 mb-3 leading-snug group-hover:text-amber-600 transition-colors uppercase tracking-tight">{product.name}</h3>
+                <h3 className="text-sm font-bold text-gray-800 line-clamp-2 mb-3 leading-snug group-hover:text-amber-600 transition-colors uppercase tracking-tight"><AutoText text={product.name} /></h3>
                 <div className="mt-auto">
                     <div className="text-amber-600 font-black text-base">{formatPrice(product.price)}</div>
                     <div className="flex items-center justify-between mt-2">
                        <div className="flex text-yellow-400 text-[10px]">★★★★★</div>
-                       <span className="text-[10px] text-gray-400 font-medium">Đã bán {Math.floor(Math.random() * 100) + 1}</span>
+                       <span className="text-[10px] text-gray-400 font-medium"><AutoText text="Đã bán" /> {Math.floor(Math.random() * 100) + 1}</span>
                     </div>
                 </div>
               </div>
@@ -191,7 +194,7 @@ export default function ShopDetail() {
         {products.length === 0 && (
           <div className="text-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm">
             <span className="text-4xl grayscale opacity-30 mb-4 block">📦</span>
-            <p className="text-gray-400 uppercase font-black text-[10px] tracking-widest">Shop chưa có sản phẩm nào được đăng tải</p>
+            <p className="text-gray-400 uppercase font-black text-[10px] tracking-widest"><AutoText text="Shop chưa có sản phẩm nào được đăng tải" /></p>
           </div>
         )}
       </div>
@@ -199,7 +202,7 @@ export default function ShopDetail() {
       <div className="mt-16 text-center">
         <Link to="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-amber-600 font-black uppercase tracking-widest text-[10px] transition-all group">
            <svg className="w-4 h-4 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-           Quay lại trang chủ mua sắm
+           <AutoText text="Quay lại trang chủ mua sắm" />
         </Link>
       </div>
       <ProductModal 

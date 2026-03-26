@@ -1,5 +1,7 @@
 import Event from "../models/Event.model.js";
 import ProductEvent from "../models/ProductEvent.model.js";
+import User from "../models/User.model.js";
+import Notification from "../models/Notification.model.js";
 
 // GET /api/events - Public: list active/public events
 export const getEvents = async (req, res) => {
@@ -95,6 +97,22 @@ export const createEvent = async (req, res) => {
     });
 
     await event.populate("eventType", "name label icon color");
+    
+    // Gửi thông báo cho tất cả người dùng (Ngoại trừ Admin tạo)
+    if (isPublic) {
+      const users = await User.find({ _id: { $ne: req.user._id } }).select("_id");
+      const notifications = users.map(u => ({
+        recipient: u._id,
+        title: "Sự kiện mới sắp diễn ra!",
+        message: `Sự kiện "${name}" đã được lên lịch. Đừng bỏ lỡ những ưu đãi hấp dẫn bắt đầu từ ${start.toLocaleDateString("vi-VN")}!`,
+        type: "promotion",
+        link: `/event/${event._id}`
+      }));
+      if (notifications.length > 0) {
+        await Notification.insertMany(notifications);
+      }
+    }
+
     res.status(201).json(event);
   } catch (err) {
     res.status(500).json({ message: "Lỗi server", error: err.message });

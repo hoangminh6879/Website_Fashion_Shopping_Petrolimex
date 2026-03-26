@@ -1,6 +1,8 @@
 import Shop from "../models/Shop.model.js";
 import Product from "../models/Product.model.js";
 import ProductVariant from "../models/ProductVariant.model.js";
+import Follow from "../models/FlowShop.model.js";
+import Notification from "../models/Notification.model.js";
 
 export const createProduct = async (req, res) => {
   try {
@@ -32,6 +34,19 @@ export const createProduct = async (req, res) => {
       shop: shop._id,
     });
 
+    // Thông báo cho những người theo dõi shop
+    const followers = await Follow.find({ shop: shop._id }).select("user");
+    if (followers.length > 0) {
+      const notifications = followers.map(f => ({
+        recipient: f.user,
+        title: "Sản phẩm mới từ Shop bạn đang theo dõi!",
+        message: `Shop "${shop.name}" vừa đăng một sản phẩm mới: ${name}. Hãy xem ngay!`,
+        type: "shop",
+        link: `/product/${product._id}`
+      }));
+      await Notification.insertMany(notifications);
+    }
+
     res.status(201).json({
       message: "Tạo sản phẩm thành công",
       product,
@@ -41,17 +56,43 @@ export const createProduct = async (req, res) => {
   }
 };
 
-// 🔥 GET ALL PRODUCTS
+// 🔥 GET ALL PRODUCTS WITH SEARCH & FILTER
 export const getProducts = async (req, res) => {
   try {
-    const { shopId } = req.query;
+    const { shopId, category, search, minPrice, maxPrice, sort } = req.query;
+    
     const filter = {};
+    
+    // Filter by Shop
     if (shopId) filter.shop = shopId;
+    
+    // Filter by Category
+    if (category) filter.category = category;
+    
+    // Search by Name (Regex)
+    if (search) {
+      filter.name = { $regex: search, $options: "i" };
+    }
+    
+    // Filter by Price Range
+    if (minPrice || maxPrice) {
+      filter.price = {};
+      if (minPrice) filter.price.$gte = Number(minPrice);
+      if (maxPrice) filter.price.$lte = Number(maxPrice);
+    }
+
+    // Sort Logic
+    let sortOptions = { createdAt: -1 }; // Default: Newest first
+    if (sort === "price_asc") sortOptions = { price: 1 };
+    if (sort === "price_desc") sortOptions = { price: -1 };
+    if (sort === "name_asc") sortOptions = { name: 1 };
+    if (sort === "name_desc") sortOptions = { name: -1 };
 
     const products = await Product.find(filter)
       .populate("shop")
       .populate("category")
-      .populate("images");
+      .populate("images")
+      .sort(sortOptions);
 
     res.json(products);
   } catch (err) {
@@ -107,6 +148,21 @@ export const updateFlashSale = async (req, res) => {
       message: isFlashSale ? "Đã bật Flash Sale ✅" : "Đã tắt Flash Sale ❌",
       product: updatedProduct,
     });
+
+    // Thông báo cho followers khi bật Flash Sale (ngoài response để không delay)
+    if (isFlashSale) {
+      const followers = await Follow.find({ shop: shop._id }).select("user");
+      if (followers.length > 0) {
+        const notifications = followers.map(f => ({
+          recipient: f.user,
+          title: "Flash Sale mới! ⚡",
+          message: `Sản phẩm "${product.name}" từ shop "${shop.name}" đang giảm ${discountPercentage}%! Nhanh tay mua ngay!`,
+          type: "promotion",
+          link: `/product/${product._id}`
+        }));
+        Notification.insertMany(notifications).catch(err => console.error("Notification error:", err));
+      }
+    }
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

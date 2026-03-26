@@ -12,6 +12,7 @@ import FollowedShops from "./pages/FollowedShops";
 import Wishlist from "./pages/Wishlist";
 import FlashSalePage from "./pages/FlashSalePage";
 import EventDetail from "./pages/EventDetail"; // 🔥 thêm
+import Notifications from "./pages/Notifications";
 import LoginSuccess from "./pages/LoginSuccess";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
@@ -94,6 +95,7 @@ function App() {
 
         {/* Public Routes */}
         <Route path="/product/:id" element={<ProductDetail />} />
+        <Route path="/notifications" element={<Notifications />} />
         <Route path="/shop/:id" element={<ShopDetail />} />
         <Route path="/event/:id" element={<EventDetail />} />
         <Route path="/flash-sale" element={<FlashSalePage />} />

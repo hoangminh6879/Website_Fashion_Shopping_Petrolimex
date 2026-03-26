@@ -3,10 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import Swal from 'sweetalert2';
 import Navbar from '../components/Navbar';
+import AutoText from '../components/AutoText';
+import { useTranslation } from 'react-i18next';
 
 export default function Cart() {
   const navigate = useNavigate();
   const { cart, removeFromCart, updateQuantity, updateVariant, getCartTotal, getCartCount, clearCart, userRole } = useCart();
+  const { t } = useTranslation();
   const [editingItem, setEditingItem] = React.useState(null); // {productId, color, size}
   const [editForm, setEditForm] = React.useState({ color: '', size: '' });
 
@@ -65,14 +68,14 @@ export default function Cart() {
 
   const handleRemove = (productId, color, size) => {
     Swal.fire({
-      title: 'Xác nhận xóa?',
-      text: "Bạn có chắc chắn muốn xóa sản phẩm này khỏi giỏ hàng?",
+      title: t('confirm_delete'),
+      text: t('confirm_delete_msg'),
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
       cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Xóa ngay',
-      cancelButtonText: 'Hủy'
+      confirmButtonText: t('delete_now'),
+      cancelButtonText: t('cancel')
     }).then((result) => {
       if (result.isConfirmed) {
         removeFromCart(productId, color, size);
@@ -90,25 +93,29 @@ export default function Cart() {
 
   const handleClearCart = () => {
     Swal.fire({
-      title: 'Dọn dẹp giỏ hàng?',
-      text: "Tất cả sản phẩm sẽ bị xóa khỏi giỏ hàng của bạn.",
-      icon: 'question',
+      title: t('clear_confirm'),
+      text: t('clear_confirm_text'),
+      icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#9ca3af',
-      cancelButtonColor: '#f59e0b',
-      confirmButtonText: 'Xóa tất cả',
-      cancelButtonText: 'Giữ lại'
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: t('yes_delete'),
+      cancelButtonText: t('cancel')
     }).then((result) => {
       if (result.isConfirmed) {
         clearCart();
-        Swal.fire({
-          icon: 'success',
-          title: 'Giỏ hàng đã trống',
-          timer: 1000,
-          showConfirmButton: false
-        });
+        Swal.fire(t('deleted'), t('cart_cleared'), 'success');
       }
     });
+  };
+
+  const getItemPrice = (item) => {
+    if (!item.product) return 0;
+    let price = item.product.price;
+    if (item.product.isFlashSale && item.product.flashSaleEndDate && new Date(item.product.flashSaleEndDate) > new Date() && item.product.flashSaleStock > 0) {
+       price = item.product.flashSalePrice || price;
+    }
+    return price;
   };
 
   return (
@@ -120,19 +127,19 @@ export default function Cart() {
         {(userRole === 'admin' || userRole === 'seller') ? (
           <div className="bg-white p-12 rounded-[2rem] shadow-2xl shadow-gray-200/50 text-center mx-auto max-w-lg w-full mt-8 border border-gray-100">
             <div className="text-6xl mb-6">🚫</div>
-            <h2 className="text-2xl font-black text-gray-900 mb-4 tracking-tight uppercase italic">Tài khoản hạn chế</h2>
-            <p className="text-gray-500 mb-8 font-medium">Tính năng mua sắm chỉ dành riêng cho tài khoản Khách hàng.</p>
+            <h2 className="text-2xl font-black text-gray-900 mb-4 tracking-tight uppercase italic"><AutoText text={t('restricted_account')} /></h2>
+            <p className="text-gray-500 mb-8 font-medium"><AutoText text={t('restricted_account_msg')} /></p>
             <Link to="/" className="inline-block bg-gray-900 text-white font-black tracking-widest uppercase px-10 py-4 rounded-2xl hover:bg-amber-500 hover:text-gray-900 transition-all shadow-xl">
-              Về Trang Chủ
+              {t('go_home')}
             </Link>
           </div>
         ) : cart.length === 0 ? (
           <div className="bg-white p-20 rounded-[3rem] shadow-2xl shadow-gray-200/50 text-center mx-auto max-w-2xl w-full mt-12 border border-gray-100 animate-fadeIn">
             <div className="text-8xl mb-10 opacity-20">🛒</div>
-            <h2 className="text-3xl font-black text-gray-900 mb-4 tracking-tighter uppercase italic">Giỏ hàng đang trống</h2>
-            <p className="text-gray-400 font-bold text-[10px] uppercase tracking-[0.3em] mb-12">Hãy lấp đầy nó bằng những món đồ thời thượng nhất</p>
+            <h2 className="text-3xl font-black text-gray-900 mb-4 tracking-tighter uppercase italic"><AutoText text={t('empty_cart')} /></h2>
+            <p className="text-gray-400 font-bold text-[10px] uppercase tracking-[0.3em] mb-12"><AutoText text={t('empty_cart_msg')} /></p>
             <Link to="/" className="inline-block bg-gradient-to-r from-gray-900 to-black text-amber-500 font-black tracking-widest uppercase px-12 py-5 rounded-3xl hover:from-amber-500 hover:to-amber-500 hover:text-gray-900 transition-all shadow-2xl shadow-gray-300">
-              Khám Phá Ngay
+              {t('explore_now')}
             </Link>
           </div>
         ) : (
@@ -140,15 +147,15 @@ export default function Cart() {
             {/* Danh sách sản phẩm */}
             <div className="flex-1 space-y-6">
               <div className="flex items-center justify-between mb-2">
-                <h1 className="text-3xl font-black italic tracking-tighter uppercase">Giỏ <span className="text-amber-500">Hàng</span></h1>
-                <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest bg-white px-4 py-2 rounded-full border border-gray-100 shadow-sm">{getCartCount()} Sản phẩm</span>
+                <h1 className="text-3xl font-black italic tracking-tighter uppercase"><AutoText text={t('cart')} /></h1>
+                <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest bg-white px-4 py-2 rounded-full border border-gray-100 shadow-sm">{getCartCount()} {t('total_items')}</span>
               </div>
 
               <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-6 hidden md:grid grid-cols-12 gap-4 text-[12px] font-black text-gray-400 uppercase tracking-widest">
-                <div className="col-span-5 pl-4">Thông tin sản phẩm</div>
-                <div className="col-span-2 text-center">Đơn giá</div>
-                <div className="col-span-2 text-center">Số lượng</div>
-                <div className="col-span-3 text-right pr-4">Tổng cộng</div>
+                <div className="col-span-5 pl-4"><AutoText text="Thông tin sản phẩm" /></div>
+                <div className="col-span-2 text-center">{t('unit_price')}</div>
+                <div className="col-span-2 text-center">{t('quantity')}</div>
+                <div className="col-span-3 text-right pr-4"><AutoText text="Tổng cộng" /></div>
               </div>
 
               {cart.map((item) => (
@@ -167,14 +174,14 @@ export default function Cart() {
                     </div>
                     <div className="flex flex-col justify-center space-y-3">
                       <Link to={`/product/${item.product._id}`} className="text-xl font-black text-gray-900 hover:text-amber-500 line-clamp-1 transition-colors uppercase tracking-tight">
-                        {item.product.name}
+                        <AutoText text={item.product.name} />
                       </Link>
                       <div className="flex items-center gap-3">
                         <div className="px-3 py-1 bg-gray-50 rounded-lg text-[10px] font-bold text-gray-500 uppercase tracking-wider border border-gray-100">
-                          Màu: <span className="text-gray-900">{item.color}</span>
+                          {t('color')}: <span className="text-gray-900"><AutoText text={item.color} /></span>
                         </div>
                         <div className="px-3 py-1 bg-gray-50 rounded-lg text-[10px] font-bold text-gray-500 uppercase tracking-wider border border-gray-100">
-                          Size: <span className="text-gray-900">{item.size}</span>
+                          {t('size')}: <span className="text-gray-900"><AutoText text={item.size} /></span>
                         </div>
                         <button
                           onClick={() => {
@@ -183,14 +190,14 @@ export default function Cart() {
                           }}
                           className="text-amber-500 hover:text-amber-600 text-[9px] font-black uppercase underline tracking-widest ml-1 transition-colors"
                         >
-                          Thay đổi
+                          {t('change')}
                         </button>
                       </div>
 
                       {editingItem && editingItem.productId === item.product._id && editingItem.color === item.color && editingItem.size === item.size && (
                         <div className="mt-4 p-6 bg-white rounded-[2rem] border-2 border-amber-500/30 shadow-2xl space-y-4 animate-scaleIn z-10 relative">
                           <div className="space-y-3">
-                            <label className="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block">Chọn màu mới</label>
+                            <label className="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block">{t('new_color')}</label>
                             <div className="flex flex-wrap gap-2">
                               {item.product.colors?.map(c => (
                                 <button
@@ -198,13 +205,13 @@ export default function Cart() {
                                   onClick={() => setEditForm({ ...editForm, color: c })}
                                   className={`px-4 py-2 text-[10px] font-black rounded-xl border transition-all uppercase tracking-widest ${editForm.color === c ? 'bg-gray-900 border-gray-900 text-white shadow-lg' : 'bg-white border-gray-100 text-gray-500 hover:border-amber-300'}`}
                                 >
-                                  {c}
+                                  <AutoText text={c} />
                                 </button>
                               ))}
                             </div>
                           </div>
                           <div className="space-y-3">
-                            <label className="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block">Chọn size mới</label>
+                            <label className="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] block">{t('new_size')}</label>
                             <div className="flex flex-wrap gap-2">
                               {item.product.sizes?.map(s => (
                                 <button
@@ -212,34 +219,34 @@ export default function Cart() {
                                   onClick={() => setEditForm({ ...editForm, size: s })}
                                   className={`px-4 py-2 text-[10px] font-black rounded-xl border transition-all uppercase tracking-widest ${editForm.size === s ? 'bg-gray-900 border-gray-900 text-white shadow-lg' : 'bg-white border-gray-100 text-gray-500 hover:border-amber-300'}`}
                                 >
-                                  {s}
+                                  <AutoText text={s} />
                                 </button>
                               ))}
                             </div>
                           </div>
                           <div className="flex items-center justify-between py-2 border-t border-gray-50 mt-2">
-                            <span className="text-[10px] text-gray-400 font-bold">Tồn kho: <span className={getEditStock() >= item.quantity ? 'text-green-500' : 'text-red-500'}>{getEditStock()}</span></span>
+                            <span className="text-[10px] text-gray-400 font-bold">{t('stock')}: <span className={getEditStock() >= item.quantity ? 'text-green-500' : 'text-red-500'}>{getEditStock()}</span></span>
                             <div className="flex gap-2">
                               <button
                                 onClick={() => setEditingItem(null)}
                                 className="px-6 py-2 bg-gray-50 text-gray-400 text-[9px] font-black uppercase rounded-xl border border-gray-100"
                               >
-                                Hủy
+                                {t('cancel')}
                               </button>
                               <button
                                 onClick={async () => {
                                   try {
                                     await updateVariant(item.product._id, item.color, item.size, editForm.color, editForm.size);
                                     setEditingItem(null);
-                                    Swal.fire({ icon: 'success', title: 'Đã cập nhật', timer: 800, toast: true, position: 'top-end', showConfirmButton: false });
+                                    Swal.fire({ icon: 'success', title: t('updated'), timer: 800, toast: true, position: 'top-end', showConfirmButton: false });
                                   } catch (err) {
-                                    Swal.fire({ icon: 'error', title: 'Lỗi', text: err.response?.data?.message || 'Không thể cập nhật' });
+                                    Swal.fire({ icon: 'error', title: t('error'), text: err.response?.data?.message || t('update_error') });
                                   }
                                 }}
                                 disabled={getEditStock() < item.quantity}
                                 className="px-6 py-2 bg-amber-500 text-gray-900 text-[9px] font-black uppercase rounded-xl shadow-lg shadow-amber-500/20 disabled:opacity-30"
                               >
-                                Xác nhận
+                                {t('confirm')}
                               </button>
                             </div>
                           </div>
@@ -258,12 +265,12 @@ export default function Cart() {
                   </div>
 
                   <div className="col-span-1 md:col-span-2 flex md:justify-center items-center">
-                    <span className="md:hidden font-black text-gray-400 mr-2 text-[10px] uppercase tracking-widest">Đơn giá:</span>
-                    <span className="font-bold text-gray-800 text-lg tracking-tight">{formatPrice(item.product.price)}</span>
+                    <span className="md:hidden font-black text-gray-400 mr-2 text-[10px] uppercase tracking-widest">{t('unit_price')}:</span>
+                    <span className="font-bold text-gray-800 text-lg tracking-tight">{formatPrice(getItemPrice(item))}</span>
                   </div>
 
                   <div className="col-span-1 md:col-span-2 flex md:justify-center items-center">
-                    <span className="md:hidden font-black text-gray-400 mr-2 text-[10px] uppercase tracking-widest">Số lượng:</span>
+                    <span className="md:hidden font-black text-gray-400 mr-2 text-[10px] uppercase tracking-widest">{t('quantity')}:</span>
                     <div className="flex items-center bg-gray-100 rounded-2xl p-1 border border-gray-200 h-10 w-32 shrink-0">
                       <button
                         onClick={() => updateQuantity(item.product._id, item.color, item.size, item.quantity - 1)}
@@ -287,9 +294,9 @@ export default function Cart() {
                   </div>
 
                   <div className="col-span-1 md:col-span-3 flex justify-between md:justify-end items-center pr-4">
-                    <span className="md:hidden font-black text-gray-400 text-[10px] uppercase tracking-widest">Giá tạm tính:</span>
+                    <span className="md:hidden font-black text-gray-400 text-[10px] uppercase tracking-widest">{t('subtotal')}:</span>
                     <div className="text-right flex-1 md:flex-none">
-                      <div className="font-black text-amber-500 text-xl tracking-tighter tabular-nums select-none">{formatPrice(item.product.price * item.quantity)}</div>
+                      <div className="font-black text-amber-500 text-xl tracking-tighter tabular-nums select-none">{formatPrice(getItemPrice(item) * item.quantity)}</div>
                     </div>
                     {/* Nút xóa desktop */}
                     <button
@@ -311,14 +318,14 @@ export default function Cart() {
                   className="px-8 py-4 bg-white rounded-2xl border border-gray-100 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 hover:text-amber-500 hover:border-amber-500 transition-all shadow-sm flex items-center gap-3"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-                  Tiếp Tục Mua Sắm
+                  {t('continue_shopping')}
                 </Link>
                 <button
                   onClick={handleClearCart}
                   className="px-8 py-4 bg-red-50/50 rounded-2xl border border-red-100 text-[10px] font-black uppercase tracking-[0.2em] text-red-400 hover:bg-red-500 hover:text-white transition-all shadow-sm flex items-center gap-3"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                  Dọn dẹp giỏ hàng
+                  {t('clear_cart')}
                 </button>
               </div>
             </div>
@@ -329,20 +336,20 @@ export default function Cart() {
                 <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full -mr-16 -mt-16 blur-3xl"></div>
 
                 <h3 className="text-xl font-black text-gray-900 mb-8 uppercase tracking-tighter italic border-b border-gray-50 pb-6 flex items-center justify-between">
-                  Tạm Tính <span className="text-amber-500">Đơn Hàng</span>
+                  {t('summary')} <span className="text-amber-500">{t('order')}</span>
                 </h3>
 
                 <div className="space-y-5 mb-10">
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Tổng tiền hàng</span>
+                    <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">{t('items_total')}</span>
                     <span className="font-bold text-gray-900 text-lg tracking-tight">{formatPrice(getCartTotal())}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Phí vận chuyển</span>
-                    <span className="text-[10px] font-black uppercase text-green-500 tracking-widest bg-green-50 px-3 py-1 rounded-full border border-green-100">Miễn Phí 🚀</span>
+                    <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">{t('shipping')}</span>
+                    <span className="text-[10px] font-black uppercase text-green-500 tracking-widest bg-green-50 px-3 py-1 rounded-full border border-green-100">{t('free')} 🚀</span>
                   </div>
                   <div className="flex justify-between items-center py-4 border-t border-dashed border-gray-100 mt-6">
-                    <span className="font-black text-gray-900 uppercase tracking-tighter text-sm italic">Tổng cộng thanh toán</span>
+                    <span className="font-black text-gray-900 uppercase tracking-tighter text-sm italic">{t('total_payment')}</span>
                     <div className="text-right">
                       <div className="text-3xl font-black text-amber-500 tracking-tighter tabular-nums select-none">{formatPrice(getCartTotal())}</div>
                       <p className="text-[9px] text-gray-400 font-bold uppercase mt-1">(Đã bao gồm thuế GTGT)</p>
@@ -354,7 +361,7 @@ export default function Cart() {
                   onClick={() => navigate('/checkout')}
                   className="w-full bg-gray-900 text-white font-black uppercase tracking-[0.2em] py-6 rounded-[2rem] hover:bg-amber-500 hover:text-gray-900 transition-all shadow-2xl shadow-gray-300 active:scale-95 text-xs"
                 >
-                  THANH TOÁN NGAY
+                  {t('checkout')}
                 </button>
 
 
