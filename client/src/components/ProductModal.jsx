@@ -170,11 +170,14 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
 
     setAddingToCart(true);
     try {
-      await addToCart(selectedProduct, selectedColor, selectedSize, quantity);
-      
       if (isBuyNow) {
-        navigate('/cart');
+        navigate('/checkout', { 
+            state: { 
+                buyNowItem: { product: selectedProduct, color: selectedColor, size: selectedSize, quantity } 
+            } 
+        });
       } else {
+        await addToCart(selectedProduct, selectedColor, selectedSize, quantity);
         Swal.fire({
           icon: 'success',
           title: t('added_to_cart'),
