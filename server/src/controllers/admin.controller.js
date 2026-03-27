@@ -11,10 +11,82 @@ export const getDashboardStats = async (req, res) => {
     const activeShops = await Shop.countDocuments({ status: "active" });
     const totalProducts = await Product.countDocuments();
     const totalOrders = await Order.countDocuments();
-    
-    // Revenue stats
-    const orders = await Order.find({ status: "completed" });
-    const totalRevenue = orders.reduce((sum, order) => sum + (order.totalPrice || 0), 0);
+
+    // 1. Order status breakdown
+    const statusStats = await Order.aggregate([
+      { $group: { _id: "$status", count: { $sum: 1 } } }
+    ]);
+
+    // 2. Revenue by Month (Last 6 months)
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+    sixMonthsAgo.setDate(1);
+    sixMonthsAgo.setHours(0, 0, 0, 0);
+
+    const monthlyRevenue = await Order.aggregate([
+      {
+        $match: {
+          status: "completed",
+          createdAt: { $gte: sixMonthsAgo }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" }
+          },
+          revenue: { $sum: "$totalPrice" },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1 } }
+    ]);
+
+    // 3. Revenue by Shop
+    const shopRevenue = await Order.aggregate([
+      {
+        $lookup: {
+          from: "orderitems",
+          localField: "_id",
+          foreignField: "order",
+          as: "items"
+        }
+      },
+      { $unwind: "$items" },
+      {
+        $lookup: {
+          from: "products",
+          localField: "items.product",
+          foreignField: "_id",
+          as: "productInfo"
+        }
+      },
+      { $unwind: "$productInfo" },
+      {
+        $group: {
+          _id: "$productInfo.shop",
+          revenue: { $sum: { $cond: [{ $eq: ["$status", "completed"] }, { $multiply: ["$items.price", "$items.quantity"] }, 0] } },
+          soldCount: { $sum: { $cond: [{ $eq: ["$status", "completed"] }, "$items.quantity", 0] } },
+          cancelledCount: { $sum: { $cond: [{ $eq: ["$status", "cancelled"] }, "$items.quantity", 0] } }
+        }
+      },
+      {
+        $lookup: {
+          from: "shops",
+          localField: "_id",
+          foreignField: "_id",
+          as: "shopInfo"
+        }
+      },
+      { $unwind: "$shopInfo" },
+      { $project: { name: "$shopInfo.name", revenue: 1, soldCount: 1, cancelledCount: 1 } },
+      { $sort: { revenue: -1 } },
+      { $limit: 10 }
+    ]);
+
+    // Revenue totals
+    const totalRevenue = (await Order.find({ status: "completed" })).reduce((sum, order) => sum + (order.totalPrice || 0), 0);
 
     // Latest Activities
     const latestOrders = await Order.find()
@@ -29,11 +101,15 @@ export const getDashboardStats = async (req, res) => {
         activeShops,
         totalProducts,
         totalOrders,
-        totalRevenue
+        totalRevenue,
       },
+      statusStats,
+      monthlyRevenue,
+      shopRevenue,
       latestOrders
     });
   } catch (err) {
+    console.error("Dashboard Stats Error:", err);
     res.status(500).json({ message: err.message });
   }
 };
@@ -60,7 +136,7 @@ export const updateUserRole = async (req, res) => {
   try {
     const { id } = req.params;
     const { role } = req.body;
-    
+
     if (!["user", "seller", "admin"].includes(role)) {
       return res.status(400).json({ message: "Vai trò không hợp lệ" });
     }
@@ -93,7 +169,7 @@ export const updateShopStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
-    
+
     if (!["pending", "active", "rejected"].includes(status)) {
       return res.status(400).json({ message: "Trạng thái không hợp lệ" });
     }

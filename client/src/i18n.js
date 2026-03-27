@@ -79,7 +79,15 @@ i18n
           profile: "Hồ sơ",
           followed_shops: "Shop Đang Theo Dõi",
           manage_shop: "Quản lý Shop",
-          manage_website: "Quản lý Website"
+          manage_website: "Quản lý Website",
+          status_pending: "Chờ xử lý",
+          status_paid: "Đã thanh toán",
+          status_shipped: "Đang giao hàng",
+          status_completed: "Hoàn tất",
+          status_cancelled: "Đã hủy",
+          sold_count: "Sản phẩm đã bán",
+          returned_count: "Sản phẩm bị hoàn",
+          unit_item: "sản phẩm"
         }
       },
       en: {
@@ -149,7 +157,15 @@ i18n
           profile: "Profile",
           followed_shops: "Followed Shops",
           manage_shop: "Manage Shop",
-          manage_website: "Manage Website"
+          manage_website: "Manage Website",
+          status_pending: "Pending",
+          status_paid: "Paid",
+          status_shipped: "Shipped",
+          status_completed: "Completed",
+          status_cancelled: "Cancelled",
+          sold_count: "Items Sold",
+          returned_count: "Items Returned",
+          unit_item: "items"
         }
       }
     }
@@ -158,7 +174,7 @@ i18n
 // Hàm hỗ trợ dịch trực tiếp qua API (Mặc định là Anh -> Việt hoặc ngược lại tùy theo ngôn ngữ hiện tại)
 export const liveTranslate = async (text, reverse = false) => {
   if (!text || typeof text !== 'string') return text;
-  
+
   // sl: source language, tl: target language
   let sl = 'vi';
   let tl = 'en';
@@ -172,7 +188,7 @@ export const liveTranslate = async (text, reverse = false) => {
   } else {
     return text; // Ở Tiếng Việt thì không dịch gì cả
   }
-  
+
   try {
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURIComponent(text)}`;
     const response = await fetch(url);

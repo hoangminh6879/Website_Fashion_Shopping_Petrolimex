@@ -1,15 +1,183 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import Navbar from '../components/Navbar';
 import api from '../services/api';
 import Swal from 'sweetalert2';
 
+const SHIPPING_FEE = 30000; // Phí vận chuyển mặc định
 
+// ─── Coupon Modal ─────────────────────────────────────────────────────────────
+function CouponModal({ coupons, onSelect, onClose, selectedCoupon }) {
+    const [search, setSearch] = useState('');
+
+    const filtered = coupons.filter(c =>
+        c.code.toLowerCase().includes(search.toLowerCase()) ||
+        (c.couponType?.description || c.couponType?.name || '').toLowerCase().includes(search.toLowerCase())
+    );
+
+    const getTypeMeta = (typeName = '') => {
+        const name = typeName.toUpperCase();
+        if (name.includes('PERCENT'))
+            return { label: 'GIẢM THEO %', color: 'bg-amber-400 text-amber-900', icon: '%', cardBorder: 'border-amber-200', cardBg: 'bg-amber-50/40', tagBg: 'bg-amber-100', tagText: 'text-amber-700' };
+        if (name.includes('FIXED') || name.includes('PRICE') || name.includes('GIA'))
+            return { label: 'GIẢM THEO GIÁ', color: 'bg-blue-400 text-blue-900', icon: '₫', cardBorder: 'border-blue-200', cardBg: 'bg-blue-50/40', tagBg: 'bg-blue-100', tagText: 'text-blue-700' };
+        if (name.includes('FREESHIP') || name.includes('SHIP'))
+            return { label: 'FREESHIP', color: 'bg-emerald-400 text-emerald-900', icon: '🚚', cardBorder: 'border-emerald-200', cardBg: 'bg-emerald-50/40', tagBg: 'bg-emerald-100', tagText: 'text-emerald-700' };
+        return { label: typeName, color: 'bg-gray-300 text-gray-700', icon: '🎟', cardBorder: 'border-gray-200', cardBg: 'bg-gray-50/40', tagBg: 'bg-gray-100', tagText: 'text-gray-600' };
+    };
+
+    const formatDiscount = (coupon) => {
+        const name = (coupon.couponType?.name || '').toUpperCase();
+        if (name.includes('PERCENT')) return `Giảm ${coupon.discount}%`;
+        if (name.includes('FREESHIP') || name.includes('SHIP')) return `Miễn phí vận chuyển`;
+        return `Giảm ${new Intl.NumberFormat('vi-VN').format(coupon.discount)}đ`;
+    };
+
+    const formatExpiry = (date) => {
+        if (!date) return '';
+        return new Date(date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    };
+
+    return (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4" onClick={onClose}>
+            {/* Overlay */}
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+
+            {/* Modal */}
+            <div
+                className="relative bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden animate-modalIn"
+                onClick={e => e.stopPropagation()}
+            >
+                {/* Header */}
+                <div className="px-8 pt-8 pb-6 border-b border-gray-50">
+                    <div className="flex items-center justify-between mb-5">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-amber-500 rounded-2xl flex items-center justify-center shadow-lg shadow-amber-200">
+                                <span className="text-lg">🎟</span>
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-black text-gray-900 tracking-tighter uppercase">Chọn Coupon</h2>
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{coupons.length} ưu đãi khả dụng</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-all text-gray-500 font-bold"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                    {/* Search */}
+                    <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+                        <input
+                            type="text"
+                            placeholder="Tìm mã coupon..."
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            className="w-full bg-gray-50 border border-gray-100 rounded-[1.25rem] pl-10 pr-4 py-3 text-sm font-bold text-gray-900 outline-none focus:border-amber-400 transition-all"
+                        />
+                    </div>
+                </div>
+
+                {/* Coupon List */}
+                <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3 custom-scrollbar">
+                    {filtered.length === 0 ? (
+                        <div className="text-center py-16">
+                            <div className="text-5xl mb-4 opacity-20">🎟</div>
+                            <p className="text-[11px] font-black text-gray-300 uppercase tracking-widest">Không tìm thấy coupon</p>
+                        </div>
+                    ) : filtered.map(coupon => {
+                        const meta = getTypeMeta(coupon.couponType?.name);
+                        const isSelected = selectedCoupon?._id === coupon._id;
+                        return (
+                            <div
+                                key={coupon._id}
+                                onClick={() => onSelect(coupon)}
+                                className={`relative cursor-pointer rounded-2xl border-2 p-4 transition-all duration-200 hover:shadow-md ${isSelected ? 'border-amber-400 bg-amber-50 shadow-lg shadow-amber-100' : `${meta.cardBorder} ${meta.cardBg} hover:border-opacity-60`}`}
+                            >
+                                {/* Selected badge */}
+                                {isSelected && (
+                                    <div className="absolute top-3 right-3 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center shadow-md">
+                                        <span className="text-white text-xs font-black">✓</span>
+                                    </div>
+                                )}
+
+                                <div className="flex items-start gap-3">
+                                    {/* Icon */}
+                                    <div className={`w-12 h-12 rounded-xl ${meta.tagBg} flex items-center justify-center text-xl flex-shrink-0`}>
+                                        {meta.icon}
+                                    </div>
+
+                                    <div className="flex-1 min-w-0">
+                                        {/* Badge loại */}
+                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                            <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${meta.color}`}>
+                                                {meta.label}
+                                            </span>
+                                            <span className={`text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${meta.tagBg} ${meta.tagText}`}>
+                                                {coupon.couponType?.description || coupon.couponType?.name}
+                                            </span>
+                                        </div>
+
+                                        {/* Mã coupon */}
+                                        <p className="font-black text-gray-900 tracking-wider text-sm uppercase">{coupon.code}</p>
+
+                                        {/* Giá trị giảm */}
+                                        <p className={`font-black text-base tracking-tight mt-0.5 ${meta.tagText}`}>
+                                            {formatDiscount(coupon)}
+                                        </p>
+
+                                        {/* Meta info */}
+                                        <div className="flex items-center gap-3 mt-2">
+                                            <span className="text-[9px] font-bold text-gray-400 uppercase">HSD: {formatExpiry(coupon.expiryDate)}</span>
+                                            <span className="text-[9px] font-bold text-gray-400">•</span>
+                                            <span className="text-[9px] font-bold text-gray-400 uppercase">Còn {coupon.quantity} lượt</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-4 border-t border-gray-50">
+                    {selectedCoupon && (
+                        <button
+                            onClick={() => onSelect(null)}
+                            className="w-full py-3 rounded-[1.25rem] border-2 border-dashed border-gray-200 text-[11px] font-black text-gray-400 uppercase tracking-widest hover:border-red-300 hover:text-red-400 transition-all mb-2"
+                        >
+                            Bỏ chọn coupon
+                        </button>
+                    )}
+                    <button
+                        onClick={onClose}
+                        className="w-full bg-gray-900 text-white font-black uppercase tracking-[0.2em] py-4 rounded-[1.25rem] hover:bg-amber-500 hover:text-gray-900 transition-all text-xs"
+                    >
+                        Xác Nhận
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── Main Checkout Component ─────────────────────────────────────────────────
 export default function Checkout() {
     const navigate = useNavigate();
-    const { cart, getCartTotal, clearCart, user } = useCart();
+    const location = useLocation();
+    const { cart, clearCart, user } = useCart();
     const [loading, setLoading] = useState(false);
+
+    const isBuyNow = !!location.state?.buyNowItem;
+    const checkoutItems = isBuyNow ? [location.state.buyNowItem] : cart;
+
+    // Coupon State
+    const [coupons, setCoupons] = useState([]);
+    const [selectedCoupon, setSelectedCoupon] = useState(null);
+    const [showCouponModal, setShowCouponModal] = useState(false);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -18,8 +186,8 @@ export default function Checkout() {
         paymentMethod: 'COD'
     });
 
-    // 🔥 Tự động lấy thông tin từ Profile truyền ra
-    React.useEffect(() => {
+    // Auto-fill from profile
+    useEffect(() => {
         if (user) {
             setFormData(prev => ({
                 ...prev,
@@ -30,35 +198,107 @@ export default function Checkout() {
         }
     }, [user]);
 
-    const formatPrice = (price) => {
-        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
-    };
+    // Fetch available coupons
+    useEffect(() => {
+        const fetchCoupons = async () => {
+            try {
+                const res = await api.get('/coupons/available');
+                setCoupons(res.data);
+            } catch (err) {
+                console.error("Error fetching coupons:", err);
+            }
+        };
+        fetchCoupons();
+    }, []);
 
-    const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
+    const formatPrice = (price) =>
+        new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
 
     const getItemPrice = (item) => {
         if (!item.product) return 0;
         let price = item.product.price;
         if (item.product.isFlashSale && item.product.flashSaleEndDate && new Date(item.product.flashSaleEndDate) > new Date() && item.product.flashSaleStock > 0) {
-           price = item.product.flashSalePrice || price;
+            price = item.product.flashSalePrice || price;
         }
         return price;
     };
 
+    const getCheckoutTotal = useCallback(() => {
+        return checkoutItems.reduce((total, item) => total + getItemPrice(item) * item.quantity, 0);
+    }, [checkoutItems]);
+
+    // ── Discount logic ──────────────────────────────────────────────────────
+    // Helper: nhận diện loại coupon hỗ trợ cả EN (PERCENT_DISCOUNT) và VI (GIẢM THEO %)
+    const detectCouponKind = useCallback((coupon) => {
+        const name = (coupon?.couponType?.name || '').toUpperCase();
+        if (name.includes('FREESHIP') || name.includes('SHIP') || name.includes('VẬN CHUYỂN'))
+            return 'freeship';
+        if (name.includes('PERCENT') || name.includes('%'))
+            return 'percent';
+        return 'fixed';
+    }, []);
+
+    const getCouponTypeName = useCallback(() =>
+        (selectedCoupon?.couponType?.name || '').toUpperCase(), [selectedCoupon]);
+
+    const isFreeship = useCallback(() =>
+        detectCouponKind(selectedCoupon) === 'freeship'
+    , [detectCouponKind, selectedCoupon]);
+
+    const isPercent = useCallback(() =>
+        detectCouponKind(selectedCoupon) === 'percent'
+    , [detectCouponKind, selectedCoupon]);
+
+    const getOrderDiscount = useCallback(() => {
+        if (!selectedCoupon) return 0;
+        const subtotal = getCheckoutTotal();
+        const value = selectedCoupon.discount || 0;
+        if (isFreeship()) return 0; // freeship không giảm tiền hàng
+        if (isPercent()) return (subtotal * value) / 100;
+        return value; // FIXED discount
+    }, [selectedCoupon, getCheckoutTotal, isFreeship, isPercent]);
+
+    const getShippingAfterDiscount = useCallback(() => {
+        if (isFreeship() && selectedCoupon) return 0;
+        return SHIPPING_FEE;
+    }, [isFreeship, selectedCoupon]);
+
+    const getFinalTotal = useCallback(() => {
+        const subtotal = getCheckoutTotal();
+        const orderDiscount = getOrderDiscount();
+        const shipping = getShippingAfterDiscount();
+        const total = subtotal - orderDiscount + shipping;
+        return total > 0 ? total : 0;
+    }, [getCheckoutTotal, getOrderDiscount, getShippingAfterDiscount]);
+
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleSelectCoupon = (coupon) => {
+        setSelectedCoupon(coupon);
+        if (coupon) setShowCouponModal(false);
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (cart.length === 0) return;
+        if (checkoutItems.length === 0) return;
 
         setLoading(true);
         try {
+            const voucherIds = selectedCoupon ? [selectedCoupon._id] : [];
+            const discountAmount = getOrderDiscount() + (isFreeship() && selectedCoupon ? SHIPPING_FEE : 0);
+
             const response = await api.post('/orders', {
-                items: cart,
-                totalPrice: getCartTotal(),
+                items: checkoutItems,
+                totalPrice: getFinalTotal(),
+                discountAmount,
+                shippingFee: getShippingAfterDiscount(),
+                vouchers: voucherIds,
                 address: formData.address,
                 phone: formData.phone,
-                paymentMethod: formData.paymentMethod
+                paymentMethod: formData.paymentMethod,
+                isBuyNow
             });
 
             await Swal.fire({
@@ -69,8 +309,10 @@ export default function Checkout() {
                 confirmButtonText: 'Xem đơn hàng của tôi'
             });
 
-            clearCart();
-            navigate('/profile'); // Redirect to profile to see orders
+            if (!isBuyNow) {
+                clearCart();
+            }
+            navigate('/order-history');
         } catch (error) {
             Swal.fire({
                 icon: 'error',
@@ -82,7 +324,23 @@ export default function Checkout() {
         }
     };
 
-    if (cart.length === 0) {
+    // ── Coupon display meta ──────────────────────────────────────────────────
+    const getTypeMeta = (coupon) => {
+        const kind = detectCouponKind(coupon);
+        if (kind === 'percent') return { label: 'GIẢM THEO %', tagBg: 'bg-amber-100', tagText: 'text-amber-700', border: 'border-amber-200', bg: 'bg-amber-50' };
+        if (kind === 'freeship') return { label: 'FREESHIP', tagBg: 'bg-emerald-100', tagText: 'text-emerald-700', border: 'border-emerald-200', bg: 'bg-emerald-50' };
+        return { label: 'GIẢM THEO GIÁ', tagBg: 'bg-blue-100', tagText: 'text-blue-700', border: 'border-blue-200', bg: 'bg-blue-50' };
+    };
+
+    const formatCouponValue = (coupon) => {
+        if (!coupon) return '';
+        const kind = detectCouponKind(coupon);
+        if (kind === 'percent') return `Giảm ${coupon.discount}% đơn hàng`;
+        if (kind === 'freeship') return `Miễn phí vận chuyển`;
+        return `Giảm ${new Intl.NumberFormat('vi-VN').format(coupon.discount)}đ`;
+    };
+
+    if (checkoutItems.length === 0) {
         return (
             <div className="min-h-screen bg-[#FBFBFB] flex flex-col items-center justify-center font-sans px-4">
                 <Navbar />
@@ -97,9 +355,21 @@ export default function Checkout() {
         );
     }
 
+    const selectedMeta = selectedCoupon ? getTypeMeta(selectedCoupon) : null;
+
     return (
         <div className="min-h-screen bg-[#FBFBFB] flex flex-col font-sans">
             <Navbar />
+
+            {/* Coupon Modal */}
+            {showCouponModal && (
+                <CouponModal
+                    coupons={coupons}
+                    selectedCoupon={selectedCoupon}
+                    onSelect={handleSelectCoupon}
+                    onClose={() => setShowCouponModal(false)}
+                />
+            )}
 
             <main className="flex-1 container mx-auto px-4 py-8 mt-44">
                 <div className="flex flex-col lg:flex-row gap-12">
@@ -114,7 +384,7 @@ export default function Checkout() {
                         </div>
 
                         <div className="bg-white rounded-[3rem] shadow-2xl shadow-gray-200/50 border border-gray-100 p-10 overflow-hidden relative">
-                            <div className="absolute top-0 left-0 w-2 h-full bg-amber-500"></div>
+                            <div className="absolute top-0 left-0 w-2 h-full bg-amber-500" />
 
                             <h3 className="text-xl font-black text-gray-900 mb-8 uppercase tracking-widest border-b border-gray-50 pb-6">Thông Tin Giao Hàng</h3>
 
@@ -123,11 +393,7 @@ export default function Checkout() {
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-4">Họ và Tên</label>
                                         <input
-                                            type="text"
-                                            name="name"
-                                            required
-                                            value={formData.name}
-                                            onChange={handleChange}
+                                            type="text" name="name" required value={formData.name} onChange={handleChange}
                                             placeholder="Nhập tên người nhận..."
                                             className="w-full bg-gray-50 border border-gray-100 rounded-[1.5rem] px-6 py-4 outline-none focus:border-amber-500/50 focus:bg-white transition-all font-bold text-gray-900 shadow-inner"
                                         />
@@ -135,11 +401,7 @@ export default function Checkout() {
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-4">Số Điện Thoại</label>
                                         <input
-                                            type="tel"
-                                            name="phone"
-                                            required
-                                            value={formData.phone}
-                                            onChange={handleChange}
+                                            type="tel" name="phone" required value={formData.phone} onChange={handleChange}
                                             placeholder="Nhập số điện thoại..."
                                             className="w-full bg-gray-50 border border-gray-100 rounded-[1.5rem] px-6 py-4 outline-none focus:border-amber-500/50 focus:bg-white transition-all font-bold text-gray-900 shadow-inner"
                                         />
@@ -149,28 +411,17 @@ export default function Checkout() {
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-4">Địa Chỉ Nhận Hàng</label>
                                     <textarea
-                                        name="address"
-                                        required
-                                        rows="3"
-                                        value={formData.address}
-                                        onChange={handleChange}
+                                        name="address" required rows="3" value={formData.address} onChange={handleChange}
                                         placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố..."
                                         className="w-full bg-gray-50 border border-gray-100 rounded-[2rem] px-6 py-4 outline-none focus:border-amber-500/50 focus:bg-white transition-all font-bold text-gray-900 shadow-inner resize-none"
-                                    ></textarea>
+                                    />
                                 </div>
 
                                 <div className="pt-6 border-t border-gray-50">
                                     <h3 className="text-xl font-black text-gray-900 mb-6 uppercase tracking-widest">Phương Thức Thanh Toán</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <label className={`flex items-center gap-4 p-6 rounded-[2rem] border-2 cursor-pointer transition-all ${formData.paymentMethod === 'COD' ? 'border-amber-500 bg-amber-50/50 shadow-lg' : 'border-gray-50 bg-gray-50 hover:border-gray-200'}`}>
-                                            <input
-                                                type="radio"
-                                                name="paymentMethod"
-                                                value="COD"
-                                                checked={formData.paymentMethod === 'COD'}
-                                                onChange={handleChange}
-                                                className="w-5 h-5 accent-amber-500"
-                                            />
+                                            <input type="radio" name="paymentMethod" value="COD" checked={formData.paymentMethod === 'COD'} onChange={handleChange} className="w-5 h-5 accent-amber-500" />
                                             <div className="flex-1">
                                                 <p className="font-black text-xs uppercase tracking-widest text-gray-900">COD (Tiền mặt)</p>
                                                 <p className="text-[9px] text-gray-400 font-bold uppercase mt-1">Thanh toán khi nhận hàng</p>
@@ -190,8 +441,7 @@ export default function Checkout() {
                                 </div>
 
                                 <button
-                                    type="submit"
-                                    disabled={loading}
+                                    type="submit" disabled={loading}
                                     className="w-full bg-gray-900 text-white font-black uppercase tracking-[0.3em] py-7 rounded-[2rem] hover:bg-amber-500 hover:text-gray-900 transition-all shadow-2xl shadow-gray-200 active:scale-95 disabled:opacity-50 mt-4 text-xs"
                                 >
                                     {loading ? 'ĐANG XỬ LÝ...' : 'XÁC NHẬN ĐẶT HÀNG'}
@@ -203,16 +453,17 @@ export default function Checkout() {
                     {/* RIGHT: Order Summary */}
                     <div className="w-full lg:w-[450px]">
                         <div className="bg-white rounded-[3rem] shadow-2xl shadow-gray-200/50 border border-gray-100 p-10 lg:sticky lg:top-32 overflow-hidden">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full -mr-16 -mt-16 blur-3xl" />
 
                             <h3 className="text-xl font-black text-gray-900 mb-8 uppercase tracking-tighter italic border-b border-gray-50 pb-6 flex items-center justify-between">
                                 Tóm Tắt <span className="text-amber-500">Đơn Hàng</span>
                             </h3>
 
-                            <div className="max-h-[400px] overflow-y-auto pr-2 custom-scrollbar space-y-6 mb-8">
-                                {cart.map((item, idx) => (
+                            {/* Cart Items */}
+                            <div className="max-h-[300px] overflow-y-auto pr-2 custom-scrollbar space-y-5 mb-6">
+                                {checkoutItems.map((item, idx) => (
                                     <div key={idx} className="flex gap-4 items-center group">
-                                        <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gray-50 border border-gray-100 flex-shrink-0 shadow-sm">
+                                        <div className="w-14 h-14 rounded-2xl overflow-hidden bg-gray-50 border border-gray-100 flex-shrink-0 shadow-sm">
                                             <img
                                                 src={item.product?.images?.[0]?.url
                                                     ? (item.product.images[0].url.startsWith('http') ? item.product.images[0].url : `http://localhost:5000${item.product.images[0].url}`)
@@ -235,27 +486,111 @@ export default function Checkout() {
                                 ))}
                             </div>
 
-                            <div className="space-y-4 pt-6 border-t border-dashed border-gray-200">
+                            {/* ── COUPON SECTION ───────────────────────────────── */}
+                            <div className="border-t border-dashed border-gray-100 pt-6 mt-2">
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest flex items-center gap-1.5">
+                                        <span>🎟</span> Coupon Ưu Đãi
+                                    </span>
+                                    {coupons.length > 0 && (
+                                        <span className="text-[9px] font-black text-amber-500 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">
+                                            {coupons.length} mã
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* Selected coupon display or button */}
+                                {selectedCoupon ? (
+                                    <div className={`rounded-2xl border-2 p-4 ${selectedMeta?.border} ${selectedMeta?.bg} animate-fadeIn`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-10 h-10 rounded-xl ${selectedMeta?.tagBg} flex items-center justify-center text-base flex-shrink-0`}>
+                                                ✨
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-0.5">
+                                                    <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${selectedMeta?.tagBg} ${selectedMeta?.tagText}`}>
+                                                        {selectedMeta?.label}
+                                                    </span>
+                                                </div>
+                                                <p className="font-black text-gray-900 text-sm uppercase tracking-wide">{selectedCoupon.code}</p>
+                                                <p className={`text-[10px] font-bold mt-0.5 ${selectedMeta?.tagText}`}>{formatCouponValue(selectedCoupon)}</p>
+                                            </div>
+                                            <button
+                                                onClick={() => setSelectedCoupon(null)}
+                                                className="text-gray-300 hover:text-red-400 transition-colors font-bold text-sm flex-shrink-0"
+                                                title="Bỏ coupon"
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+
+                                        {/* Change button */}
+                                        <button
+                                            onClick={() => setShowCouponModal(true)}
+                                            className="mt-3 w-full text-[9px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-colors py-2 border border-dashed border-gray-200 rounded-xl hover:border-gray-300"
+                                        >
+                                            Đổi Coupon Khác
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => setShowCouponModal(true)}
+                                        disabled={coupons.length === 0}
+                                        className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl border-2 border-dashed transition-all group ${coupons.length > 0 ? 'border-amber-200 bg-amber-50/30 hover:border-amber-400 hover:bg-amber-50 cursor-pointer' : 'border-gray-100 bg-gray-50/50 cursor-not-allowed opacity-50'}`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 bg-amber-100 rounded-xl flex items-center justify-center group-hover:bg-amber-200 transition-colors">
+                                                <span className="text-sm">🎟</span>
+                                            </div>
+                                            <span className="text-[11px] font-black uppercase tracking-widest text-gray-500 group-hover:text-amber-600 transition-colors">
+                                                {coupons.length > 0 ? 'Thêm Coupon' : 'Không có ưu đãi'}
+                                            </span>
+                                        </div>
+                                        {coupons.length > 0 && (
+                                            <span className="text-amber-400 font-bold text-sm group-hover:translate-x-1 transition-transform">›</span>
+                                        )}
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* ── Price Summary ──────────────────────────────── */}
+                            <div className="space-y-3 pt-6 border-t border-dashed border-gray-200 mt-6">
                                 <div className="flex justify-between items-center">
                                     <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Tạm tính</span>
-                                    <span className="font-bold text-gray-900 tracking-tight">{formatPrice(getCartTotal())}</span>
+                                    <span className="font-bold text-gray-900 tracking-tight">{formatPrice(getCheckoutTotal())}</span>
                                 </div>
+
+                                {getOrderDiscount() > 0 && (
+                                    <div className="flex justify-between items-center text-amber-500 animate-fadeInUp">
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Giảm giá</span>
+                                        <span className="font-bold tracking-tight">-{formatPrice(getOrderDiscount())}</span>
+                                    </div>
+                                )}
+
                                 <div className="flex justify-between items-center">
                                     <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Phí vận chuyển</span>
-                                    <span className="text-[10px] font-black uppercase text-green-500 tracking-widest bg-green-50 px-3 py-1 rounded-full border border-green-100">Miễn Phí</span>
+                                    {isFreeship() && selectedCoupon ? (
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] line-through text-gray-300 font-bold">{formatPrice(SHIPPING_FEE)}</span>
+                                            <span className="text-[10px] font-black uppercase text-emerald-500 tracking-widest bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">Miễn Phí 🚚</span>
+                                        </div>
+                                    ) : (
+                                        <span className="font-bold text-gray-700 tracking-tight">{formatPrice(SHIPPING_FEE)}</span>
+                                    )}
                                 </div>
-                                <div className="flex justify-between items-center py-6 border-t border-gray-50 mt-2">
+
+                                <div className="flex justify-between items-center py-5 border-t border-gray-50 mt-2">
                                     <span className="font-black text-gray-900 uppercase tracking-tighter text-lg italic">Tổng cộng</span>
                                     <div className="text-right">
-                                        <div className="text-3xl font-black text-amber-500 tracking-tighter italic">{formatPrice(getCartTotal())}</div>
+                                        <div className="text-3xl font-black text-amber-500 tracking-tighter italic">{formatPrice(getFinalTotal())}</div>
                                         <p className="text-[8px] text-gray-400 font-bold uppercase mt-1">Bao gồm thuế GTGT</p>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="mt-8 bg-gray-900 rounded-[2rem] p-6 text-center shadow-xl shadow-gray-200">
-                                <p className="text-[10px] font-black text-amber-500 uppercase tracking-[0.3em] mb-2">Cam Kết Petrolimex</p>
-                                <p className="text-[9px] text-gray-400 font-bold uppercase leading-relaxed">Sản phẩm chính hãng 100% - Đổi trả trong 7 ngày - Hỗ trợ tận tâm 24/7</p>
+                            <div className="mt-6 bg-gray-900 rounded-[2rem] p-6 text-center shadow-xl shadow-gray-200 group hover:bg-amber-500 transition-colors duration-500">
+                                <p className="text-[10px] font-black text-amber-500 uppercase tracking-[0.3em] mb-2 group-hover:text-gray-900">Cam Kết Petrolimex</p>
+                                <p className="text-[9px] text-gray-400 font-bold uppercase leading-relaxed group-hover:text-gray-800">Sản phẩm chính hãng 100% - Đổi trả trong 7 ngày - Hỗ trợ tận tâm 24/7</p>
                             </div>
                         </div>
                     </div>
@@ -268,6 +603,12 @@ export default function Checkout() {
 
             <style dangerouslySetInnerHTML={{
                 __html: `
+                @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                @keyframes modalIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+                .animate-fadeInUp { animation: fadeInUp 0.4s ease-out forwards; }
+                .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
+                .animate-modalIn { animation: modalIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-track { background: #f9fafb; border-radius: 10px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 10px; }

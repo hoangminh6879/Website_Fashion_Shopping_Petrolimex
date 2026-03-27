@@ -8,6 +8,23 @@ export const register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
+    // Validate password
+    if (!password || password.length < 6) {
+      return res.status(400).json({ message: "Mật khẩu phải có tối thiểu 6 ký tự" });
+    }
+    if (!/[0-9]/.test(password)) {
+      return res.status(400).json({ message: "Mật khẩu phải chứa ít nhất 1 chữ số" });
+    }
+    if (!/[A-Z]/.test(password)) {
+      return res.status(400).json({ message: "Mật khẩu phải chứa ít nhất 1 chữ in hoa" });
+    }
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+      return res.status(400).json({ message: "Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt" });
+    }
+    if (/\s/.test(password)) {
+      return res.status(400).json({ message: "Mật khẩu không được chứa khoảng trắng" });
+    }
+
     // kiểm tra email tồn tại
     const existingUser = await User.findOne({ email });
     if (existingUser) {

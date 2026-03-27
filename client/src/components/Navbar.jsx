@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useNotifications } from '../context/NotificationContext';
 import AutoText, { useAutoTranslate } from "./AutoText";
 import { useTranslation } from "react-i18next";
-import { liveTranslate } from "../i18n"; // Thêm dòng này
+import { liveTranslate } from "../i18n";
+import api from '../services/api';
 
 export default function Navbar() {
   const { user, handleLogout, getCartCount, userRole } = useCart();
@@ -16,12 +17,27 @@ export default function Navbar() {
   const navigate = useNavigate();
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [showFilter, setShowFilter] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [filterCat, setFilterCat] = useState('');
+  const [filterPrice, setFilterPrice] = useState({ min: '', max: '' });
+  const [filterRating, setFilterRating] = useState(0);
+
+  useEffect(() => {
+    api.get('/categories').then(res => setCategories(res.data)).catch(console.error);
+  }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
-    if (searchTerm.trim()) {
-      navigate(`/?search=${encodeURIComponent(searchTerm)}`);
-    }
+    const params = new URLSearchParams();
+    if (searchTerm.trim()) params.append('search', searchTerm.trim());
+    if (filterCat) params.append('category', filterCat);
+    if (filterPrice.min) params.append('minPrice', filterPrice.min);
+    if (filterPrice.max) params.append('maxPrice', filterPrice.max);
+    if (filterRating > 0) params.append('rating', filterRating);
+    
+    navigate(`/?${params.toString()}`);
+    setShowFilter(false);
   };
 
   const toggleLanguage = () => {
@@ -88,16 +104,17 @@ export default function Navbar() {
             {user ? (
               <div className="relative group">
                 <button className="flex items-center gap-2 hover:text-amber-500 transition py-1">
-                  <img 
-                    src={user && user.avatar ? (user.avatar.startsWith('http') ? user.avatar : `http://localhost:5000${user.avatar}`) : `https://ui-avatars.com/api/?name=${user?.name || 'Guest'}&background=f59e0b&color=fff`} 
-                    className="w-5 h-5 rounded-full border border-amber-500/50 object-cover" 
-                    alt="avatar" 
+                  <img
+                    src={user && user.avatar ? (user.avatar.startsWith('http') ? user.avatar : `http://localhost:5000${user.avatar}`) : `https://ui-avatars.com/api/?name=${user?.name || 'Guest'}&background=f59e0b&color=fff`}
+                    className="w-5 h-5 rounded-full border border-amber-500/50 object-cover"
+                    alt="avatar"
                   />
                   <span className="font-bold text-gray-200">{user.name}</span>
                 </button>
                 <div className="absolute right-0 top-full pt-1 w-44 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[60]">
                   <div className="bg-white rounded-lg shadow-xl border border-gray-100 py-1.5 text-gray-800 overflow-hidden mt-1">
-                    <Link to="/profile" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest">{t('profile')}</Link>
+                    <Link to="/profile" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest">Tài khoản</Link>
+                    <Link to="/order-history" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50">Lịch sử giao dịch</Link>
                     {user.role !== 'admin' && (
                       <Link to="/followed-shops" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50">{t('followed_shops')}</Link>
                     )}
@@ -105,7 +122,7 @@ export default function Navbar() {
                       <Link to="/seller/dashboard" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50 text-amber-600">{t('manage_shop')}</Link>
                     )}
                     {user.role === 'admin' && (
-                       <Link to="/admin/dashboard" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50 text-amber-600">{t('manage_website')}</Link>
+                      <Link to="/admin/dashboard" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50 text-amber-600">Quản lý Website</Link>
                     )}
                     <button onClick={handleLogout} className="w-full text-left block px-4 py-2 hover:bg-red-50 hover:text-red-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50 uppercase tracking-widest">{t('logout')}</button>
                   </div>
@@ -135,27 +152,81 @@ export default function Navbar() {
         </Link>
 
         {/* Search Bar */}
-        <div className="flex-1 w-full max-w-4xl relative flex flex-col">
-          <form onSubmit={handleSearch} className="flex w-full">
-            <div className="relative flex-grow">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full h-10 px-4 pr-12 rounded-lg bg-white border-2 border-transparent focus:border-[#D4AF37] focus:outline-none text-sm font-medium transition-all text-gray-900"
-                placeholder={searchPlaceholder}
-              />
-              <button className="absolute right-0 top-0 bottom-0 px-4 bg-[#D4AF37] hover:bg-[#B8860B] transition rounded-r-lg text-black">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-              </button>
-            </div>
+        <div className="flex-1 w-full max-w-4xl relative flex flex-col pt-1">
+          <form onSubmit={handleSearch} className="flex w-full relative">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full h-11 pl-4 pr-32 rounded-lg bg-white border-2 border-transparent focus:border-[#D4AF37] focus:outline-none text-sm font-medium transition-all text-gray-900 shadow-sm"
+              placeholder={searchPlaceholder}
+            />
+            {/* Filter Toggle Button */}
+            <button 
+              type="button" 
+              onClick={() => setShowFilter(!showFilter)} 
+              className="absolute right-14 top-1 bottom-1 px-4 text-gray-500 hover:text-[#D4AF37] border-l border-gray-200 transition-colors bg-white flex items-center justify-center cursor-pointer z-10"
+              title="Bộ lọc nâng cao"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+            </button>
+            {/* Search Submit Button */}
+            <button type="submit" className="absolute right-1 top-1 bottom-1 px-4 bg-[#D4AF37] hover:bg-[#B8860B] transition rounded-md text-black flex items-center justify-center z-10">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            </button>
+            
+            {/* Dropdown Filter */}
+            {showFilter && (
+              <div className="absolute top-14 right-0 w-80 bg-white rounded-xl shadow-2xl border border-gray-100 p-5 z-50 text-gray-800 animate-[fadeInUp_0.2s_ease-out]">
+                <h3 className="font-bold text-sm uppercase tracking-widest text-[#D4AF37] mb-4 border-b pb-2">Bộ Lọc Tìm Kiếm</h3>
+                
+                {/* Categories */}
+                <div className="mb-4">
+                  <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">Danh Mục</label>
+                  <select 
+                    value={filterCat} 
+                    onChange={e => setFilterCat(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#D4AF37]"
+                  >
+                    <option value="">Tất cả danh mục</option>
+                    {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                  </select>
+                </div>
+                
+                {/* Price Range */}
+                <div className="mb-4">
+                  <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">Khoảng Giá (VNĐ)</label>
+                  <div className="flex items-center gap-2">
+                    <input type="number" placeholder="Từ" value={filterPrice.min} onChange={e => setFilterPrice({...filterPrice, min: e.target.value})} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#D4AF37] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                    <span className="text-gray-400">-</span>
+                    <input type="number" placeholder="Đến" value={filterPrice.max} onChange={e => setFilterPrice({...filterPrice, max: e.target.value})} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#D4AF37] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                  </div>
+                </div>
+                
+                {/* Rating */}
+                <div className="mb-5">
+                  <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">Đánh Giá</label>
+                  <select 
+                    value={filterRating} 
+                    onChange={e => setFilterRating(Number(e.target.value))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#D4AF37]"
+                  >
+                    <option value={0}>Tất cả đánh giá</option>
+                    <option value={5}>Từ 5 Sao</option>
+                    <option value={4}>Từ 4 Sao</option>
+                    <option value={3}>Từ 3 Sao</option>
+                  </select>
+                </div>
+                
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => { setFilterCat(''); setFilterPrice({min:'', max:''}); setFilterRating(0); }} className="flex-1 px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-bold hover:bg-gray-50 transition">Làm Mới</button>
+                  <button type="button" onClick={handleSearch} className="flex-1 px-4 py-2 bg-[#D4AF37] text-black rounded-lg text-sm font-bold hover:bg-[#B8860B] transition shadow-md shadow-[#D4AF37]/20">Áp dụng</button>
+                </div>
+              </div>
+            )}
           </form>
-          {/* Trending tags with AutoText */}
-          <div className="hidden md:flex gap-3 mt-2 px-1">
-            {['Váy Nữ', 'Áo Thun Mới', 'Giày Sneaker', 'Túi Đeo Chéo', 'Mũ Lưỡi Trai'].map(tag => (
-              <a key={tag} href="#" className="text-[10px] text-gray-500 hover:text-[#D4AF37] transition-colors uppercase tracking-wider font-bold"><AutoText text={tag} /></a>
-            ))}
-          </div>
         </div>
 
         {/* Wishlist & Cart Icons */}

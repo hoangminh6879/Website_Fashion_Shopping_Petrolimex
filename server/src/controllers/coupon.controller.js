@@ -88,3 +88,23 @@ export const deleteCoupon = async (req, res) => {
     res.status(500).json({ message: "Lỗi máy chủ", error: error.message });
   }
 };
+
+// @desc    Lấy danh sách coupon khả dụng (cho user checkout)
+// @route   GET /api/coupons/available
+// @access  Public (đã đăng nhập)
+export const getAvailableCoupons = async (req, res) => {
+  try {
+    const now = new Date();
+    const coupons = await Coupon.find({
+      expiryDate: { $gt: now },
+      quantity: { $gt: 0 }
+    })
+      .populate("couponType")
+      .populate("shop", "name")
+      .sort({ createdAt: -1 });
+
+    res.json(coupons);
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi máy chủ", error: error.message });
+  }
+};

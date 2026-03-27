@@ -5,6 +5,7 @@ import CartItem from "../models/CartItem.model.js";
 import Product from "../models/Product.model.js";
 import Notification from "../models/Notification.model.js";
 import User from "../models/User.model.js";
+import Coupon from "../models/Coupon.model.js";
 import sendEmail from "../utils/sendEmail.js";
 
 
@@ -12,16 +13,33 @@ import sendEmail from "../utils/sendEmail.js";
 // @route   POST /api/orders
 export const createOrder = async (req, res) => {
     try {
-        const { items, totalPrice, address, phone, paymentMethod } = req.body;
+        const { items, totalPrice, address, phone, paymentMethod, vouchers, discountAmount, shippingFee, isBuyNow } = req.body;
 
         if (!items || items.length === 0) {
             return res.status(400).json({ message: "Không có sản phẩm trong đơn hàng" });
         }
 
-        // 1. Tạo đơn hàng cơ bản
+        // 1. Xử lý Vouchers (nếu có)
+        if (vouchers && vouchers.length > 0) {
+            for (const vId of vouchers) {
+                const coupon = await Coupon.findById(vId);
+                if (coupon) {
+                    if (coupon.quantity > 0) {
+                        coupon.quantity -= 1;
+                        coupon.usedCount += 1;
+                        await coupon.save();
+                    }
+                }
+            }
+        }
+
+        // 2. Tạo đơn hàng cơ bản
         const order = await Order.create({
             user: req.user.id,
             totalPrice,
+            discountAmount: discountAmount || 0,
+            shippingFee: shippingFee || 0,
+            vouchers: vouchers || [],
             address,
             phone,
             paymentMethod: paymentMethod || "COD",
@@ -60,10 +78,12 @@ export const createOrder = async (req, res) => {
 
         await Promise.all(orderItemsPromises);
 
-        // 3. Làm sạch giỏ hàng sau khi đặt hàng thành công
-        const cart = await Cart.findOne({ user: req.user.id });
-        if (cart) {
-            await CartItem.deleteMany({ cart: cart._id });
+        // 3. Làm sạch giỏ hàng sau khi đặt hàng thành công (nếu không phải Mua Ngay)
+        if (!isBuyNow) {
+            const cart = await Cart.findOne({ user: req.user.id });
+            if (cart) {
+                await CartItem.deleteMany({ cart: cart._id });
+            }
         }
 
         // Tạo thông báo trong hệ thống cho User

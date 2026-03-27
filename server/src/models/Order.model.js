@@ -4,7 +4,25 @@ const orderSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 
-    totalPrice: Number,
+    totalPrice: {
+      type: Number,
+      required: true,
+    },
+
+    discountAmount: {
+      type: Number,
+      default: 0,
+    },
+
+    shippingFee: {
+      type: Number,
+      default: 0,
+    },
+
+    vouchers: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Coupon",
+    }],
 
     status: {
       type: String,
@@ -18,7 +36,6 @@ const orderSchema = new mongoose.Schema(
       type: String,
       default: "COD",
     },
-
   },
   { timestamps: true }
 );

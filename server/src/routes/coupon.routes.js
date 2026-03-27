@@ -3,10 +3,13 @@ import {
   getCoupons,
   createCoupon,
   deleteCoupon,
+  getAvailableCoupons,
 } from "../controllers/coupon.controller.js";
 import { protect, authorizeRoles } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
+
+router.get("/available", protect, getAvailableCoupons);
 
 router
   .route("/")
