@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import Swal from 'sweetalert2';
 import Cropper from 'react-easy-crop';
@@ -8,26 +8,13 @@ import Navbar from '../components/Navbar';
 export default function Profile() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('personal'); // 'personal', 'addresses', 'security', 'seller'
+  const [activeTab, setActiveTab] = useState('personal'); // 'personal', 'security', 'seller'
+  const location = useLocation();
 
   // Personal Info State
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({ name: '', phone: '', address: '' });
   const [isSaving, setIsSaving] = useState(false);
-
-  // Addresses State
-  const [addresses, setAddresses] = useState([]);
-  const [showAddressModal, setShowAddressModal] = useState(false);
-  const [editingAddressId, setEditingAddressId] = useState(null);
-  const [addressForm, setAddressForm] = useState({
-    receiverName: '',
-    phone: '',
-    street: '',
-    ward: '',
-    district: '',
-    city: '',
-    isDefault: false
-  });
 
   // Seller Request State
   const [showSellerModal, setShowSellerModal] = useState(false);
@@ -52,8 +39,15 @@ export default function Profile() {
 
   useEffect(() => {
     fetchProfile();
-    fetchAddresses();
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab && ['personal', 'security', 'seller'].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [location]);
 
   const fetchProfile = async () => {
     try {
@@ -69,15 +63,6 @@ export default function Profile() {
       navigate('/login');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchAddresses = async () => {
-    try {
-      const res = await api.get('/users/addresses');
-      setAddresses(res.data);
-    } catch (err) {
-      console.error("Error fetching addresses:", err);
     }
   };
 
@@ -150,57 +135,6 @@ export default function Profile() {
     }
   };
 
-  const handleAddressSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (editingAddressId) {
-        await api.put(`/users/addresses/${editingAddressId}`, addressForm);
-        Swal.fire('Thành công', 'Đã cập nhật địa chỉ', 'success');
-      } else {
-        await api.post('/users/addresses', addressForm);
-        Swal.fire('Thành công', 'Đã thêm địa chỉ mới', 'success');
-      }
-      setShowAddressModal(false);
-      setEditingAddressId(null);
-      setAddressForm({ receiverName: '', phone: '', street: '', ward: '', district: '', city: '', isDefault: false });
-      fetchAddresses();
-    } catch (err) {
-      Swal.fire('Lỗi', err.response?.data?.message || 'Lỗi thao tác địa chỉ', 'error');
-    }
-  };
-
-  const handleDeleteAddress = async (id) => {
-    const result = await Swal.fire({
-      title: 'Xác nhận xóa?',
-      text: "Bạn không thể hoàn tác hành động này!",
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Xóa ngay',
-      cancelButtonText: 'Hủy'
-    });
-
-    if (result.isConfirmed) {
-      try {
-        await api.delete(`/users/addresses/${id}`);
-        fetchAddresses();
-        Swal.fire('Đã xóa!', 'Địa chỉ đã được gỡ bỏ.', 'success');
-      } catch (err) {
-        Swal.fire('Lỗi', 'Không thể xóa địa chỉ', 'error');
-      }
-    }
-  };
-
-  const handleSetDefaultAddress = async (id) => {
-    try {
-      await api.put(`/users/addresses/${id}`, { isDefault: true });
-      fetchAddresses();
-    } catch (err) {
-      Swal.fire('Lỗi', 'Không thể đặt mặc định', 'error');
-    }
-  };
-
   const handlePasswordChange = async () => {
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       return Swal.fire("Lỗi", "Mật khẩu xác nhận không khớp", "warning");
@@ -235,10 +169,6 @@ export default function Profile() {
     } catch (err) {
       Swal.fire("Lỗi", err.response?.data?.message || "Lỗi gửi yêu cầu", "error");
     }
-  };
-
-  const formatAddress = (addr) => {
-    return `${addr.street}, ${addr.ward}, ${addr.district}, ${addr.city}`;
   };
 
   if (loading || !user) {
@@ -285,7 +215,6 @@ export default function Profile() {
               <div className="space-y-1">
                 {[
                   { id: 'personal', label: 'Hồ Sơ Cá Nhân', icon: '👤' },
-                  { id: 'addresses', label: 'Sổ Địa Chỉ', icon: '📍' },
                   { id: 'security', label: 'Bảo Mật', icon: '🔒' },
                   { id: 'seller', label: 'Kênh Người Bán', icon: '💰', hide: user.role !== 'user' }
                 ].filter(item => !item.hide).map(item => (
@@ -387,90 +316,6 @@ export default function Profile() {
                 </div>
               )}
 
-              {/* TAB: Address Book */}
-              {activeTab === 'addresses' && (
-                <div className="space-y-10">
-                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-50 pb-8">
-                    <div>
-                      <h3 className="text-3xl font-black italic uppercase tracking-tighter text-gray-900">Sổ <span className="text-amber-500">Địa Chỉ</span></h3>
-                      <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest mt-1">Quản lý các điểm giao nhận hàng của bạn</p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setEditingAddressId(null);
-                        setAddressForm({ receiverName: '', phone: '', street: '', ward: '', district: '', city: '', isDefault: false });
-                        setShowAddressModal(true);
-                      }}
-                      className="bg-gray-900 text-amber-500 px-10 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-amber-500 hover:text-gray-900 transition-all shadow-xl shadow-gray-200"
-                    >
-                      + THÊM ĐỊA CHỈ MỚI
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-6">
-                    {addresses.length > 0 ? addresses.map(addr => (
-                      <div key={addr._id} className={`p-8 rounded-[2.5rem] border-2 transition-all relative group overflow-hidden ${addr.isDefault ? 'border-amber-500 bg-amber-50/10' : 'border-gray-50 hover:border-gray-200 bg-gray-50/30'}`}>
-                        {addr.isDefault && (
-                          <div className="absolute top-0 right-0 bg-amber-500 text-gray-900 px-8 py-1.5 font-black uppercase text-[8px] tracking-[0.2em] rotate-45 translate-x-10 translate-y-4 shadow-lg">
-                            MẶC ĐỊNH
-                          </div>
-                        )}
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                          <div className="space-y-4">
-                            <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-xl shadow-lg border border-gray-100">
-                                👤
-                              </div>
-                              <div>
-                                <span className="font-black text-gray-900 uppercase tracking-tight text-lg">{addr.receiverName}</span>
-                                <p className="text-xs text-amber-600 font-bold">📞 {addr.phone}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-start gap-3 pl-2">
-                              <span className="text-amber-500 mt-0.5">📍</span>
-                              <span className="text-sm text-gray-600 font-bold leading-relaxed">{formatAddress(addr)}</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4 w-full md:w-auto">
-                            <button
-                              onClick={() => {
-                                setEditingAddressId(addr._id);
-                                setAddressForm({ ...addr });
-                                setShowAddressModal(true);
-                              }}
-                              className="flex-1 md:flex-none px-6 py-2.5 bg-white border border-gray-200 rounded-xl text-[9px] font-black uppercase tracking-widest text-gray-500 hover:border-amber-500 hover:text-amber-600 transition-all shadow-sm"
-                            >
-                              SỬA
-                            </button>
-                            {!addr.isDefault && (
-                              <>
-                                <button
-                                  onClick={() => handleDeleteAddress(addr._id)}
-                                  className="flex-1 md:flex-none px-6 py-2.5 bg-white border border-gray-200 rounded-xl text-[9px] font-black uppercase tracking-widest text-gray-400 hover:border-red-500 hover:text-red-500 transition-all shadow-sm"
-                                >
-                                  XÓA
-                                </button>
-                                <button
-                                  onClick={() => handleSetDefaultAddress(addr._id)}
-                                  className="flex-1 md:flex-none px-6 py-2.5 bg-amber-50 text-amber-600 border border-amber-100 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-amber-500 hover:text-white transition-all shadow-sm"
-                                >
-                                  MẶC ĐỊNH
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )) : (
-                      <div className="py-24 text-center bg-gray-50/50 rounded-[3rem] border-2 border-dashed border-gray-200">
-                        <div className="text-6xl mb-6 opacity-20">📫</div>
-                        <p className="text-gray-400 font-black uppercase text-[10px] tracking-[0.3em]">Chưa có địa chỉ nào được lưu</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
               {/* TAB: Security */}
               {activeTab === 'security' && (
                 <div className="space-y-10">
@@ -564,92 +409,6 @@ export default function Profile() {
           </div>
         </div>
       </div>
-
-      {/* MODALS */}
-      {/* Address Modal */}
-      {showAddressModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
-          <div className="bg-white rounded-[3rem] w-full max-w-2xl p-10 md:p-14 shadow-2xl animate-scaleIn my-10 border border-gray-100 relative">
-            <button onClick={() => setShowAddressModal(false)} className="absolute top-8 right-8 text-gray-300 hover:text-red-500 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-
-            <div className="mb-10">
-              <h3 className="text-2xl font-black uppercase italic tracking-tighter text-gray-900">{editingAddressId ? 'Cập nhật' : 'Thêm'} <span className="text-amber-500">địa chỉ</span></h3>
-              <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest mt-1">Thông tin này sẽ được dùng để giao hàng cho bạn</p>
-            </div>
-
-            <form onSubmit={handleAddressSubmit} className="space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-2">Tên người nhận</label>
-                  <input
-                    required
-                    value={addressForm.receiverName}
-                    onChange={(e) => setAddressForm({ ...addressForm, receiverName: e.target.value })}
-                    className="w-full px-6 py-4 rounded-2xl bg-gray-50 border-2 border-gray-50 focus:border-amber-500 outline-none font-bold transition-all shadow-sm text-sm"
-                    placeholder="Họ và tên..."
-                  />
-                </div>
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-2">Số điện thoại</label>
-                  <input
-                    required
-                    value={addressForm.phone}
-                    onChange={(e) => setAddressForm({ ...addressForm, phone: e.target.value })}
-                    className="w-full px-6 py-4 rounded-2xl bg-gray-50 border-2 border-gray-50 focus:border-amber-500 outline-none font-bold transition-all shadow-sm text-sm"
-                    placeholder="09xx..."
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-2">Địa chỉ chi tiết (Số nhà, tòa nhà...)</label>
-                <input
-                  required
-                  value={addressForm.street}
-                  onChange={(e) => setAddressForm({ ...addressForm, street: e.target.value })}
-                  className="w-full px-6 py-4 rounded-2xl bg-gray-50 border-2 border-gray-50 focus:border-amber-500 outline-none font-bold transition-all shadow-sm text-sm"
-                  placeholder="VD: 45 Lê Lợi, Tòa nhà Vincom..."
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-2">Phường/Xã</label>
-                  <input required value={addressForm.ward} onChange={(e) => setAddressForm({ ...addressForm, ward: e.target.value })} className="w-full px-6 py-4 rounded-2xl bg-gray-50 border-2 border-gray-50 outline-none focus:border-amber-500 font-bold text-sm" />
-                </div>
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-2">Quận/Huyện</label>
-                  <input required value={addressForm.district} onChange={(e) => setAddressForm({ ...addressForm, district: e.target.value })} className="w-full px-6 py-4 rounded-2xl bg-gray-50 border-2 border-gray-50 outline-none focus:border-amber-500 font-bold text-sm" />
-                </div>
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-2">Tỉnh/Thành</label>
-                  <input required value={addressForm.city} onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })} className="w-full px-6 py-4 rounded-2xl bg-gray-50 border-2 border-gray-50 outline-none focus:border-amber-500 font-bold text-sm" />
-                </div>
-              </div>
-
-              <label className="flex items-center gap-4 cursor-pointer group w-fit pl-2">
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    checked={addressForm.isDefault}
-                    onChange={(e) => setAddressForm({ ...addressForm, isDefault: e.target.checked })}
-                    className="w-6 h-6 rounded-lg border-2 border-gray-200 checked:bg-gray-900 checked:border-gray-900 transition-all appearance-none cursor-pointer"
-                  />
-                  {addressForm.isDefault && <span className="absolute inset-0 flex items-center justify-center text-white text-[10px] font-black pointer-events-none">✓</span>}
-                </div>
-                <span className="text-[10px] font-black uppercase text-gray-400 group-hover:text-gray-900 transition-colors tracking-widest">Đặt làm địa chỉ nhận hàng mặc định</span>
-              </label>
-
-              <div className="flex gap-6 pt-10">
-                <button type="button" onClick={() => setShowAddressModal(false)} className="flex-1 py-5 bg-gray-50 text-gray-400 rounded-3xl font-black uppercase tracking-widest text-[10px] hover:bg-gray-100 transition-all">HUỶ BỎ</button>
-                <button type="submit" className="flex-1 py-5 bg-gray-900 text-white rounded-3xl font-black uppercase tracking-widest text-[10px] hover:bg-amber-500 hover:text-gray-900 transition-all shadow-xl shadow-gray-200">LƯU ĐỊA CHỈ NÀY</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Seller Modal */}
       {showSellerModal && (
