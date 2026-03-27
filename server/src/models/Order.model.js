@@ -14,6 +14,11 @@ const orderSchema = new mongoose.Schema(
       default: 0,
     },
 
+    shippingFee: {
+      type: Number,
+      default: 0,
+    },
+
     vouchers: [{
       type: mongoose.Schema.Types.ObjectId,
       ref: "Coupon",

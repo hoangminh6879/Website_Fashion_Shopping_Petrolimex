@@ -13,7 +13,7 @@ import sendEmail from "../utils/sendEmail.js";
 // @route   POST /api/orders
 export const createOrder = async (req, res) => {
     try {
-        const { items, totalPrice, address, phone, paymentMethod, vouchers, discountAmount } = req.body;
+        const { items, totalPrice, address, phone, paymentMethod, vouchers, discountAmount, shippingFee, isBuyNow } = req.body;
 
         if (!items || items.length === 0) {
             return res.status(400).json({ message: "Không có sản phẩm trong đơn hàng" });
@@ -38,7 +38,8 @@ export const createOrder = async (req, res) => {
             user: req.user.id,
             totalPrice,
             discountAmount: discountAmount || 0,
-            vouchers: vouchers || [], // Lưu mảng ID
+            shippingFee: shippingFee || 0,
+            vouchers: vouchers || [],
             address,
             phone,
             paymentMethod: paymentMethod || "COD",
@@ -77,10 +78,12 @@ export const createOrder = async (req, res) => {
 
         await Promise.all(orderItemsPromises);
 
-        // 3. Làm sạch giỏ hàng sau khi đặt hàng thành công
-        const cart = await Cart.findOne({ user: req.user.id });
-        if (cart) {
-            await CartItem.deleteMany({ cart: cart._id });
+        // 3. Làm sạch giỏ hàng sau khi đặt hàng thành công (nếu không phải Mua Ngay)
+        if (!isBuyNow) {
+            const cart = await Cart.findOne({ user: req.user.id });
+            if (cart) {
+                await CartItem.deleteMany({ cart: cart._id });
+            }
         }
 
         // Tạo thông báo trong hệ thống cho User

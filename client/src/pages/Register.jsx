@@ -9,15 +9,37 @@ export default function Register() {
     name: "",
     email: "",
     password: "",
+    confirmPassword: "",
   });
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
+  const validatePassword = (password) => {
+    if (password.length < 6) return "Mật khẩu phải có tối thiểu 6 ký tự.";
+    if (!/[0-9]/.test(password)) return "Mật khẩu phải chứa ít nhất 1 chữ số.";
+    if (!/[A-Z]/.test(password)) return "Mật khẩu phải chứa ít nhất 1 chữ in hoa.";
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) return "Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt.";
+    if (/\s/.test(password)) return "Mật khẩu không được chứa khoảng trắng.";
+    return null;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    const passwordError = validatePassword(form.password);
+    if (passwordError) {
+      alert("Vui lòng đáp ứng tất cả yêu cầu mật khẩu.");
+      return;
+    }
+
+    if (form.password !== form.confirmPassword) {
+      alert("Mật khẩu xác nhận không khớp.");
+      return;
+    }
+
     try {
-      await registerUser(form);
+      await registerUser({ name: form.name, email: form.email, password: form.password });
       alert("Đăng ký thành công 🎉");
       navigate("/login");
     } catch (err) {
@@ -41,11 +63,10 @@ export default function Register() {
         </div>
       </div>
 
-      {/* Right side */}
-      <div className="flex w-full md:w-1/2 items-center justify-center p-6">
+      <div className="flex w-full md:w-1/2 items-center justify-center p-6 bg-white overflow-y-auto min-h-screen">
         <form
           onSubmit={handleSubmit}
-          className="bg-white p-10 rounded-3xl shadow-2xl shadow-gray-200 w-full max-w-md border border-gray-100"
+          className="bg-white p-8 md:p-10 rounded-3xl w-full max-w-md my-auto"
         >
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-gray-900">
@@ -77,15 +98,59 @@ export default function Register() {
           </div>
 
           {/* Password */}
-          <div className="mb-6">
+          <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu</label>
             <input
               name="password"
               type="password"
               placeholder="••••••••"
+              value={form.password}
               onChange={handleChange}
-              className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all bg-gray-50"
+              className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all bg-gray-50 mb-3"
             />
+            
+            {/* Password constraints checklist */}
+            <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-2">
+              <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">Yêu cầu mật khẩu:</p>
+              <div className="grid grid-cols-1 gap-2 text-sm">
+                <div className={`flex items-center gap-2 transition-colors ${form.password.length >= 6 ? 'text-emerald-600 font-medium' : 'text-gray-400'}`}>
+                  <span className="text-lg leading-none">{form.password.length >= 6 ? '✓' : '○'}</span>
+                  <span>Tối thiểu 6 ký tự</span>
+                </div>
+                <div className={`flex items-center gap-2 transition-colors ${/[0-9]/.test(form.password) ? 'text-emerald-600 font-medium' : 'text-gray-400'}`}>
+                  <span className="text-lg leading-none">{/[0-9]/.test(form.password) ? '✓' : '○'}</span>
+                  <span>Chứa ít nhất 1 chữ số</span>
+                </div>
+                <div className={`flex items-center gap-2 transition-colors ${/[A-Z]/.test(form.password) ? 'text-emerald-600 font-medium' : 'text-gray-400'}`}>
+                  <span className="text-lg leading-none">{/[A-Z]/.test(form.password) ? '✓' : '○'}</span>
+                  <span>Chứa ít nhất 1 chữ in hoa</span>
+                </div>
+                <div className={`flex items-center gap-2 transition-colors ${/[!@#$%^&*(),.?":{}|<>]/.test(form.password) ? 'text-emerald-600 font-medium' : 'text-gray-400'}`}>
+                  <span className="text-lg leading-none">{/[!@#$%^&*(),.?":{}|<>]/.test(form.password) ? '✓' : '○'}</span>
+                  <span>Chứa ít nhất 1 ký tự đặc biệt</span>
+                </div>
+                <div className={`flex items-center gap-2 transition-colors ${form.password.length > 0 && !/\s/.test(form.password) ? 'text-emerald-600 font-medium' : 'text-gray-400'}`}>
+                  <span className="text-lg leading-none">{form.password.length > 0 && !/\s/.test(form.password) ? '✓' : '○'}</span>
+                  <span>Không chứa khoảng trắng</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Confirm Password */}
+          <div className="mb-8">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Xác nhận mật khẩu</label>
+            <input
+              name="confirmPassword"
+              type="password"
+              placeholder="••••••••"
+              value={form.confirmPassword}
+              onChange={handleChange}
+              className={`w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all bg-gray-50 ${form.confirmPassword && form.password !== form.confirmPassword ? 'border-red-400 focus:ring-red-400' : 'border-gray-300'}`}
+            />
+            {form.confirmPassword && form.password !== form.confirmPassword && (
+              <p className="text-xs text-red-500 mt-1 font-medium">Mật khẩu xác nhận không khớp!</p>
+            )}
           </div>
 
           {/* Register button */}

@@ -4,7 +4,6 @@ import api from '../services/api';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import ProductModal from '../components/ProductModal';
-import FilterSidebar from '../components/FilterSidebar';
 import Navbar from '../components/Navbar';
 import AutoText from "../components/AutoText";
 import { useTranslation } from 'react-i18next';
@@ -30,14 +29,23 @@ export default function Home() {
   const queryParams = new URLSearchParams(location.search);
   const searchTerm = queryParams.get("search") || "";
   const categoryParam = queryParams.get("category") || "";
+  const minPriceParam = queryParams.get("minPrice") ? Number(queryParams.get("minPrice")) : null;
+  const maxPriceParam = queryParams.get("maxPrice") ? Number(queryParams.get("maxPrice")) : null;
+  const ratingParam = queryParams.get("rating") ? Number(queryParams.get("rating")) : 0;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(categoryParam);
-  const [filterPrice, setFilterPrice] = useState({ min: null, max: null });
-  const [selectedRating, setSelectedRating] = useState(0);
+  const [filterPrice, setFilterPrice] = useState({ min: minPriceParam, max: maxPriceParam });
+  const [selectedRating, setSelectedRating] = useState(ratingParam);
   const [filterPromotion, setFilterPromotion] = useState({ flashSale: false, event: false });
   const [sort, setSort] = useState("newest");
+
+  useEffect(() => {
+    setSelectedCategory(categoryParam);
+    setFilterPrice({ min: minPriceParam, max: maxPriceParam });
+    setSelectedRating(ratingParam);
+  }, [location.search]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -159,12 +167,12 @@ export default function Home() {
     );
   }
 
-  const currentList = searchTerm ? products : products;
+  const currentList = products;
   
   const filteredProducts = currentList.filter(p => {
     const matchesCat = selectedCategory ? (p.category === selectedCategory || p.category?._id === selectedCategory) : true;
-    const matchesMinPrice = filterPrice.min ? p.price >= filterPrice.min : true;
-    const matchesMaxPrice = filterPrice.max ? p.price <= filterPrice.max : true;
+    const matchesMinPrice = filterPrice.min ? getFlashSalePrice(p) >= filterPrice.min : true;
+    const matchesMaxPrice = filterPrice.max ? getFlashSalePrice(p) <= filterPrice.max : true;
     const matchesRating = selectedRating > 0 ? (p.rating && Math.round(p.rating) >= selectedRating) : true;
     
     // Evaluate Khuyen Mai
@@ -173,6 +181,18 @@ export default function Home() {
     const matchesEvent = filterPromotion.event ? Boolean(p.event || p.eventPrice || (p.events && p.events.length > 0)) : true; // Assuming typical event schema mappings
 
     return matchesCat && matchesMinPrice && matchesMaxPrice && matchesRating && matchesFlashSale && matchesEvent;
+  });
+
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    switch(sort) {
+      case 'price_asc': return getFlashSalePrice(a) - getFlashSalePrice(b);
+      case 'price_desc': return getFlashSalePrice(b) - getFlashSalePrice(a);
+      case 'rating_asc': return (a.rating || 0) - (b.rating || 0);
+      case 'rating_desc': return (b.rating || 0) - (a.rating || 0);
+      case 'newest':
+      default:
+         return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    }
   });
 
   return (
@@ -393,30 +413,31 @@ export default function Home() {
       </section>
 
       {/* PRODUCT FEED */}
-      <section className={`container mx-auto px-4 mt-8 pb-12 ${searchTerm ? 'flex gap-8 items-start' : ''}`}>
-        {/* Lọc Tìm Kiếm */}
-        {searchTerm && (
-          <FilterSidebar 
-            categories={categories}
-            selectedCategory={selectedCategory}
-            setSelectedCategory={setSelectedCategory}
-            filterPrice={filterPrice}
-            setFilterPrice={setFilterPrice}
-            selectedRating={selectedRating}
-            setSelectedRating={setSelectedRating}
-            filterPromotion={filterPromotion}
-            setFilterPromotion={setFilterPromotion}
-          />
-        )}
-
-        <div className={searchTerm ? 'flex-1' : 'w-full'}>
-          <div className="bg-white rounded-t-xl overflow-hidden shadow-sm flex items-center border-b-2 border-[#D4AF37] mb-4 sticky top-16 z-40">
-            <div className="bg-white text-[#D4AF37] text-center font-bold px-8 py-4 uppercase tracking-wide border-b-4 border-[#D4AF37]">
-              <AutoText text={searchTerm ? `Kết quả tìm kiếm: ${searchTerm}` : "Sản phẩm mới"} />
+      <section className="container mx-auto px-4 mt-8 pb-12 w-full">
+        <div className="w-full">
+          <div className="bg-white rounded-xl shadow-sm border border-[#D4AF37]/30 mb-6 sticky top-20 z-40 px-6 py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <h2 className="text-[#D4AF37] text-lg font-black uppercase tracking-wider flex items-center gap-2">
+              <span className="w-1.5 h-6 bg-[#D4AF37] rounded-full inline-block"></span>
+              <AutoText text={searchTerm ? `Kết quả tìm kiếm: ${searchTerm}` : "Gợi ý cho bạn"} />
+            </h2>
+            
+            <div className="flex items-center gap-3">
+               <span className="text-sm text-gray-500 font-bold whitespace-nowrap uppercase tracking-widest hidden md:inline"><AutoText text="Sắp xếp" />:</span>
+               <select 
+                  value={sort} 
+                  onChange={(e) => setSort(e.target.value)}
+                  className="bg-gray-50 border border-gray-200 text-[13px] font-bold rounded-lg px-4 py-2 focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] text-gray-700 min-w-[180px] shadow-sm cursor-pointer"
+               >
+                  <option value="newest">Mới nhất</option>
+                  <option value="price_asc">Giá: Thấp đến Cao</option>
+                  <option value="price_desc">Giá: Cao đến Thấp</option>
+                  <option value="rating_asc">Đánh giá: Thấp đến Cao</option>
+                  <option value="rating_desc">Đánh giá: Cao đến Thấp</option>
+               </select>
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
-          {filteredProducts.length > 0 ? filteredProducts.map((product) => (
+          {sortedProducts.length > 0 ? sortedProducts.map((product) => (
             <div key={product._id} onClick={() => openProductModal(product)} className="group bg-white rounded-sm shadow-sm hover:shadow-md transition-all border border-gray-100 flex flex-col h-full cursor-pointer">
               <div className="w-full aspect-square bg-gray-50 overflow-hidden relative">
                 <img src={product.images && product.images.length > 0 ? (product.images[0].url.startsWith('http') ? product.images[0].url : `http://localhost:5000${product.images[0].url}`) : `https://picsum.photos/seed/${product._id}/400/400`} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700" />
@@ -455,7 +476,7 @@ export default function Home() {
             <div className="col-span-full p-8 text-center text-gray-500"><AutoText text="Không tìm thấy sản phẩm nào..." /></div>
           )}
           </div>
-          {filteredProducts.length > 0 && (
+          {sortedProducts.length > 0 && (
             <div className="mt-10 flex justify-center">
               <button className="bg-white hover:bg-gray-50 text-gray-700 font-medium py-3 px-32 rounded-sm shadow-sm border border-gray-200 hover:border-[#D4AF37] transition duration-300 text-sm z-10 relative overflow-hidden group">
                 <span className="relative z-10 block transition-transform group-hover:scale-105">{t('see_all')}</span>
