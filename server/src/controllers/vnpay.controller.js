@@ -191,7 +191,12 @@ export const vnpayReturn = async (req, res) => {
 
         if (rspCode === '00') {
             // Thanh toán thành công
-            await Order.findByIdAndUpdate(orderId, { status: 'paid', paymentStatus: 'paid' });
+            await Order.findByIdAndUpdate(orderId, {
+                status: 'paid',
+                paymentStatus: 'paid',
+                vnp_TransactionNo: vnp_Params['vnp_TransactionNo'],
+                vnp_PayDate: vnp_Params['vnp_PayDate']
+            });
 
             // Gửi thông báo
             const order = await Order.findById(orderId);
@@ -282,7 +287,12 @@ export const vnpayIPN = async (req, res) => {
         }
 
         if (rspCode === '00') {
-            await Order.findByIdAndUpdate(orderId, { status: 'paid', paymentStatus: 'paid' });
+            await Order.findByIdAndUpdate(orderId, {
+                status: 'paid',
+                paymentStatus: 'paid',
+                vnp_TransactionNo: vnp_Params['vnp_TransactionNo'],
+                vnp_PayDate: vnp_Params['vnp_PayDate']
+            });
         } else {
             await Order.findByIdAndUpdate(orderId, { status: 'cancelled' });
         }
@@ -293,3 +303,63 @@ export const vnpayIPN = async (req, res) => {
         return res.status(200).json({ RspCode: '99', Message: 'Server error' });
     }
 };
+
+// ─── 4) VNPay Refund (Helper function) ──────────────────────────────────
+export const refundVNPay = async (order) => {
+    try {
+        const date = new Date();
+        const vnp_TmnCode = process.env.VNP_TMN_CODE;
+        const secretKey = process.env.VNP_HASH_SECRET;
+        const vnp_Api = process.env.VNP_API || 'https://sandbox.vnpayment.vn/merchant_webapi/api/transaction';
+
+        const vnp_TxnRef = order._id.toString();
+        const vnp_TransactionDate = order.vnp_PayDate;
+        const vnp_Amount = order.totalPrice * 100;
+        const vnp_TransactionType = '02'; // Hoàn tiền toàn phần
+        const vnp_CreateBy = 'system';
+
+        const vnp_RequestId = moment(date).format('HHmmss');
+        const vnp_Version = '2.1.0';
+        const vnp_Command = 'refund';
+        const vnp_OrderInfo = 'Hoan tien don hang:' + vnp_TxnRef;
+
+        const vnp_IpAddr = '127.0.0.1';
+        const vnp_CreateDate = moment(date).format('YYYYMMDDHHmmss');
+        const vnp_TransactionNo = order.vnp_TransactionNo || '0';
+
+        const data = vnp_RequestId + "|" + vnp_Version + "|" + vnp_Command + "|" + vnp_TmnCode + "|" + vnp_TransactionType + "|" + vnp_TxnRef + "|" + vnp_Amount + "|" + vnp_TransactionNo + "|" + vnp_TransactionDate + "|" + vnp_CreateBy + "|" + vnp_CreateDate + "|" + vnp_IpAddr + "|" + vnp_OrderInfo;
+        const hmac = crypto.createHmac("sha512", secretKey);
+        const vnp_SecureHash = hmac.update(Buffer.from(data, 'utf-8')).digest("hex");
+
+        const dataObj = {
+            'vnp_RequestId': vnp_RequestId,
+            'vnp_Version': vnp_Version,
+            'vnp_Command': vnp_Command,
+            'vnp_TmnCode': vnp_TmnCode,
+            'vnp_TransactionType': vnp_TransactionType,
+            'vnp_TxnRef': vnp_TxnRef,
+            'vnp_Amount': vnp_Amount,
+            'vnp_TransactionNo': vnp_TransactionNo,
+            'vnp_CreateBy': vnp_CreateBy,
+            'vnp_OrderInfo': vnp_OrderInfo,
+            'vnp_TransactionDate': vnp_TransactionDate,
+            'vnp_CreateDate': vnp_CreateDate,
+            'vnp_IpAddr': vnp_IpAddr,
+            'vnp_SecureHash': vnp_SecureHash
+        };
+
+        const response = await fetch(vnp_Api, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dataObj)
+        });
+
+        const result = await response.json();
+        console.log('VNPay Refund result:', result);
+        return result;
+    } catch (error) {
+        console.error('refundVNPay error:', error);
+        throw error;
+    }
+};
+

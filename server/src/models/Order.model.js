@@ -44,6 +44,14 @@ const orderSchema = new mongoose.Schema(
       enum: ["COD", "VNPAY"],
       default: "COD",
     },
+
+    // Thông tin hủy đơn
+    cancelledAt: Date,
+    cancelReason: String,
+
+    // Thông tin giao dịch VNPay (để hoàn tiền)
+    vnp_TransactionNo: String,
+    vnp_PayDate: String,
   },
   { timestamps: true }
 );
