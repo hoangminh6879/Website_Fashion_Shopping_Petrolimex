@@ -35,7 +35,7 @@ export default function Navbar() {
     if (filterPrice.min) params.append('minPrice', filterPrice.min);
     if (filterPrice.max) params.append('maxPrice', filterPrice.max);
     if (filterRating > 0) params.append('rating', filterRating);
-    
+
     navigate(`/?${params.toString()}`);
     setShowFilter(false);
   };
@@ -44,7 +44,7 @@ export default function Navbar() {
     const isEnglish = i18n.language === 'vi';
     const nextLng = isEnglish ? 'en' : 'vi';
     i18n.changeLanguage(nextLng);
-    
+
     // Phương pháp 2: Gọi trực tiếp từ Google Translate
     setTimeout(() => {
       const gCombo = document.querySelector('.goog-te-combo');
@@ -60,17 +60,19 @@ export default function Navbar() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-gray-900 border-b border-gray-800 shadow-2xl backdrop-blur-md bg-opacity-95">
-      {/* Google Translate Element (Hiển thị để bạn thấy nó đang chạy) */}
-      <div className="container mx-auto px-4 py-1 flex justify-end">
-        <div id="google_translate_element" className="scale-75 origin-right"></div>
-      </div>
-      
+
       {/* Top bar */}
       <div className="border-b border-gray-800/50 py-1.5 bg-black/30">
         <div className="container mx-auto px-4 flex justify-between items-center text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
-          <div className="flex gap-6">
-            <Link to="/seller/dashboard" className="hover:text-amber-500 transition decoration-amber-500 underline-offset-4">{t('seller_channel')}</Link>
+
+          {/* LEFT: Trang Chủ */}
+          <div className="flex gap-6 items-center">
+            <Link to="/" className="flex items-center gap-1.5 hover:text-amber-500 transition font-black text-gray-300">
+              🏠 <span>Trang Chủ</span>
+            </Link>
           </div>
+
+          {/* RIGHT: Thông báo, Hỗ trợ, Ngôn ngữ, User */}
           <div className="flex gap-6 items-center">
             <Link to="/notifications" className="flex items-center gap-1 hover:text-amber-500 transition relative">
               <span role="img" aria-label="notification">🔔</span> <AutoText text="Thông báo" />
@@ -84,8 +86,8 @@ export default function Navbar() {
               <span role="img" aria-label="support">❓</span> <AutoText text="Hỗ trợ" />
             </a>
             <div className="h-4 w-px bg-gray-700/50 mx-1"></div>
-            <button 
-              onClick={toggleLanguage} 
+            <button
+              onClick={toggleLanguage}
               className="group flex items-center gap-1.5 hover:text-white transition-all bg-white/5 px-2.5 py-1 rounded-full border border-white/10 hover:border-amber-500/50"
               title={i18n.language === 'vi' ? 'Switch to English' : 'Chuyển sang Tiếng Việt'}
             >
@@ -114,7 +116,7 @@ export default function Navbar() {
                 <div className="absolute right-0 top-full pt-1 w-44 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[60]">
                   <div className="bg-white rounded-lg shadow-xl border border-gray-100 py-1.5 text-gray-800 overflow-hidden mt-1">
                     <Link to="/profile" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest">Tài khoản</Link>
-                    <Link to="/order-history" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50">Lịch sử giao dịch</Link>
+                    <Link to="/order-history" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50">Lịch sử đặt hàng</Link>
                     {user.role !== 'admin' && (
                       <Link to="/followed-shops" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50">{t('followed_shops')}</Link>
                     )}
@@ -124,7 +126,7 @@ export default function Navbar() {
                     {user.role === 'admin' && (
                       <Link to="/admin/dashboard" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50 text-amber-600">Quản lý Website</Link>
                     )}
-                    <button onClick={handleLogout} className="w-full text-left block px-4 py-2 hover:bg-red-50 hover:text-red-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50 uppercase tracking-widest">{t('logout')}</button>
+                    <button onClick={handleLogout} className="w-full text-left block px-4 py-2 hover:bg-red-50 hover:text-red-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50">{t('logout')}</button>
                   </div>
                 </div>
               </div>
@@ -162,9 +164,9 @@ export default function Navbar() {
               placeholder={searchPlaceholder}
             />
             {/* Filter Toggle Button */}
-            <button 
-              type="button" 
-              onClick={() => setShowFilter(!showFilter)} 
+            <button
+              type="button"
+              onClick={() => setShowFilter(!showFilter)}
               className="absolute right-14 top-1 bottom-1 px-4 text-gray-500 hover:text-[#D4AF37] border-l border-gray-200 transition-colors bg-white flex items-center justify-center cursor-pointer z-10"
               title="Bộ lọc nâng cao"
             >
@@ -176,17 +178,17 @@ export default function Navbar() {
             <button type="submit" className="absolute right-1 top-1 bottom-1 px-4 bg-[#D4AF37] hover:bg-[#B8860B] transition rounded-md text-black flex items-center justify-center z-10">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
             </button>
-            
+
             {/* Dropdown Filter */}
             {showFilter && (
               <div className="absolute top-14 right-0 w-80 bg-white rounded-xl shadow-2xl border border-gray-100 p-5 z-50 text-gray-800 animate-[fadeInUp_0.2s_ease-out]">
                 <h3 className="font-bold text-sm uppercase tracking-widest text-[#D4AF37] mb-4 border-b pb-2">Bộ Lọc Tìm Kiếm</h3>
-                
+
                 {/* Categories */}
                 <div className="mb-4">
                   <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">Danh Mục</label>
-                  <select 
-                    value={filterCat} 
+                  <select
+                    value={filterCat}
                     onChange={e => setFilterCat(e.target.value)}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#D4AF37]"
                   >
@@ -194,22 +196,22 @@ export default function Navbar() {
                     {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
                   </select>
                 </div>
-                
+
                 {/* Price Range */}
                 <div className="mb-4">
                   <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">Khoảng Giá (VNĐ)</label>
                   <div className="flex items-center gap-2">
-                    <input type="number" placeholder="Từ" value={filterPrice.min} onChange={e => setFilterPrice({...filterPrice, min: e.target.value})} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#D4AF37] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                    <input type="number" placeholder="Từ" value={filterPrice.min} onChange={e => setFilterPrice({ ...filterPrice, min: e.target.value })} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#D4AF37] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                     <span className="text-gray-400">-</span>
-                    <input type="number" placeholder="Đến" value={filterPrice.max} onChange={e => setFilterPrice({...filterPrice, max: e.target.value})} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#D4AF37] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                    <input type="number" placeholder="Đến" value={filterPrice.max} onChange={e => setFilterPrice({ ...filterPrice, max: e.target.value })} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#D4AF37] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                   </div>
                 </div>
-                
+
                 {/* Rating */}
                 <div className="mb-5">
                   <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">Đánh Giá</label>
-                  <select 
-                    value={filterRating} 
+                  <select
+                    value={filterRating}
                     onChange={e => setFilterRating(Number(e.target.value))}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#D4AF37]"
                   >
@@ -219,9 +221,9 @@ export default function Navbar() {
                     <option value={3}>Từ 3 Sao</option>
                   </select>
                 </div>
-                
+
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => { setFilterCat(''); setFilterPrice({min:'', max:''}); setFilterRating(0); }} className="flex-1 px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-bold hover:bg-gray-50 transition">Làm Mới</button>
+                  <button type="button" onClick={() => { setFilterCat(''); setFilterPrice({ min: '', max: '' }); setFilterRating(0); }} className="flex-1 px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-bold hover:bg-gray-50 transition">Làm Mới</button>
                   <button type="button" onClick={handleSearch} className="flex-1 px-4 py-2 bg-[#D4AF37] text-black rounded-lg text-sm font-bold hover:bg-[#B8860B] transition shadow-md shadow-[#D4AF37]/20">Áp dụng</button>
                 </div>
               </div>

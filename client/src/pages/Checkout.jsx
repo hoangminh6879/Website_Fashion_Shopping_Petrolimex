@@ -40,123 +40,128 @@ function CouponModal({ coupons, onSelect, onClose, selectedCoupon }) {
     };
 
     return (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4" onClick={onClose}>
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
             {/* Overlay */}
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+            <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-md" />
 
             {/* Modal */}
             <div
-                className="relative bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden animate-modalIn"
+                className="relative bg-white rounded-[3rem] shadow-[0_35px_60px_-15px_rgba(0,0,0,0.3)] w-full max-w-xl max-h-[85vh] flex flex-col overflow-hidden animate-modalIn border border-white/20"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className="px-8 pt-8 pb-6 border-b border-gray-50">
-                    <div className="flex items-center justify-between mb-5">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-amber-500 rounded-2xl flex items-center justify-center shadow-lg shadow-amber-200">
-                                <span className="text-lg">🎟</span>
+                <div className="px-10 pt-10 pb-8 bg-gradient-to-br from-gray-50 to-white border-b border-gray-100">
+                    <div className="flex items-center justify-between mb-8">
+                        <div className="flex items-center gap-5">
+                            <div className="w-14 h-14 bg-amber-500 rounded-[1.5rem] flex items-center justify-center shadow-2xl shadow-amber-200 transform -rotate-6">
+                                <span className="text-2xl">🎟</span>
                             </div>
                             <div>
-                                <h2 className="text-xl font-black text-gray-900 tracking-tighter uppercase">Chọn Coupon</h2>
-                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{coupons.length} ưu đãi khả dụng</p>
+                                <h2 className="text-2xl font-black text-gray-900 tracking-tighter uppercase italic">Kho <span className="text-amber-500">Voucher</span></h2>
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mt-1">{coupons.length} ưu đãi đang chờ bạn</p>
                             </div>
                         </div>
                         <button
                             onClick={onClose}
-                            className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-all text-gray-500 font-bold"
+                            className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-all text-gray-500 font-bold hover:rotate-90 duration-300"
                         >
                             ✕
                         </button>
                     </div>
+
                     {/* Search */}
-                    <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+                    <div className="relative group">
+                        <span className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 text-lg group-focus-within:text-amber-500 transition-colors">🔍</span>
                         <input
                             type="text"
-                            placeholder="Tìm mã coupon..."
+                            placeholder="Nhập mã giảm giá của bạn..."
                             value={search}
                             onChange={e => setSearch(e.target.value)}
-                            className="w-full bg-gray-50 border border-gray-100 rounded-[1.25rem] pl-10 pr-4 py-3 text-sm font-bold text-gray-900 outline-none focus:border-amber-400 transition-all"
+                            className="w-full bg-white border-2 border-gray-100 rounded-[2rem] pl-14 pr-6 py-5 text-sm font-bold text-gray-900 outline-none focus:border-amber-400 focus:shadow-xl focus:shadow-amber-100 transition-all placeholder:text-gray-300"
                         />
                     </div>
                 </div>
 
                 {/* Coupon List */}
-                <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto px-10 py-8 space-y-5 custom-scrollbar bg-gray-50/30">
                     {filtered.length === 0 ? (
-                        <div className="text-center py-16">
-                            <div className="text-5xl mb-4 opacity-20">🎟</div>
-                            <p className="text-[11px] font-black text-gray-300 uppercase tracking-widest">Không tìm thấy coupon</p>
+                        <div className="text-center py-24">
+                            <div className="text-7xl mb-6 opacity-20 filter grayscale">🎟</div>
+                            <p className="text-[11px] font-black text-gray-300 uppercase tracking-[0.4em]">Rất tiếc, chưa tìm thấy mã phù hợp</p>
                         </div>
-                    ) : filtered.map(coupon => {
-                        const meta = getTypeMeta(coupon.couponType?.name);
-                        const isSelected = selectedCoupon?._id === coupon._id;
-                        return (
-                            <div
-                                key={coupon._id}
-                                onClick={() => onSelect(coupon)}
-                                className={`relative cursor-pointer rounded-2xl border-2 p-4 transition-all duration-200 hover:shadow-md ${isSelected ? 'border-amber-400 bg-amber-50 shadow-lg shadow-amber-100' : `${meta.cardBorder} ${meta.cardBg} hover:border-opacity-60`}`}
-                            >
-                                {/* Selected badge */}
-                                {isSelected && (
-                                    <div className="absolute top-3 right-3 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center shadow-md">
-                                        <span className="text-white text-xs font-black">✓</span>
-                                    </div>
-                                )}
+                    ) : (
+                        <div className="grid grid-cols-1 gap-4">
+                            {filtered.map(coupon => {
+                                const meta = getTypeMeta(coupon.couponType?.name);
+                                const isSelected = selectedCoupon?._id === coupon._id;
+                                return (
+                                    <div
+                                        key={coupon._id}
+                                        onClick={() => onSelect(coupon)}
+                                        className={`group relative cursor-pointer rounded-[2rem] border-2 p-6 transition-all duration-300 hover:translate-y-[-4px] ${isSelected ? 'border-amber-400 bg-white shadow-2xl shadow-amber-200' : 'border-white bg-white hover:border-amber-200 shadow-sm hover:shadow-xl'}`}
+                                    >
+                                        <div className="flex items-center gap-6">
+                                            {/* Left side with icon */}
+                                            <div className={`w-20 h-20 rounded-[1.75rem] ${meta.tagBg} flex flex-col items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-500 shadow-inner`}>
+                                                <span className="text-3xl mb-1">{meta.icon}</span>
+                                                <span className={`text-[8px] font-black uppercase tracking-tighter ${meta.tagText}`}>{meta.label.split(' ')[0]}</span>
+                                            </div>
 
-                                <div className="flex items-start gap-3">
-                                    {/* Icon */}
-                                    <div className={`w-12 h-12 rounded-xl ${meta.tagBg} flex items-center justify-center text-xl flex-shrink-0`}>
-                                        {meta.icon}
-                                    </div>
+                                            {/* Center info */}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${meta.tagBg} ${meta.tagText} border border-white/50 shadow-sm`}>
+                                                        {coupon.couponType?.description || coupon.couponType?.name}
+                                                    </span>
+                                                </div>
+                                                <h4 className="font-black text-gray-900 tracking-wider text-lg uppercase mb-1">{coupon.code}</h4>
+                                                <p className={`font-black text-xl italic tracking-tighter ${meta.tagText}`}>
+                                                    {formatDiscount(coupon)}
+                                                </p>
+                                                <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-50">
+                                                    <div className="flex items-center gap-1.5 font-bold text-[9px] text-gray-400 uppercase tracking-widest leading-none">
+                                                        <span className="text-xs">📅</span> HSD: {formatExpiry(coupon.expiryDate)}
+                                                    </div>
+                                                    <div className="w-1 h-1 rounded-full bg-gray-200" />
+                                                    <div className="flex items-center gap-1.5 font-bold text-[9px] text-gray-400 uppercase tracking-widest leading-none">
+                                                        <span className="text-xs">🎟</span> Còn {coupon.quantity} lượt
+                                                    </div>
+                                                </div>
+                                            </div>
 
-                                    <div className="flex-1 min-w-0">
-                                        {/* Badge loại */}
-                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                            <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${meta.color}`}>
-                                                {meta.label}
-                                            </span>
-                                            <span className={`text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${meta.tagBg} ${meta.tagText}`}>
-                                                {coupon.couponType?.description || coupon.couponType?.name}
-                                            </span>
+                                            {/* Action / Selection */}
+                                            <div className="flex-shrink-0">
+                                                <div className={`w-10 h-10 rounded-full border-4 flex items-center justify-center transition-all duration-500 ${isSelected ? 'bg-amber-500 border-amber-100 scale-110 shadow-lg shadow-amber-200' : 'bg-gray-50 border-gray-100 group-hover:bg-amber-50'}`}>
+                                                    {isSelected && <span className="text-white text-sm font-black animate-bounce mt-1">✓</span>}
+                                                </div>
+                                            </div>
                                         </div>
 
-                                        {/* Mã coupon */}
-                                        <p className="font-black text-gray-900 tracking-wider text-sm uppercase">{coupon.code}</p>
-
-                                        {/* Giá trị giảm */}
-                                        <p className={`font-black text-base tracking-tight mt-0.5 ${meta.tagText}`}>
-                                            {formatDiscount(coupon)}
-                                        </p>
-
-                                        {/* Meta info */}
-                                        <div className="flex items-center gap-3 mt-2">
-                                            <span className="text-[9px] font-bold text-gray-400 uppercase">HSD: {formatExpiry(coupon.expiryDate)}</span>
-                                            <span className="text-[9px] font-bold text-gray-400">•</span>
-                                            <span className="text-[9px] font-bold text-gray-400 uppercase">Còn {coupon.quantity} lượt</span>
-                                        </div>
+                                        {/* Background decorative element */}
+                                        <div className="absolute top-0 right-0 w-32 h-32 bg-gray-50 rounded-full -mr-16 -mt-16 opacity-30 group-hover:bg-amber-50 transition-colors" />
                                     </div>
-                                </div>
-                            </div>
-                        );
-                    })}
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 border-t border-gray-50">
-                    {selectedCoupon && (
+                <div className="px-10 py-8 bg-gray-50 border-t border-gray-100 flex gap-4">
+                    {selectedCoupon ? (
                         <button
                             onClick={() => onSelect(null)}
-                            className="w-full py-3 rounded-[1.25rem] border-2 border-dashed border-gray-200 text-[11px] font-black text-gray-400 uppercase tracking-widest hover:border-red-300 hover:text-red-400 transition-all mb-2"
+                            className="flex-1 py-5 rounded-[1.5rem] border-2 border-dashed border-red-100 text-[11px] font-black text-red-400 uppercase tracking-widest hover:bg-red-50 hover:border-red-200 transition-all flex items-center justify-center gap-3"
                         >
-                            Bỏ chọn coupon
+                            <span>🗑</span> Gỡ mã giảm giá
                         </button>
-                    )}
+                    ) : null}
                     <button
                         onClick={onClose}
-                        className="w-full bg-gray-900 text-white font-black uppercase tracking-[0.2em] py-4 rounded-[1.25rem] hover:bg-amber-500 hover:text-gray-900 transition-all text-xs"
+                        className={`flex-[2] bg-gray-900 text-white font-black uppercase tracking-[0.3em] py-5 rounded-[1.5rem] hover:bg-amber-500 hover:text-gray-900 transition-all shadow-2xl flex items-center justify-center gap-3 text-xs ${!selectedCoupon ? 'w-full' : ''}`}
                     >
-                        Xác Nhận
+                        <span>{selectedCoupon ? 'Xác Nhận Áp Dụng' : 'Trở Lại'}</span>
+                        <span className="text-lg">✨</span>
                     </button>
                 </div>
             </div>
@@ -243,11 +248,11 @@ export default function Checkout() {
 
     const isFreeship = useCallback(() =>
         detectCouponKind(selectedCoupon) === 'freeship'
-    , [detectCouponKind, selectedCoupon]);
+        , [detectCouponKind, selectedCoupon]);
 
     const isPercent = useCallback(() =>
         detectCouponKind(selectedCoupon) === 'percent'
-    , [detectCouponKind, selectedCoupon]);
+        , [detectCouponKind, selectedCoupon]);
 
     const getOrderDiscount = useCallback(() => {
         if (!selectedCoupon) return 0;
@@ -500,57 +505,95 @@ export default function Checkout() {
                                 </div>
 
                                 {/* Selected coupon display or button */}
+                                {/* Selected voucher display or button */}
                                 {selectedCoupon ? (
-                                    <div className={`rounded-2xl border-2 p-4 ${selectedMeta?.border} ${selectedMeta?.bg} animate-fadeIn`}>
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-10 h-10 rounded-xl ${selectedMeta?.tagBg} flex items-center justify-center text-base flex-shrink-0`}>
-                                                ✨
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 mb-0.5">
-                                                    <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${selectedMeta?.tagBg} ${selectedMeta?.tagText}`}>
-                                                        {selectedMeta?.label}
-                                                    </span>
+                                    <div className="group relative overflow-hidden">
+                                        <div className={`rounded-[2rem] border-2 p-6 ${selectedMeta?.border} ${selectedMeta?.bg} shadow-lg shadow-amber-100 hover:shadow-2xl transition-all duration-500`}>
+                                            <div className="flex items-center gap-4 relative z-10">
+                                                <div className={`w-14 h-14 rounded-2xl ${selectedMeta?.tagBg} flex items-center justify-center text-2xl flex-shrink-0 transform rotate-3 shadow-inner`}>
+                                                    ✨
                                                 </div>
-                                                <p className="font-black text-gray-900 text-sm uppercase tracking-wide">{selectedCoupon.code}</p>
-                                                <p className={`text-[10px] font-bold mt-0.5 ${selectedMeta?.tagText}`}>{formatCouponValue(selectedCoupon)}</p>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${selectedMeta?.tagBg} ${selectedMeta?.tagText}`}>
+                                                            {selectedMeta?.label}
+                                                        </span>
+                                                    </div>
+                                                    <p className="font-black text-gray-900 text-base uppercase tracking-wider">{selectedCoupon.code}</p>
+                                                    <p className={`text-[11px] font-black mt-0.5 ${selectedMeta?.tagText}`}>{formatCouponValue(selectedCoupon)}</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => setSelectedCoupon(null)}
+                                                    className="w-10 h-10 rounded-full bg-white/80 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-white shadow-sm transition-all font-bold"
+                                                    title="Gỡ coupon"
+                                                >
+                                                    ✕
+                                                </button>
                                             </div>
+
+                                            {/* Action to change */}
                                             <button
-                                                onClick={() => setSelectedCoupon(null)}
-                                                className="text-gray-300 hover:text-red-400 transition-colors font-bold text-sm flex-shrink-0"
-                                                title="Bỏ coupon"
+                                                onClick={() => setShowCouponModal(true)}
+                                                className="mt-4 w-full py-3 bg-white/50 hover:bg-white border border-dashed border-gray-200 hover:border-amber-300 rounded-xl text-[9px] font-black uppercase tracking-widest text-gray-400 hover:text-amber-500 transition-all"
                                             >
-                                                ✕
+                                                Thay đổi Voucher khác
                                             </button>
                                         </div>
-
-                                        {/* Change button */}
-                                        <button
-                                            onClick={() => setShowCouponModal(true)}
-                                            className="mt-3 w-full text-[9px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-colors py-2 border border-dashed border-gray-200 rounded-xl hover:border-gray-300"
-                                        >
-                                            Đổi Coupon Khác
-                                        </button>
                                     </div>
                                 ) : (
                                     <button
                                         onClick={() => setShowCouponModal(true)}
                                         disabled={coupons.length === 0}
-                                        className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl border-2 border-dashed transition-all group ${coupons.length > 0 ? 'border-amber-200 bg-amber-50/30 hover:border-amber-400 hover:bg-amber-50 cursor-pointer' : 'border-gray-100 bg-gray-50/50 cursor-not-allowed opacity-50'}`}
+                                        className={`w-full group flex items-center justify-between p-1 rounded-[2.2rem] border-2 transition-all duration-500 bg-white ${coupons.length > 0 ? 'border-amber-100 hover:border-amber-400 hover:shadow-2xl hover:shadow-amber-100 cursor-pointer' : 'border-gray-50 opacity-50 cursor-not-allowed'}`}
                                     >
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 bg-amber-100 rounded-xl flex items-center justify-center group-hover:bg-amber-200 transition-colors">
-                                                <span className="text-sm">🎟</span>
+                                        <div className="flex items-center gap-4 py-3 px-6 mr-auto">
+                                            <div className="w-12 h-12 bg-amber-500 rounded-[1.2rem] flex items-center justify-center text-white shadow-lg shadow-amber-200 group-hover:rotate-12 transition-transform duration-500">
+                                                <span className="text-xl">🎟</span>
                                             </div>
-                                            <span className="text-[11px] font-black uppercase tracking-widest text-gray-500 group-hover:text-amber-600 transition-colors">
-                                                {coupons.length > 0 ? 'Thêm Coupon' : 'Không có ưu đãi'}
-                                            </span>
+                                            <div className="text-left">
+                                                <span className="block text-[11px] font-black uppercase tracking-[0.2em] text-gray-900">Chọn Voucher</span>
+                                                <span className="block text-[9px] font-bold text-gray-400 uppercase mt-0.5">{coupons.length > 0 ? `Có ${coupons.length} ưu đãi khả dụng` : 'Rất tiếc, chưa có ưu đãi'}</span>
+                                            </div>
                                         </div>
                                         {coupons.length > 0 && (
-                                            <span className="text-amber-400 font-bold text-sm group-hover:translate-x-1 transition-transform">›</span>
+                                            <div className="w-14 h-14 rounded-[2rem] bg-gray-900 group-hover:bg-amber-500 flex items-center justify-center transition-colors duration-500 mr-1">
+                                                <span className="text-white group-hover:text-gray-900 font-black text-xl translate-x-1 group-hover:translate-x-2 transition-transform">›</span>
+                                            </div>
                                         )}
                                     </button>
                                 )}
+                            </div>
+
+                            {/* ── Price Highlight Boxes ────────────────────── */}
+                            <div className="mt-8 space-y-3">
+                                {/* Row 1: Original price */}
+                                <div className="flex items-center justify-between px-6 py-4 bg-gray-50 border border-gray-100 rounded-[1.5rem]">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-xl bg-white border border-gray-200 flex items-center justify-center text-sm shadow-inner">🏷</div>
+                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Tổng tiền gốc</span>
+                                    </div>
+                                    <span className={`font-black tracking-tight tabular-nums ${selectedCoupon ? 'line-through text-gray-300 text-sm' : 'text-gray-900 text-base'}`}>
+                                        {formatPrice(getCheckoutTotal())}
+                                    </span>
+                                </div>
+
+                                {/* Row 2: After voucher price */}
+                                <div className={`flex items-center justify-between px-6 py-4 rounded-[1.5rem] border-2 transition-all duration-500 ${selectedCoupon ? 'bg-amber-50 border-amber-200 shadow-lg shadow-amber-100' : 'bg-gray-50/30 border-dashed border-gray-100 opacity-60'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm shadow-inner border ${selectedCoupon ? 'bg-amber-500 border-amber-400 text-white' : 'bg-white border-gray-200'}`}>✨</div>
+                                        <span className={`text-[10px] font-black uppercase tracking-widest ${selectedCoupon ? 'text-amber-700' : 'text-gray-400'}`}>Sau khi áp Voucher</span>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className={`font-black tracking-tight tabular-nums text-lg ${selectedCoupon ? 'text-amber-500' : 'text-gray-400'}`}>
+                                            {selectedCoupon ? formatPrice(getCheckoutTotal() - getOrderDiscount()) : '---'}
+                                        </p>
+                                        {selectedCoupon && getOrderDiscount() > 0 && (
+                                            <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest mt-0.5">
+                                                Tiết kiệm {formatPrice(getOrderDiscount())} 🎉
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
 
                             {/* ── Price Summary ──────────────────────────────── */}
@@ -562,7 +605,7 @@ export default function Checkout() {
 
                                 {getOrderDiscount() > 0 && (
                                     <div className="flex justify-between items-center text-amber-500 animate-fadeInUp">
-                                        <span className="text-[10px] font-black uppercase tracking-widest">Giảm giá</span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Giảm giá Voucher</span>
                                         <span className="font-bold tracking-tight">-{formatPrice(getOrderDiscount())}</span>
                                     </div>
                                 )}
@@ -579,11 +622,11 @@ export default function Checkout() {
                                     )}
                                 </div>
 
-                                <div className="flex justify-between items-center py-5 border-t border-gray-50 mt-2">
-                                    <span className="font-black text-gray-900 uppercase tracking-tighter text-lg italic">Tổng cộng</span>
+                                <div className="flex justify-between items-center py-5 border-t border-gray-900 mt-2">
+                                    <span className="font-black text-gray-900 uppercase tracking-tighter text-lg italic italic">Thanh toán</span>
                                     <div className="text-right">
                                         <div className="text-3xl font-black text-amber-500 tracking-tighter italic">{formatPrice(getFinalTotal())}</div>
-                                        <p className="text-[8px] text-gray-400 font-bold uppercase mt-1">Bao gồm thuế GTGT</p>
+                                        <p className="text-[8px] text-gray-400 font-bold uppercase mt-1">Bao gồm phí vận chuyển & VAT</p>
                                     </div>
                                 </div>
                             </div>
@@ -614,6 +657,6 @@ export default function Checkout() {
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 10px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #d1d5db; }
             `}} />
-        </div>
+        </div >
     );
 }

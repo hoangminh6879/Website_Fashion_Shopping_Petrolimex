@@ -92,7 +92,7 @@ export const createOrder = async (req, res) => {
             title: "Đặt hàng thành công!",
             message: `Bạn vừa đặt thành công đơn hàng #${order._id.toString().slice(-6).toUpperCase()} với tổng tiền ${totalPrice.toLocaleString('vi-VN')} VND.`,
             type: "order",
-            link: "/profile" // Link to profile where user can see the order
+            link: `/order-history?orderId=${order._id}` // Link to order history with ID to auto-open details
         });
 
         // 4. Gửi email xác nhận (không làm gián đoạn response)
@@ -184,7 +184,7 @@ export const updateOrderStatus = async (req, res) => {
             cancelled: "đã bị hủy"
         };
         const statusText = statusMap[status] || status;
-        
+
         await Notification.create({
             recipient: order.user,
             title: "Cập nhật đơn hàng",
