@@ -1,8 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import api from '../services/api';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix Leaflet default marker icon
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
+// Map click handler component
+function LocationPicker({ onPick }) {
+  useMapEvents({
+    click(e) { onPick(e.latlng); }
+  });
+  return null;
+}
 
 export default function SellerDashboard() {
   const [activeTab, setActiveTab] = useState('products');
@@ -32,8 +51,11 @@ export default function SellerDashboard() {
     description: '',
     address: '',
     phone: '',
-    fanpage: ''
+    fanpage: '',
+    lat: null,
+    lng: null
   });
+  const [showShopMap, setShowShopMap] = useState(false);
   const [isUpdatingShop, setIsUpdatingShop] = useState(false);
   const [isSavingStock, setIsSavingStock] = useState(false);
 
@@ -76,7 +98,9 @@ export default function SellerDashboard() {
             description: shopRes.value.data.description || '',
             address: shopRes.value.data.address || '',
             phone: shopRes.value.data.phone || '',
-            fanpage: shopRes.value.data.fanpage || ''
+            fanpage: shopRes.value.data.fanpage || '',
+            lat: shopRes.value.data.lat || null,
+            lng: shopRes.value.data.lng || null
           });
         }
         if (couponTypesRes.status === 'fulfilled') {
@@ -946,6 +970,38 @@ export default function SellerDashboard() {
                       className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-800 focus:border-amber-500 focus:bg-white transition outline-none shadow-inner"
                       placeholder="Số nhà, Tên đường, Quận/Huyện, Tỉnh/Thành phố"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowShopMap(!showShopMap)}
+                      className="text-[10px] font-black text-amber-600 mt-2 hover:underline flex items-center gap-1"
+                    >
+                      📍 {showShopMap ? 'Ẩn bản đồ' : 'Chọn vị trí shop trên bản đồ'}
+                    </button>
+
+                    {showShopMap && (
+                      <div className="h-64 mt-3 rounded-2xl overflow-hidden border-2 border-amber-100 shadow-lg">
+                        <MapContainer
+                          center={shopForm.lat && shopForm.lng ? [shopForm.lat, shopForm.lng] : [10.7769, 106.7009]}
+                          zoom={13}
+                          style={{ height: '100%', width: '100%' }}
+                        >
+                          <TileLayer
+                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
+                          />
+                          <LocationPicker onPick={(latlng) => {
+                            setShopForm(prev => ({ ...prev, lat: latlng.lat, lng: latlng.lng }));
+                            // reverse geocode
+                            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latlng.lat}&lon=${latlng.lng}`)
+                              .then(r => r.json())
+                              .then(data => {
+                                if (data.display_name) setShopForm(prev => ({ ...prev, address: data.display_name }));
+                              });
+                          }} />
+                          {shopForm.lat && shopForm.lng && <Marker position={[shopForm.lat, shopForm.lng]} />}
+                        </MapContainer>
+                      </div>
+                    )}
                   </div>
 
                   <div>

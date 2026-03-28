@@ -22,6 +22,7 @@ import eventRoutes from "./src/routes/event.routes.js";
 import productEventRoutes from "./src/routes/productEvent.routes.js";
 import orderRoutes from "./src/routes/order.route.js";
 import notificationRoutes from "./src/routes/notification.routes.js";
+import shippingRoutes from "./src/routes/shipping.routes.js";
 
 import path from "path";
 
@@ -113,6 +114,7 @@ app.use("/api/events", eventRoutes);
 app.use("/api/product-events", productEventRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/shipping", shippingRoutes);
 
 
 const PORT = process.env.PORT || 5000;

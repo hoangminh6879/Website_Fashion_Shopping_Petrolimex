@@ -14,6 +14,11 @@ export const createShop = async (req, res) => {
     const shop = await Shop.create({
       name: req.body.name,
       description: req.body.description,
+      address: req.body.address,
+      phone: req.body.phone,
+      fanpage: req.body.fanpage,
+      lat: req.body.lat,
+      lng: req.body.lng,
       owner: req.user.id,
       status: "pending"
     });
@@ -49,10 +54,10 @@ export const getShopById = async (req, res) => {
 };
 export const updateShop = async (req, res) => {
   try {
-    const { name, description, address, phone, fanpage } = req.body;
+    const { name, description, address, phone, fanpage, lat, lng } = req.body;
     const shop = await Shop.findOneAndUpdate(
       { owner: req.user.id },
-      { name, description, address, phone, fanpage },
+      { name, description, address, phone, fanpage, lat, lng },
       { new: true }
     );
     if (!shop) {
