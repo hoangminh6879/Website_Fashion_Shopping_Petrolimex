@@ -7,6 +7,7 @@ import Notification from "../models/Notification.model.js";
 import User from "../models/User.model.js";
 import Coupon from "../models/Coupon.model.js";
 import sendEmail from "../utils/sendEmail.js";
+import { refundVNPay } from "./vnpay.controller.js";
 
 
 // @desc    Tạo đơn hàng mới
@@ -178,6 +179,7 @@ export const updateOrderStatus = async (req, res) => {
 
         // Tạo thông báo cho user
         const statusMap = {
+            pending_payment: "đang chờ thanh toán VNPay",
             paid: "đã được thanh toán",
             shipped: "đang được giao",
             completed: "đã hoàn thành",
@@ -197,3 +199,91 @@ export const updateOrderStatus = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+// @desc    Hủy đơn hàng
+// @route   POST /api/orders/:id/cancel
+export const cancelOrder = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { reason } = req.body;
+
+        const order = await Order.findById(id);
+        if (!order) return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
+
+        // Kiểm tra quyền sở hữu (chỉ cho phép user đã đặt đơn hàng này hủy)
+        if (order.user.toString() !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ message: "Bạn không có quyền hủy đơn hàng này" });
+        }
+
+        // Kiểm tra điều kiện hủy
+        if (order.status === 'completed') {
+            return res.status(400).json({ message: "Đơn hàng đã hoàn thành, không thể hủy." });
+        }
+        if (order.status === 'cancelled') {
+            return res.status(400).json({ message: "Đơn hàng đã được hủy trước đó." });
+        }
+
+        // Quy tắc riêng cho COD
+        if (order.paymentMethod === 'COD' && order.status !== 'pending') {
+            return res.status(400).json({ message: "Đơn hàng COD chỉ có thể hủy khi đang chờ duyệt." });
+        }
+
+        // Nếu đã thanh toán qua VNPay -> Gọi API hoàn tiền
+        if (order.paymentMethod === 'VNPAY' && order.paymentStatus === 'paid') {
+            if (!order.vnp_TransactionNo || !order.vnp_PayDate) {
+                // Có thể do đơn hàng cũ chưa lưu thông tin này, hoặc lỗi trong quá trình callback
+                console.warn(`Order ${order._id} paid via VNPAY but missing transaction info for refund.`);
+            } else {
+                try {
+                    const refundResult = await refundVNPay(order);
+                    if (refundResult.vnp_ResponseCode !== '00') {
+                        console.error('VNPay Refund failed:', refundResult);
+                        // Tùy chọn: trả về lỗi hoặc vẫn cho hủy nhưng đánh dấu cần xử lý thủ công
+                    } else {
+                        order.paymentStatus = 'refunded';
+                    }
+                } catch (refundErr) {
+                    console.error('Error calling VNPay refund:', refundErr);
+                }
+            }
+        }
+
+        // Hoàn lại tồn kho cho các sản phẩm trong đơn hàng
+        const orderItems = await OrderItem.find({ order: order._id }).populate("product");
+        for (const item of orderItems) {
+            const product = item.product;
+            if (product) {
+                const colorIdx = (product.colors || []).indexOf(item.color);
+                const sizeIdx = (product.sizes || []).indexOf(item.size);
+
+                if (colorIdx !== -1 && sizeIdx !== -1) {
+                    const stockIndex = colorIdx * (product.sizes?.length || 0) + sizeIdx;
+                    product.stock[stockIndex] += item.quantity;
+                    product.sold = Math.max(0, (product.sold || 0) - item.quantity);
+                    await product.save();
+                }
+            }
+        }
+
+        // Cập nhật trạng thái đơn hàng
+        order.status = 'cancelled';
+        order.cancelledAt = new Date();
+        order.cancelReason = reason || "Người dùng yêu cầu hủy";
+        await order.save();
+
+        // Thông báo cho user
+        await Notification.create({
+            recipient: order.user,
+            title: "Đơn hàng đã hủy",
+            message: `Đơn hàng #${order._id.toString().slice(-6).toUpperCase()} của bạn đã được hủy thành công.`,
+            type: "order"
+        });
+
+        res.json({ message: "Đã hủy đơn hàng thành công", order });
+
+    } catch (error) {
+        console.error('cancelOrder error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+

@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
+import Swal from 'sweetalert2';
 
 // ─── Order Details Modal ─────────────────────────────────────────────────────
-function OrderModal({ order, onClose }) {
+function OrderModal({ order, onClose, handleCancelOrder }) {
     if (!order) return null;
 
     const formatPrice = (price) =>
@@ -12,13 +13,15 @@ function OrderModal({ order, onClose }) {
 
     const getStatusInfo = (status) => {
         const map = {
-            pending: { label: 'Đang xử lý', color: 'bg-amber-100 text-amber-600', dot: 'bg-amber-500' },
+            pending_payment: { label: 'Chờ thanh toán', color: 'bg-amber-100 text-amber-600', dot: 'bg-amber-500' },
+            pending: { label: 'Đang chờ duyệt', color: 'bg-amber-100 text-amber-600', dot: 'bg-amber-500' },
             confirmed: { label: 'Đã xác nhận', color: 'bg-blue-100 text-blue-600', dot: 'bg-blue-500' },
-            shipping: { label: 'Đang giao', color: 'bg-purple-100 text-purple-600', dot: 'bg-purple-500' },
-            delivered: { label: 'Hoàn thành', color: 'bg-emerald-100 text-emerald-600', dot: 'bg-emerald-500' },
+            paid: { label: 'Đã thanh toán', color: 'bg-emerald-100 text-emerald-600', dot: 'bg-emerald-500' },
+            shipped: { label: 'Đang giao hàng', color: 'bg-purple-100 text-purple-600', dot: 'bg-purple-500' },
+            completed: { label: 'Hoàn thành', color: 'bg-emerald-100 text-emerald-600', dot: 'bg-emerald-500' },
             cancelled: { label: 'Đã hủy', color: 'bg-red-100 text-red-600', dot: 'bg-red-500' }
         };
-        return map[status] || map.pending;
+        return map[status] || { label: status, color: 'bg-gray-100 text-gray-600', dot: 'bg-gray-500' };
     };
 
     const statusInfo = getStatusInfo(order.status);
@@ -190,11 +193,16 @@ function OrderModal({ order, onClose }) {
                     >
                         Đóng cửa sổ
                     </button>
-                    {order.status === 'pending' && (
-                        <button className="px-10 py-4 bg-white border-2 border-gray-900 text-gray-900 font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-red-50 hover:text-red-600 hover:border-red-600 transition-all text-[10px]">
-                            Yêu cầu hủy đơn
-                        </button>
-                    )}
+                    {/* Nút hủy đơn: COD chỉ khi pending; VNPay bất cứ lúc nào trừ completed/cancelled */}
+                    {((order.paymentMethod === 'COD' && order.status === 'pending') ||
+                        (order.paymentMethod === 'VNPAY' && order.status !== 'completed' && order.status !== 'cancelled')) && (
+                            <button
+                                onClick={() => handleCancelOrder(order._id)}
+                                className="px-10 py-4 bg-white border-2 border-gray-900 text-gray-900 font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-red-50 hover:text-red-600 hover:border-red-600 transition-all text-[10px]"
+                            >
+                                Yêu cầu hủy đơn
+                            </button>
+                        )}
                 </div>
             </div>
         </div>
@@ -209,9 +217,106 @@ export default function OrderHistory() {
     const navigate = useNavigate();
     const location = useLocation();
 
+    const handleCancelOrder = async (orderId) => {
+        const { value: selectedReason } = await Swal.fire({
+            title: 'Xác nhận hủy đơn hàng?',
+            text: "Tại sao bạn muốn hủy đơn hàng này?",
+            icon: 'warning',
+            input: 'select',
+            inputOptions: {
+                'Tôi muốn đổi sản phẩm khác': 'Tôi muốn đổi sản phẩm khác',
+                'Tôi tìm thấy giá rẻ hơn ở nơi khác': 'Tôi tìm thấy giá rẻ hơn ở nơi khác',
+                'Thời gian giao hàng quá lâu': 'Thời gian giao hàng quá lâu',
+                'Tôi không còn nhu cầu mua nữa': 'Tôi không còn nhu cầu mua nữa',
+                'Khác': 'Lý do khác...'
+            },
+            inputPlaceholder: 'Chọn lý do hủy',
+            showCancelButton: true,
+            confirmButtonColor: '#111827',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Tiếp tục',
+            cancelButtonText: 'Quay lại',
+            inputValidator: (value) => {
+                if (!value) return 'Bạn cần chọn một lý do!'
+            }
+        });
+
+        if (selectedReason) {
+            let finalReason = selectedReason;
+
+            if (selectedReason === 'Khác') {
+                const { value: otherReason } = await Swal.fire({
+                    title: 'Nhập lý do hủy',
+                    input: 'text',
+                    inputPlaceholder: 'Nhập lý do cụ thể của bạn...',
+                    showCancelButton: true,
+                    confirmButtonColor: '#111827',
+                    confirmButtonText: 'Đồng ý hủy',
+                    cancelButtonText: 'Quay lại',
+                    inputValidator: (value) => {
+                        if (!value) return 'Vui lòng nhập lý do!'
+                    }
+                });
+
+                if (!otherReason) return; // User cancelled the second popup
+                finalReason = otherReason;
+            }
+
+            try {
+                await api.post(`/orders/${orderId}/cancel`, { reason: finalReason });
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Đã hủy đơn hàng',
+                    text: 'Đơn hàng của bạn đã được hủy thành công.',
+                    confirmButtonColor: '#111827'
+                });
+                fetchOrders();
+                setSelectedOrder(null);
+            } catch (err) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Lỗi',
+                    text: err.response?.data?.message || 'Không thể hủy đơn hàng vào lúc này.',
+                    confirmButtonColor: '#111827'
+                });
+            }
+        }
+    };
+
     useEffect(() => {
         fetchOrders();
     }, []);
+
+    // Hiển thị thông báo kết quả VNPay nếu có query params
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const vnpay = params.get('vnpay');
+        const orderId = params.get('orderId');
+
+        if (vnpay === 'success') {
+            Swal.fire({
+                icon: 'success',
+                title: 'Thanh toán VNPay thành công! 🎉',
+                text: `Đơn hàng #${orderId?.slice(-6).toUpperCase() || ''} của bạn đã được thanh toán thành công.`,
+                confirmButtonColor: '#111827',
+                confirmButtonText: 'Tuyệt vời'
+            });
+            // Xóa query params để tránh hiện lại khi refresh
+            window.history.replaceState(null, '', window.location.pathname);
+        } else if (vnpay === 'fail') {
+            const reason = params.get('reason');
+            let errorMsg = 'Giao dịch không thành công. Vui lòng thử lại.';
+            if (reason === '24') errorMsg = 'Giao dịch đã bị hủy bởi người dùng.';
+
+            Swal.fire({
+                icon: 'error',
+                title: 'Thanh toán thất bại',
+                text: errorMsg,
+                confirmButtonColor: '#111827'
+            });
+            window.history.replaceState(null, '', window.location.pathname);
+        }
+    }, [location.search]);
 
     // Auto-open order details if orderId is in URL
     useEffect(() => {
@@ -242,10 +347,12 @@ export default function OrderHistory() {
 
     const getStatusColor = (status) => {
         const map = {
+            pending_payment: 'bg-amber-50 text-amber-500 border-amber-100',
             pending: 'bg-amber-50 text-amber-500 border-amber-100',
             confirmed: 'bg-blue-50 text-blue-500 border-blue-100',
-            shipping: 'bg-purple-50 text-purple-500 border-purple-100',
-            delivered: 'bg-emerald-50 text-emerald-500 border-emerald-100',
+            paid: 'bg-emerald-50 text-emerald-500 border-emerald-100',
+            shipped: 'bg-purple-50 text-purple-500 border-purple-100',
+            completed: 'bg-emerald-50 text-emerald-500 border-emerald-100',
             cancelled: 'bg-red-50 text-red-500 border-red-100'
         };
         return map[status] || 'bg-gray-50 text-gray-500';
@@ -253,10 +360,12 @@ export default function OrderHistory() {
 
     const getStatusText = (status) => {
         const map = {
-            pending: 'Đang chờ',
+            pending_payment: 'Chờ thanh toán',
+            pending: 'Đang chờ duyệt',
             confirmed: 'Xác nhận',
-            shipping: 'Đang giao',
-            delivered: 'Hoàn thành',
+            paid: 'Đã thanh toán',
+            shipped: 'Đang giao',
+            completed: 'Hoàn thành',
             cancelled: 'Đã hủy'
         };
         return map[status] || status;
@@ -267,7 +376,11 @@ export default function OrderHistory() {
             <Navbar />
 
             {/* Modal */}
-            <OrderModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
+            <OrderModal
+                order={selectedOrder}
+                onClose={() => setSelectedOrder(null)}
+                handleCancelOrder={handleCancelOrder}
+            />
 
             <main className="container mx-auto px-4 py-12 mt-44">
                 <div className="max-w-6xl mx-auto">

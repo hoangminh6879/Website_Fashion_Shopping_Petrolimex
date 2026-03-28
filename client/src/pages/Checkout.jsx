@@ -191,6 +191,28 @@ export default function Checkout() {
         paymentMethod: 'COD'
     });
 
+    // Hiển thị thông báo kết quả VNPay nếu redirect về
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const vnpay = params.get('vnpay');
+        if (vnpay === 'success') {
+            Swal.fire({
+                icon: 'success',
+                title: 'Thanh toán VNPay thành công! 🎉',
+                text: 'Đơn hàng của bạn đã được xác nhận và đang được xử lý.',
+                confirmButtonColor: '#111827',
+                confirmButtonText: 'Xem đơn hàng'
+            });
+        } else if (vnpay === 'fail') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Thanh toán VNPay thất bại',
+                text: 'Giao dịch không thành công. Vui lòng thử lại.',
+                confirmButtonColor: '#111827'
+            });
+        }
+    }, []);
+
     // Auto-fill from profile
     useEffect(() => {
         if (user) {
@@ -294,7 +316,26 @@ export default function Checkout() {
             const voucherIds = selectedCoupon ? [selectedCoupon._id] : [];
             const discountAmount = getOrderDiscount() + (isFreeship() && selectedCoupon ? SHIPPING_FEE : 0);
 
-            const response = await api.post('/orders', {
+            // ── Thanh toán VNPay ──────────────────────────────────────────
+            if (formData.paymentMethod === 'VNPAY') {
+                const response = await api.post('/orders/vnpay/create_payment_url', {
+                    items: checkoutItems,
+                    totalPrice: getFinalTotal(),
+                    discountAmount,
+                    shippingFee: getShippingAfterDiscount(),
+                    vouchers: voucherIds,
+                    address: formData.address,
+                    phone: formData.phone,
+                    isBuyNow,
+                    language: 'vn'
+                });
+                // Redirect đến trang thanh toán VNPay
+                window.location.href = response.data.paymentUrl;
+                return; // Dừng - browser sẽ redirect
+            }
+
+            // ── Thanh toán COD ────────────────────────────────────────────
+            await api.post('/orders', {
                 items: checkoutItems,
                 totalPrice: getFinalTotal(),
                 discountAmount,
@@ -434,11 +475,11 @@ export default function Checkout() {
                                             <span className="text-2xl">💵</span>
                                         </label>
 
-                                        <label className="flex items-center gap-4 p-6 rounded-[2rem] border-2 border-gray-50 bg-gray-50 opacity-50 cursor-not-allowed">
-                                            <input type="radio" disabled className="w-5 h-5" />
+                                        <label className={`flex items-center gap-4 p-6 rounded-[2rem] border-2 cursor-pointer transition-all ${formData.paymentMethod === 'VNPAY' ? 'border-blue-500 bg-blue-50/50 shadow-lg shadow-blue-100' : 'border-gray-50 bg-gray-50 hover:border-blue-200'}`}>
+                                            <input type="radio" name="paymentMethod" value="VNPAY" checked={formData.paymentMethod === 'VNPAY'} onChange={handleChange} className="w-5 h-5 accent-blue-500" />
                                             <div className="flex-1">
-                                                <p className="font-black text-xs uppercase tracking-widest text-gray-900">Chuyển khoản / Ví</p>
-                                                <p className="text-[9px] text-gray-400 font-bold uppercase mt-1">Đang bảo trì 🛠️</p>
+                                                <p className="font-black text-xs uppercase tracking-widest text-gray-900">Chuyển khoản VNPay</p>
+                                                <p className="text-[9px] text-gray-400 font-bold uppercase mt-1">Thanh toán qua cổng VNPay 🔒</p>
                                             </div>
                                             <span className="text-2xl">💳</span>
                                         </label>
@@ -447,9 +488,17 @@ export default function Checkout() {
 
                                 <button
                                     type="submit" disabled={loading}
-                                    className="w-full bg-gray-900 text-white font-black uppercase tracking-[0.3em] py-7 rounded-[2rem] hover:bg-amber-500 hover:text-gray-900 transition-all shadow-2xl shadow-gray-200 active:scale-95 disabled:opacity-50 mt-4 text-xs"
+                                    className={`w-full font-black uppercase tracking-[0.3em] py-7 rounded-[2rem] transition-all shadow-2xl active:scale-95 disabled:opacity-50 mt-4 text-xs ${formData.paymentMethod === 'VNPAY'
+                                            ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200'
+                                            : 'bg-gray-900 text-white hover:bg-amber-500 hover:text-gray-900 shadow-gray-200'
+                                        }`}
                                 >
-                                    {loading ? 'ĐANG XỬ LÝ...' : 'XÁC NHẬN ĐẶT HÀNG'}
+                                    {loading
+                                        ? 'ĐANG XỬ LÝ...'
+                                        : formData.paymentMethod === 'VNPAY'
+                                            ? '🔒 THANH TOÁN QUA VNPAY'
+                                            : 'XÁC NHẬN ĐẶT HÀNG'
+                                    }
                                 </button>
                             </form>
                         </div>
