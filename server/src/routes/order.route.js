@@ -3,7 +3,8 @@ import {
     createOrder,
     getMyOrders,
     getOrderById,
-    updateOrderStatus
+    updateOrderStatus,
+    cancelOrder
 } from "../controllers/order.controller.js";
 import {
     createVNPayPaymentUrl,
@@ -28,6 +29,7 @@ router.post("/vnpay/create_payment_url", createVNPayPaymentUrl);
 // COD order
 router.post("/", createOrder);
 router.get("/my-orders", getMyOrders);
+router.post("/:id/cancel", cancelOrder);
 router.get("/:id", getOrderById);
 
 // Admin or Seller update status
