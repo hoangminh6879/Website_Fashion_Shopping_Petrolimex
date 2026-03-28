@@ -7,6 +7,7 @@ cd server
 npm install
 npm install passport passport-google-oauth20
 npm install mailer
+npm install qs moment
 
 npm run dev
 Cái 2: --> Chạy trang web

@@ -413,34 +413,34 @@ export default function Profile() {
       {/* Seller Modal */}
       {showSellerModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
-          <div className="bg-white rounded-[3.5rem] w-full max-w-2xl p-10 md:p-14 shadow-2xl animate-scaleIn my-10 border border-gray-100 relative">
-            <button onClick={() => setShowSellerModal(false)} className="absolute top-8 right-8 text-gray-300 hover:text-red-500 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          <div className="bg-white rounded-[2.5rem] w-full max-w-lg p-7 md:p-10 shadow-2xl animate-scaleIn my-8 border border-gray-100 relative">
+            <button onClick={() => setShowSellerModal(false)} className="absolute top-6 right-6 text-gray-300 hover:text-red-500 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
 
-            <div className="mb-10 text-center">
-              <h3 className="text-3xl font-black uppercase italic tracking-tighter text-gray-900">Đăng Ký <span className="text-amber-500">Người Bán</span></h3>
-              <p className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em] mt-2">Bắt đầu hành trình triệu đô của bạn</p>
+            <div className="mb-7 text-center">
+              <h3 className="text-2xl font-black uppercase italic tracking-tighter text-gray-900">Đăng Ký <span className="text-amber-500">Người Bán</span></h3>
+              <p className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em] mt-1.5">Bắt đầu hành trình triệu đô của bạn</p>
             </div>
 
             {!showTerms ? (
-              <div className="space-y-10">
-                <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-2">Câu chuyện thương hiệu của bạn</label>
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-1">Câu chuyện thương hiệu của bạn</label>
                   <textarea
-                    rows="4"
+                    rows="3"
                     value={sellerForm.reason}
                     onChange={(e) => setSellerForm({ ...sellerForm, reason: e.target.value })}
-                    className="w-full p-8 bg-gray-50 rounded-[2.5rem] border-2 border-gray-50 focus:border-amber-500 focus:bg-white transition-all outline-none font-medium shadow-inner text-sm leading-relaxed"
+                    className="w-full p-5 bg-gray-50 rounded-2xl border-2 border-gray-50 focus:border-amber-500 focus:bg-white transition-all outline-none font-medium shadow-inner text-sm leading-relaxed"
                     placeholder="Hãy chia sẻ kế hoạch kinh doanh và dòng sản phẩm định hướng của bạn..."
                   />
                 </div>
 
-                <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-2">Giấy tờ tùy thân hoặc GPKD (Ảnh chụp)</label>
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest pl-1">Giấy tờ tùy thân hoặc GPKD (Ảnh chụp)</label>
                   <div
                     onClick={() => proofInputRef.current.click()}
-                    className="w-full h-56 bg-gray-50 rounded-[3rem] border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:border-amber-500 hover:bg-amber-50 transition-all group overflow-hidden relative shadow-inner"
+                    className="w-full h-36 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:border-amber-500 hover:bg-amber-50 transition-all group overflow-hidden relative shadow-inner"
                   >
                     {sellerForm.proofImage ? (
                       <>
@@ -448,10 +448,10 @@ export default function Profile() {
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-black uppercase tracking-widest">Thay đổi ảnh</div>
                       </>
                     ) : (
-                      <div className="text-center p-8">
-                        <span className="text-5xl mb-4 block group-hover:scale-125 transition-transform duration-500">📸</span>
+                      <div className="text-center p-4">
+                        <span className="text-4xl mb-2 block group-hover:scale-125 transition-transform duration-500">📸</span>
                         <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest group-hover:text-amber-600 transition-colors">Tải ảnh chụp minh chứng tại đây</span>
-                        <p className="text-[8px] text-gray-300 font-bold mt-2 uppercase">(Định dạng: JPG, PNG, tối đa 5MB)</p>
+                        <p className="text-[8px] text-gray-300 font-bold mt-1 uppercase">(Định dạng: JPG, PNG, tối đa 5MB)</p>
                       </div>
                     )}
                     <input type="file" ref={proofInputRef} className="hidden" accept="image/*" onChange={async (e) => {
@@ -469,7 +469,7 @@ export default function Profile() {
 
                 <button
                   onClick={() => setShowTerms(true)}
-                  className="w-full py-7 bg-gray-900 text-white rounded-[2.5rem] font-black uppercase tracking-[0.2em] text-[11px] hover:bg-amber-500 hover:text-gray-900 transition-all shadow-2xl shadow-gray-200"
+                  className="w-full py-5 bg-gray-900 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] hover:bg-amber-500 hover:text-gray-900 transition-all shadow-xl shadow-gray-200"
                 >
                   TIẾP TỤC BƯỚC CUỐI
                 </button>

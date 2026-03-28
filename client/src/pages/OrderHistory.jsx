@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
+import Swal from 'sweetalert2';
 
 // ─── Order Details Modal ─────────────────────────────────────────────────────
 function OrderModal({ order, onClose }) {
@@ -12,8 +13,10 @@ function OrderModal({ order, onClose }) {
 
     const getStatusInfo = (status) => {
         const map = {
+            pending_payment: { label: 'Chờ thanh toán', color: 'bg-amber-100 text-amber-600', dot: 'bg-amber-500' },
             pending: { label: 'Đang xử lý', color: 'bg-amber-100 text-amber-600', dot: 'bg-amber-500' },
             confirmed: { label: 'Đã xác nhận', color: 'bg-blue-100 text-blue-600', dot: 'bg-blue-500' },
+            paid: { label: 'Đã thanh toán', color: 'bg-emerald-100 text-emerald-600', dot: 'bg-emerald-500' },
             shipping: { label: 'Đang giao', color: 'bg-purple-100 text-purple-600', dot: 'bg-purple-500' },
             delivered: { label: 'Hoàn thành', color: 'bg-emerald-100 text-emerald-600', dot: 'bg-emerald-500' },
             cancelled: { label: 'Đã hủy', color: 'bg-red-100 text-red-600', dot: 'bg-red-500' }
@@ -213,6 +216,37 @@ export default function OrderHistory() {
         fetchOrders();
     }, []);
 
+    // Hiển thị thông báo kết quả VNPay nếu có query params
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const vnpay = params.get('vnpay');
+        const orderId = params.get('orderId');
+
+        if (vnpay === 'success') {
+            Swal.fire({
+                icon: 'success',
+                title: 'Thanh toán VNPay thành công! 🎉',
+                text: `Đơn hàng #${orderId?.slice(-6).toUpperCase() || ''} của bạn đã được thanh toán thành công.`,
+                confirmButtonColor: '#111827',
+                confirmButtonText: 'Tuyệt vời'
+            });
+            // Xóa query params để tránh hiện lại khi refresh
+            window.history.replaceState(null, '', window.location.pathname);
+        } else if (vnpay === 'fail') {
+            const reason = params.get('reason');
+            let errorMsg = 'Giao dịch không thành công. Vui lòng thử lại.';
+            if (reason === '24') errorMsg = 'Giao dịch đã bị hủy bởi người dùng.';
+
+            Swal.fire({
+                icon: 'error',
+                title: 'Thanh toán thất bại',
+                text: errorMsg,
+                confirmButtonColor: '#111827'
+            });
+            window.history.replaceState(null, '', window.location.pathname);
+        }
+    }, [location.search]);
+
     // Auto-open order details if orderId is in URL
     useEffect(() => {
         const params = new URLSearchParams(location.search);
@@ -242,8 +276,10 @@ export default function OrderHistory() {
 
     const getStatusColor = (status) => {
         const map = {
+            pending_payment: 'bg-amber-50 text-amber-500 border-amber-100',
             pending: 'bg-amber-50 text-amber-500 border-amber-100',
             confirmed: 'bg-blue-50 text-blue-500 border-blue-100',
+            paid: 'bg-emerald-50 text-emerald-500 border-emerald-100',
             shipping: 'bg-purple-50 text-purple-500 border-purple-100',
             delivered: 'bg-emerald-50 text-emerald-500 border-emerald-100',
             cancelled: 'bg-red-50 text-red-500 border-red-100'
@@ -253,8 +289,10 @@ export default function OrderHistory() {
 
     const getStatusText = (status) => {
         const map = {
+            pending_payment: 'Chờ thanh toán',
             pending: 'Đang chờ',
             confirmed: 'Xác nhận',
+            paid: 'Đã thanh toán',
             shipping: 'Đang giao',
             delivered: 'Hoàn thành',
             cancelled: 'Đã hủy'

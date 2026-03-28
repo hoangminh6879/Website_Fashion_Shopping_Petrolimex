@@ -178,6 +178,7 @@ export const updateOrderStatus = async (req, res) => {
 
         // Tạo thông báo cho user
         const statusMap = {
+            pending_payment: "đang chờ thanh toán VNPay",
             paid: "đã được thanh toán",
             shipped: "đang được giao",
             completed: "đã hoàn thành",
