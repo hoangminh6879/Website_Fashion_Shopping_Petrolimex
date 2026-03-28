@@ -1,11 +1,22 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import Navbar from '../components/Navbar';
 import api from '../services/api';
 import Swal from 'sweetalert2';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
-const SHIPPING_FEE = 30000; // Phí vận chuyển mặc định
+// Fix Leaflet default marker icon
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
+const BASE_SHIPPING_FEE = 15000;
 
 // ─── Coupon Modal ─────────────────────────────────────────────────────────────
 function CouponModal({ coupons, onSelect, onClose, selectedCoupon }) {
@@ -191,6 +202,21 @@ export default function Checkout() {
         paymentMethod: 'COD'
     });
 
+    // ── Map & Shipping state ──────────────────────────────────────────────────
+    const [mapCoords, setMapCoords] = useState(null);       // { lat, lng }
+    const [shippingFee, setShippingFee] = useState(BASE_SHIPPING_FEE);
+    const [shippingDistance, setShippingDistance] = useState(null);
+    const [showMap, setShowMap] = useState(false);
+    const [calcLoading, setCalcLoading] = useState(false);
+
+    // Map click handler component
+    function LocationPicker({ onPick }) {
+        useMapEvents({
+            click(e) { onPick(e.latlng); }
+        });
+        return null;
+    }
+
     // Hiển thị thông báo kết quả VNPay nếu redirect về
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -287,8 +313,38 @@ export default function Checkout() {
 
     const getShippingAfterDiscount = useCallback(() => {
         if (isFreeship() && selectedCoupon) return 0;
-        return SHIPPING_FEE;
-    }, [isFreeship, selectedCoupon]);
+        return shippingFee;
+    }, [isFreeship, selectedCoupon, shippingFee]);
+
+    // Calculate shipping from server when coords change
+    const handleMapPick = useCallback(async (latlng) => {
+        setMapCoords(latlng);
+        setCalcLoading(true);
+
+        const firstProduct = checkoutItems?.[0]?.product;
+        // In case product.shop is just an id string or an object with _id
+        const shopId = firstProduct?.shop?._id || firstProduct?.shop;
+
+        try {
+            const res = await api.post('/shipping/calculate', {
+                lat: latlng.lat,
+                lng: latlng.lng,
+                shopId
+            });
+            setShippingFee(res.data.shippingFee);
+            setShippingDistance(res.data.distance);
+            // Reverse geocode with Nominatim
+            const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latlng.lat}&lon=${latlng.lng}`);
+            const geoData = await geoRes.json();
+            if (geoData.display_name) {
+                setFormData(prev => ({ ...prev, address: geoData.display_name }));
+            }
+        } catch (err) {
+            console.error('Shipping calc error:', err);
+        } finally {
+            setCalcLoading(false);
+        }
+    }, []);
 
     const getFinalTotal = useCallback(() => {
         const subtotal = getCheckoutTotal();
@@ -461,6 +517,48 @@ export default function Checkout() {
                                         placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố..."
                                         className="w-full bg-gray-50 border border-gray-100 rounded-[2rem] px-6 py-4 outline-none focus:border-amber-500/50 focus:bg-white transition-all font-bold text-gray-900 shadow-inner resize-none"
                                     />
+                                    {/* Map toggle button */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowMap(v => !v)}
+                                        className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-500 hover:text-amber-600 ml-4 mt-1 transition-colors"
+                                    >
+                                        <span className="text-base">📍</span>
+                                        {showMap ? 'Ẩn bản đồ' : 'Chọn vị trí trên bản đồ (tính phí ship chính xác)'}
+                                    </button>
+
+                                    {/* Leaflet Map */}
+                                    {showMap && (
+                                        <div className="rounded-[2rem] overflow-hidden border-2 border-amber-200 shadow-xl mt-3" style={{ height: 300 }}>
+                                            <MapContainer
+                                                center={mapCoords || [10.7769, 106.7009]}
+                                                zoom={13}
+                                                style={{ width: '100%', height: '100%' }}
+                                            >
+                                                <TileLayer
+                                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                                    attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
+                                                />
+                                                <LocationPicker onPick={handleMapPick} />
+                                                {mapCoords && <Marker position={mapCoords} />}
+                                            </MapContainer>
+                                        </div>
+                                    )}
+
+                                    {/* Shipping info bubble */}
+                                    {shippingDistance && (
+                                        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[1.5rem] px-5 py-3 mt-2">
+                                            {calcLoading ? <span className="text-[10px] font-black text-amber-600 animate-pulse">Đang tính...</span> : (
+                                                <>
+                                                    <span className="text-lg">🚚</span>
+                                                    <div>
+                                                        <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Khoảng cách: {shippingDistance} km</p>
+                                                        <p className="text-[10px] font-black text-amber-600">Phí vận chuyển: {formatPrice(shippingFee)}</p>
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="pt-6 border-t border-gray-50">
@@ -489,8 +587,8 @@ export default function Checkout() {
                                 <button
                                     type="submit" disabled={loading}
                                     className={`w-full font-black uppercase tracking-[0.3em] py-7 rounded-[2rem] transition-all shadow-2xl active:scale-95 disabled:opacity-50 mt-4 text-xs ${formData.paymentMethod === 'VNPAY'
-                                            ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200'
-                                            : 'bg-gray-900 text-white hover:bg-amber-500 hover:text-gray-900 shadow-gray-200'
+                                        ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200'
+                                        : 'bg-gray-900 text-white hover:bg-amber-500 hover:text-gray-900 shadow-gray-200'
                                         }`}
                                 >
                                     {loading
@@ -663,11 +761,11 @@ export default function Checkout() {
                                     <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Phí vận chuyển</span>
                                     {isFreeship() && selectedCoupon ? (
                                         <div className="flex items-center gap-2">
-                                            <span className="text-[10px] line-through text-gray-300 font-bold">{formatPrice(SHIPPING_FEE)}</span>
+                                            <span className="text-[10px] line-through text-gray-300 font-bold">{formatPrice(shippingFee)}</span>
                                             <span className="text-[10px] font-black uppercase text-emerald-500 tracking-widest bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">Miễn Phí 🚚</span>
                                         </div>
                                     ) : (
-                                        <span className="font-bold text-gray-700 tracking-tight">{formatPrice(SHIPPING_FEE)}</span>
+                                        <span className="font-bold text-gray-700 tracking-tight">{formatPrice(shippingFee)}</span>
                                     )}
                                 </div>
 
