@@ -26,14 +26,22 @@ const orderSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending", "paid", "shipped", "completed", "cancelled"],
+      enum: ["pending", "pending_payment", "paid", "shipped", "completed", "cancelled"],
       default: "pending",
+    },
+
+    // Trạng thái thanh toán (dùng cho VNPay)
+    paymentStatus: {
+      type: String,
+      enum: ["unpaid", "paid", "refunded"],
+      default: "unpaid",
     },
 
     address: String,
     phone: String,
     paymentMethod: {
       type: String,
+      enum: ["COD", "VNPAY"],
       default: "COD",
     },
   },
