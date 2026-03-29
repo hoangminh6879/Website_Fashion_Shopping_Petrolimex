@@ -87,9 +87,13 @@ export const getProducts = async (req, res) => {
     if (sort === "price_desc") sortOptions = { price: -1 };
     if (sort === "name_asc") sortOptions = { name: 1 };
     if (sort === "name_desc") sortOptions = { name: -1 };
+    if (sort === "rating") sortOptions = { rating: -1 };
 
     const products = await Product.find(filter)
-      .populate("shop")
+      .populate({
+        path: "shop",
+        populate: { path: "owner", select: "name avatar" }
+      })
       .populate("category")
       .populate("images")
       .sort(sortOptions);
@@ -172,7 +176,10 @@ export const updateFlashSale = async (req, res) => {
 export const getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
-      .populate("shop")
+      .populate({
+        path: "shop",
+        populate: { path: "owner", select: "name avatar" }
+      })
       .populate("category")
       .populate("images");
 
@@ -347,6 +354,28 @@ export const getSellerProducts = async (req, res) => {
       .populate("category")
       .populate("images")
       .sort("-createdAt");
+    res.json(products);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// 🔥 GET TOP RATED PRODUCTS
+export const getTopRatedProducts = async (req, res) => {
+  try {
+    const { shopId, limit = 4 } = req.query;
+    const filter = { isActive: true };
+    if (shopId) filter.shop = shopId;
+
+    const products = await Product.find(filter)
+      .populate({
+        path: "shop",
+        populate: { path: "owner", select: "name avatar" }
+      })
+      .populate("images")
+      .sort({ rating: -1, sold: -1 })
+      .limit(Number(limit));
+
     res.json(products);
   } catch (err) {
     res.status(500).json({ message: err.message });

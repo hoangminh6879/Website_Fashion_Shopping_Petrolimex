@@ -24,6 +24,7 @@
     "qs": "^6.15.0",
     "react-leaflet": "^5.0.0",
     "recharts": "^3.8.1",
+    "socket.io": "^4.8.3",
     "sweetalert2": "^11.26.24",
     "xlsx": "^0.18.5"
   },

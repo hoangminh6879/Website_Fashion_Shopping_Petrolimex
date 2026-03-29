@@ -5,11 +5,13 @@ import { useCart } from '../context/CartContext';
 import Swal from 'sweetalert2';
 import AutoText from './AutoText';
 import { useTranslation } from 'react-i18next';
+import { useSocket } from '../context/SocketContext';
 
 export default function ProductModal({ product: productInfo, isOpen, onClose, productGroupMap = {} }) {
   const { addToCart, userRole } = useCart();
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const { openChatWithUser } = useSocket();
 
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [productVariants, setProductVariants] = useState([]);
@@ -230,8 +232,41 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
               <div className="mb-3 flex items-center gap-2">
                 <span className="bg-[#d0011b] text-white text-[10px] font-bold px-2 py-0.5 rounded-sm">MALL</span>
                 <span className="text-gray-500 text-sm">{t('provided_by')}: <Link to={`/shop/${selectedProduct.shop?._id}`} className="text-amber-600 font-black hover:underline transition-all cursor-pointer"><AutoText text={selectedProduct.shop?.name || 'Shop Của Tôi'} /></Link></span>
+                <button 
+                  onClick={() => {
+                    onClose();
+                    openChatWithUser(selectedProduct.shop?.owner, selectedProduct);
+                  }}
+                  className="ml-3 flex items-center gap-1 text-[10px] font-black uppercase text-amber-500 hover:text-amber-600 transition-all border border-amber-500/30 px-2 py-0.5 rounded-md bg-amber-50"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
+                  Chat
+                </button>
               </div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-4 leading-tight"><AutoText text={selectedProduct.name} /></h2>
+              <h2 className="text-2xl font-bold text-gray-800 mb-2 leading-tight"><AutoText text={selectedProduct.name} /></h2>
+              
+              <div className="flex items-center gap-2 mb-4">
+                <div className="flex text-amber-500 text-sm">
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <span key={star}>{selectedProduct.rating >= star ? '★' : '☆'}</span>
+                  ))}
+                </div>
+                {selectedProduct.rating > 0 && (
+                  <span className="text-xs font-bold text-gray-400 border-l border-gray-200 pl-2">({selectedProduct.rating.toFixed(1)})</span>
+                )}
+                <span className="text-xs font-bold text-gray-400 border-l border-gray-200 pl-2 uppercase tracking-tighter"><AutoText text="Đã bán" /> {selectedProduct.sold || 0}</span>
+                <button 
+                  onClick={() => {
+                    onClose();
+                    navigate(`/product/${selectedProduct._id}`);
+                  }}
+                  className="ml-auto text-xs font-bold text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-1"
+                >
+                  <AutoText text="Xem đánh giá" /> →
+                </button>
+              </div>
 
               <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-100">
                 <div className="flex items-center gap-3">

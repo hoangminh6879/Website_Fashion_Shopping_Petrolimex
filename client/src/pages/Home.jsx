@@ -400,10 +400,17 @@ export default function Home() {
                         )}
                     </div>
                     <div className="flex justify-between items-center mt-1">
-                      <div className="text-[10px] text-yellow-400">
-                        {product.rating ? '★'.repeat(Math.round(product.rating)) : '☆'.repeat(5)}
+                      <div className="flex items-center gap-1">
+                        <div className="flex text-[10px] text-amber-400">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <span key={star}>{product.rating >= star ? '★' : '☆'}</span>
+                          ))}
+                        </div>
+                        {product.rating > 0 && (
+                          <span className="text-[10px] font-bold text-gray-400">({product.rating.toFixed(1)})</span>
+                        )}
                       </div>
-                      <span className="text-[9px] text-gray-400 uppercase font-bold"><AutoText text="Còn hàng" /> {product.sold || 0}</span>
+                      <span className="text-[9px] text-gray-400 uppercase font-bold"><AutoText text="Đã bán" /> {product.sold || 0}</span>
                     </div>
                 </div>
               </div>
@@ -464,8 +471,15 @@ export default function Home() {
                         )}
                     </div>
                     <div className="flex justify-between items-center mt-1">
-                      <div className="text-[10px] text-yellow-400">
-                        {product.rating ? '★'.repeat(Math.round(product.rating)) : '☆'.repeat(5)}
+                      <div className="flex items-center gap-1">
+                        <div className="flex text-[10px] text-amber-400">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <span key={star}>{product.rating >= star ? '★' : '☆'}</span>
+                          ))}
+                        </div>
+                        {product.rating > 0 && (
+                          <span className="text-[10px] font-bold text-gray-400">({product.rating.toFixed(1)})</span>
+                        )}
                       </div>
                       <span className="text-[11px] text-gray-600 font-medium"><AutoText text="Đã bán" /> {product.sold || 0}</span>
                     </div>

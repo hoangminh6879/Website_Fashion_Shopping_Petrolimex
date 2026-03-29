@@ -6,6 +6,7 @@ import App from './App.jsx'
 import { CartProvider } from './context/CartContext.jsx'
 import { WishlistProvider } from './context/WishlistContext.jsx'
 import { NotificationProvider } from './context/NotificationContext.jsx'
+import { SocketProvider } from './context/SocketContext.jsx'
 
 
 createRoot(document.getElementById('root')).render(
@@ -13,7 +14,9 @@ createRoot(document.getElementById('root')).render(
     <CartProvider>
       <WishlistProvider>
         <NotificationProvider>
-          <App />
+          <SocketProvider>
+            <App />
+          </SocketProvider>
         </NotificationProvider>
       </WishlistProvider>
     </CartProvider>
