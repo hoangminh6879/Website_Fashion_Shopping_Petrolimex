@@ -8,6 +8,8 @@ import User from "../models/User.model.js";
 import Coupon from "../models/Coupon.model.js";
 import sendEmail from "../utils/sendEmail.js";
 import { refundVNPay } from "./vnpay.controller.js";
+import Shop from "../models/Shop.model.js";
+import mongoose from "mongoose";
 
 
 // @desc    Tạo đơn hàng mới
@@ -126,6 +128,47 @@ export const createOrder = async (req, res) => {
             }).catch(err => console.error("Lỗi gửi email xác nhận đặt hàng:", err));
         }
 
+        // 5. Thông báo cho Sellers (Chủ shop)
+        try {
+            // Lấy danh sách sản phẩm trong đơn hàng kèm thông tin Shop
+            const orderItems = await OrderItem.find({ order: order._id }).populate({
+                path: 'product',
+                populate: { path: 'shop' }
+            });
+
+            // Nhóm các Items theo Chủ shop (Owner)
+            const sellerNotifications = new Map(); // OwnerID -> { shopName, itemsCount }
+
+            orderItems.forEach(item => {
+                const shop = item.product?.shop;
+                const ownerId = shop?.owner?.toString();
+                if (ownerId) {
+                    if (!sellerNotifications.has(ownerId)) {
+                        sellerNotifications.set(ownerId, { shopName: shop.name, count: 0 });
+                    }
+                    sellerNotifications.get(ownerId).count += item.quantity;
+                }
+            });
+
+            // Gửi từng thông báo cho từng chủ shop
+            const notificationPromises = [];
+            for (const [ownerId, info] of sellerNotifications.entries()) {
+                notificationPromises.push(
+                    Notification.create({
+                        recipient: ownerId,
+                        title: "Bạn có đơn hàng mới!",
+                        message: `Shop "${info.shopName}" vừa nhận được đơn hàng mới #${order._id.toString().slice(-6).toUpperCase()} với ${info.count} sản phẩm đang chờ duyệt.`,
+                        type: "order",
+                        link: "/seller/dashboard?tab=orders"
+                    })
+                );
+            }
+            await Promise.all(notificationPromises);
+        } catch (notifyErr) {
+            console.error("Lỗi khi gửi thông báo cho Seller:", notifyErr);
+            // Không throw error ở đây để tránh làm hỏng luồng đặt hàng chính
+        }
+
         res.status(201).json({ message: "Đặt hàng thành công", orderId: order._id });
 
     } catch (error) {
@@ -139,9 +182,12 @@ export const getMyOrders = async (req, res) => {
     try {
         const orders = await Order.find({ user: req.user.id }).sort("-createdAt");
 
-        // Populate items cho mỗi order
+        // Populate items cho mỗi order kèm thông tin Shop
         const populatedOrders = await Promise.all(orders.map(async (order) => {
-            const items = await OrderItem.find({ order: order._id }).populate("product");
+            const items = await OrderItem.find({ order: order._id }).populate({
+                path: "product",
+                populate: { path: "shop", select: "name" }
+            });
             return { ...order._doc, items };
         }));
 
@@ -158,7 +204,10 @@ export const getOrderById = async (req, res) => {
         const order = await Order.findById(req.params.id).populate("user", "name email");
         if (!order) return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
 
-        const items = await OrderItem.find({ order: order._id }).populate("product");
+        const items = await OrderItem.find({ order: order._id }).populate({
+            path: "product",
+            populate: { path: "shop", select: "name" }
+        });
         res.json({ ...order._doc, items });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -170,6 +219,17 @@ export const getOrderById = async (req, res) => {
 export const updateOrderStatus = async (req, res) => {
     try {
         const { status } = req.body;
+
+        // Security check for seller: Phải sở hữu ít nhất 1 sản phẩm trong đơn này
+        if (req.user.role === 'seller') {
+            const shop = await Shop.findOne({ owner: req.user.id });
+            if (!shop) return res.status(403).json({ message: "Bạn chưa có shop." });
+
+            const myProductIds = await Product.find({ shop: shop._id }).distinct('_id');
+            const hasAccess = await OrderItem.exists({ order: req.params.id, product: { $in: myProductIds } });
+            if (!hasAccess) return res.status(403).json({ message: "Bạn không có quyền cập nhật đơn hàng này." });
+        }
+
         const order = await Order.findByIdAndUpdate(
             req.params.id,
             { status },
@@ -210,8 +270,20 @@ export const cancelOrder = async (req, res) => {
         const order = await Order.findById(id);
         if (!order) return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
 
-        // Kiểm tra quyền sở hữu (chỉ cho phép user đã đặt đơn hàng này hủy)
-        if (order.user.toString() !== req.user.id && req.user.role !== 'admin') {
+        // Kiểm tra quyền sở hữu (User đã đặt hàng, Admin, hoặc Seller sở hữu sản phẩm trong đơn)
+        const isBuyer = order.user.toString() === req.user.id;
+        const isAdmin = req.user.role === 'admin';
+        let isSellerOwner = false;
+
+        if (req.user.role === 'seller') {
+            const shop = await Shop.findOne({ owner: req.user.id });
+            if (shop) {
+                const myProductIds = await Product.find({ shop: shop._id }).distinct('_id');
+                isSellerOwner = await OrderItem.exists({ order: id, product: { $in: myProductIds } });
+            }
+        }
+
+        if (!isBuyer && !isAdmin && !isSellerOwner) {
             return res.status(403).json({ message: "Bạn không có quyền hủy đơn hàng này" });
         }
 
@@ -283,6 +355,229 @@ export const cancelOrder = async (req, res) => {
 
     } catch (error) {
         console.error('cancelOrder error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Lấy thống kê doanh thu cho Seller
+// @route   GET /api/orders/seller-stats
+export const getSellerStats = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const shop = await Shop.findOne({ owner: userId });
+
+        if (!shop) {
+            return res.status(404).json({ message: "Không tìm thấy Shop gắn với tài khoản này." });
+        }
+
+        const shopId = shop._id;
+
+        const stats = await OrderItem.aggregate([
+            {
+                $lookup: {
+                    from: 'products',
+                    localField: 'product',
+                    foreignField: '_id',
+                    as: 'productInfo'
+                }
+            },
+            { $unwind: '$productInfo' },
+            { $match: { 'productInfo.shop': new mongoose.Types.ObjectId(shopId) } },
+            {
+                $lookup: {
+                    from: 'orders',
+                    localField: 'order',
+                    foreignField: '_id',
+                    as: 'orderInfo'
+                }
+            },
+            { $unwind: '$orderInfo' },
+            {
+                $match: {
+                    'orderInfo.status': { $in: ['paid', 'shipped', 'completed'] }
+                }
+            },
+            {
+                $group: {
+                    _id: {
+                        year: { $year: '$orderInfo.createdAt' },
+                        month: { $month: '$orderInfo.createdAt' }
+                    },
+                    totalRevenue: { $sum: { $multiply: ['$price', '$quantity'] } },
+                    uniqueOrders: { $addToSet: '$order' }
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    year: '$_id.year',
+                    month: '$_id.month',
+                    revenue: '$totalRevenue',
+                    orders: { $size: '$uniqueOrders' }
+                }
+            },
+            { $sort: { year: -1, month: -1 } }
+        ]);
+
+        res.json(stats);
+    } catch (error) {
+        console.error('getSellerStats error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Lấy danh sách đơn hàng cho Seller (chỉ những đơn có sản phẩm của Shop mình)
+// @route   GET /api/orders/seller
+export const getSellerOrders = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        console.log(`[getSellerOrders Trace] START for userId: ${userId}`);
+
+        // 1. Tìm shop
+        const shop = await Shop.findOne({ owner: userId }).lean();
+        if (!shop) {
+            console.log(`[getSellerOrders Trace] No shop found for user ${userId}`);
+            return res.json([]);
+        }
+        const shopIdString = shop._id.toString();
+        console.log(`[getSellerOrders Trace] Found shop: ${shopIdString} ("${shop.name}")`);
+
+        // 2. Tìm tất cả Product ID của Shop
+        const products = await Product.find({ shop: shop._id }).select('_id name').lean();
+        const myProductIds = products.map(p => p._id.toString());
+        console.log(`[getSellerOrders Trace] Shop has ${myProductIds.length} products.`);
+
+        if (myProductIds.length === 0) {
+            return res.json([]);
+        }
+
+        // 3. Tìm tất cả OrderItem liên quan đến các sản phẩm này
+        // (Sử dụng ID sản phẩm để tìm Item)
+        const myOrderItems = await OrderItem.find({ product: { $in: myProductIds } }).lean();
+        console.log(`[getSellerOrders Trace] Found ${myOrderItems.length} matching order items across all orders.`);
+
+        if (myOrderItems.length === 0) {
+            return res.json([]);
+        }
+
+        // 4. Lọc ra danh sách Order ID duy nhất
+        const orderIdsSet = new Set();
+        myOrderItems.forEach(item => {
+            if (item.order) {
+                orderIdsSet.add(item.order.toString());
+            }
+        });
+        const uniqueOrderIds = Array.from(orderIdsSet);
+        console.log(`[getSellerOrders Trace] Unique orders count: ${uniqueOrderIds.length}`);
+
+        if (uniqueOrderIds.length === 0) {
+            return res.json([]);
+        }
+
+        // 5. Lấy thông tin chi tiết các đơn hàng (Populate User)
+        // Lưu ý: Không dùng lean ở đây nếu có vấn đề, nhưng dùng cho an toàn object
+        const ordersFromDb = await Order.find({ _id: { $in: uniqueOrderIds } })
+            .populate('user', 'name email phone avatar')
+            .sort('-createdAt')
+            .lean();
+
+        console.log(`[getSellerOrders Trace] Fetched ${ordersFromDb.length} orders from DB.`);
+
+        // 6. Gắn/Lọc các Item tương ứng cho từng đơn hàng
+        const finalSellerOrders = ordersFromDb.map(order => {
+            const currentOrderIdStr = order._id.toString();
+            
+            // Chỉ lấy các item thuộc đơn hàng này VÀ thuộc shop hiện tại
+            const itemsForThisOrder = myOrderItems.filter(item => {
+                return item.order && item.order.toString() === currentOrderIdStr;
+            });
+
+            // Tính toán tổng tiền riêng cho phần của shop này trong đơn
+            let shopSubtotal = 0;
+            itemsForThisOrder.forEach(item => {
+                const itemPrice = Number(item.price) || 0;
+                const itemQuantity = Number(item.quantity) || 0;
+                shopSubtotal += (itemPrice * itemQuantity);
+            });
+
+            // Trả về cấu trúc đơn hàng nhưng chỉ kèm các Item của shop mình
+            return {
+                ...order,
+                items: itemsForThisOrder,
+                shopSubtotal: shopSubtotal
+            };
+        });
+
+        console.log(`[getSellerOrders Trace] COMPLETED. Sending ${finalSellerOrders.length} orders.`);
+        return res.json(finalSellerOrders);
+
+    } catch (error) {
+        console.error('[getSellerOrders CRITICAL ERROR]:', error);
+        return res.status(500).json({ 
+            message: "Lỗi hệ thống khi xử lý danh sách đơn hàng cho Seller",
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+};
+
+// @desc    Xác nhận đã nhận được hàng (Dành cho Người mua)
+// @route   PUT /api/orders/:id/confirm-receipt
+export const confirmReceipt = async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.id);
+        if (!order) return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
+
+        // Kiểm tra quyền sở hữu: Phải là người đặt hàng
+        if (order.user.toString() !== req.user.id) {
+            return res.status(403).json({ message: " Bạn không có quyền xác nhận đơn hàng này" });
+        }
+
+        // Chỉ cho phát xác nhận khi đang ở trạng thái 'shipped' (đang giao)
+        if (order.status !== 'shipped') {
+            return res.status(400).json({ 
+                message: `Chỉ có thể xác nhận khi đơn hàng đang ở trạng thái "Đang giao". Trạng thái hiện tại: ${order.status}` 
+            });
+        }
+
+        // Cập nhật trạng thái thành 'completed'
+        order.status = 'completed';
+        order.completedAt = new Date();
+        await order.save();
+
+        // Thông báo cho Seller(s) sở hữu các sản phẩm trong đơn này
+        try {
+            const orderItems = await OrderItem.find({ order: order._id }).populate({
+                path: 'product',
+                populate: { path: 'shop' }
+            });
+            
+            const sellerNotifications = new Map(); // OwnerID -> ShopName
+
+            orderItems.forEach(item => {
+                const shop = item.product?.shop;
+                const ownerId = shop?.owner?.toString();
+                if (ownerId && !sellerNotifications.has(ownerId)) {
+                    sellerNotifications.set(ownerId, shop.name);
+                }
+            });
+
+            for (const [ownerId, shopName] of sellerNotifications.entries()) {
+                await Notification.create({
+                    recipient: ownerId,
+                    title: "Đơn hàng hoàn tất! 📦",
+                    message: `Đơn hàng #${order._id.toString().slice(-6).toUpperCase()} tại Shop "${shopName}" đã được khách hàng xác nhận nhận thành công.`,
+                    type: "order",
+                    link: "/seller/dashboard?tab=orders"
+                });
+            }
+        } catch (notifyErr) {
+            console.error("Lỗi gửi thông báo hoàn tất cho Seller:", notifyErr);
+        }
+
+        res.json({ message: "Đã xác nhận nhận hàng thành công. Cảm ơn quý khách!", order });
+    } catch (error) {
+        console.error('confirmReceipt error:', error);
         res.status(500).json({ message: error.message });
     }
 };

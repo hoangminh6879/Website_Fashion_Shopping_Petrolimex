@@ -86,10 +86,12 @@ function OrderModal({ order, onClose, handleCancelOrder }) {
                                                 </div>
                                                 <div className="flex-1 min-w-0 py-1">
                                                     <h4 className="font-black text-gray-900 text-sm uppercase truncate mb-1">{item.product?.name}</h4>
-                                                    <div className="flex gap-2 mb-2">
-                                                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Màu: {item.color}</span>
-                                                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest text-opacity-50">/</span>
-                                                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Size: {item.size}</span>
+                                                    <div className="flex flex-wrap items-center gap-2 mb-3">
+                                                        <span className="text-[9px] font-black bg-gray-900 text-amber-500 px-2 py-0.5 rounded-md uppercase tracking-widest">{item.product?.shop?.name || 'Cửa hàng'}</span>
+                                                        <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                                                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Màu: {item.color}</span>
+                                                        <span className="text-[9px] font-bold text-gray-300">/</span>
+                                                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Size: {item.size}</span>
                                                     </div>
                                                     <div className="flex justify-between items-end">
                                                         <p className="text-[9px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">Số lượng: x{item.quantity}</p>
@@ -193,9 +195,20 @@ function OrderModal({ order, onClose, handleCancelOrder }) {
                     >
                         Đóng cửa sổ
                     </button>
+
+                    {/* Nút xác nhận nhận hàng: Chỉ khi đang giao */}
+                    {order.status === 'shipped' && (
+                        <button
+                            onClick={() => handleConfirmReceipt(order._id)}
+                            className="px-10 py-4 bg-emerald-500 text-white font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-emerald-600 transition-all text-[10px] shadow-xl shadow-emerald-200"
+                        >
+                            Tôi đã nhận được hàng
+                        </button>
+                    )}
+
                     {/* Nút hủy đơn: COD chỉ khi pending; VNPay bất cứ lúc nào trừ completed/cancelled */}
-                    {((order.paymentMethod === 'COD' && order.status === 'pending') ||
-                        (order.paymentMethod === 'VNPAY' && order.status !== 'completed' && order.status !== 'cancelled')) && (
+                    {((order.status === 'pending') ||
+                        (order.paymentMethod === 'VNPAY' && order.status !== 'completed' && order.status !== 'cancelled' && order.status !== 'shipped')) && (
                             <button
                                 onClick={() => handleCancelOrder(order._id)}
                                 className="px-10 py-4 bg-white border-2 border-gray-900 text-gray-900 font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-red-50 hover:text-red-600 hover:border-red-600 transition-all text-[10px]"
@@ -277,6 +290,40 @@ export default function OrderHistory() {
                     icon: 'error',
                     title: 'Lỗi',
                     text: err.response?.data?.message || 'Không thể hủy đơn hàng vào lúc này.',
+                    confirmButtonColor: '#111827'
+                });
+            }
+        }
+    };
+
+    const handleConfirmReceipt = async (orderId) => {
+        const result = await Swal.fire({
+            title: 'Xác nhận đã nhận hàng?',
+            text: "Bạn nên xác nhận khi đã thực sự nhận được đủ sản phẩm và hài lòng với chất lượng.",
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#10b981', // Emerald 500
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Tôi đã nhận hàng',
+            cancelButtonText: 'Chưa nhận'
+        });
+
+        if (result.isConfirmed) {
+            try {
+                await api.put(`/orders/${orderId}/confirm-receipt`);
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Hoàn tất đơn hàng! 🎉',
+                    text: 'Cảm ơn sự tin tưởng của bạn dành cho Petrolimex Fashion.',
+                    confirmButtonColor: '#111827'
+                });
+                fetchOrders();
+                setSelectedOrder(null);
+            } catch (err) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Lỗi',
+                    text: err.response?.data?.message || 'Không thể xác nhận nhận hàng lúc này.',
                     confirmButtonColor: '#111827'
                 });
             }
@@ -452,10 +499,15 @@ export default function OrderHistory() {
                                                     alt="thumb"
                                                 />
                                             </div>
-                                            <div className="min-w-0">
-                                                <p className="font-black text-xs text-gray-900 uppercase truncate mb-0.5">{order.items?.[0]?.product?.name || 'Đơn hàng'}</p>
-                                                <p className="text-[10px] font-bold text-gray-400 capitalize">{order.items?.length > 1 ? `và ${order.items.length - 1} sản phẩm khác` : '1 sản phẩm'}</p>
-                                            </div>
+                                              <div className="min-w-0">
+                                                  <div className="flex items-center gap-2 mb-0.5">
+                                                      <p className="font-black text-xs text-gray-900 uppercase truncate">{order.items?.[0]?.product?.name || 'Đơn hàng'}</p>
+                                                      <span className="text-[8px] font-black bg-gray-100 text-gray-900 px-1.5 py-0.5 rounded uppercase tracking-tighter">
+                                                          {order.items?.[0]?.product?.shop?.name || 'Shop'}
+                                                      </span>
+                                                  </div>
+                                                  <p className="text-[10px] font-bold text-gray-400 capitalize">{order.items?.length > 1 ? `và ${order.items.length - 1} sản phẩm khác` : '1 sản phẩm'}</p>
+                                              </div>
                                         </div>
 
                                         {/* Date */}
@@ -466,11 +518,22 @@ export default function OrderHistory() {
                                             </span>
                                         </div>
 
-                                        {/* Status */}
-                                        <div className="col-span-2 text-center w-full lg:w-auto">
+                                        {/* Status & Action */}
+                                        <div className="col-span-2 text-center w-full lg:w-auto flex flex-col items-center gap-2">
                                             <span className={`px-5 py-2 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] border-2 ${getStatusColor(order.status)}`}>
                                                 {getStatusText(order.status)}
                                             </span>
+                                            {order.status === 'shipped' && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleConfirmReceipt(order._id);
+                                                    }}
+                                                    className="text-[8px] font-black text-emerald-600 uppercase tracking-widest hover:underline"
+                                                >
+                                                    Xác nhận đã nhận hàng
+                                                </button>
+                                            )}
                                         </div>
 
                                         {/* Amount */}
