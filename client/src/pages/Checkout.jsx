@@ -180,6 +180,55 @@ function CouponModal({ coupons, onSelect, onClose, selectedCoupon }) {
     );
 }
 
+// ─── Address Book Modal ──────────────────────────────────────────────────────
+function AddressBookModal({ addresses, onSelect, onClose }) {
+    if (!addresses || addresses.length === 0) {
+        return (
+            <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+                <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-md" />
+                <div onClick={e => e.stopPropagation()} className="relative bg-white rounded-[3rem] p-10 shadow-2xl w-full max-w-md text-center border border-white/20">
+                    <div className="text-6xl mb-6 opacity-50">📭</div>
+                    <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic mb-2">Sổ Địa Chỉ <span className="text-amber-500">Trống</span></h3>
+                    <p className="text-sm font-bold text-gray-500 mb-8">Bạn chưa lưu địa chỉ nào trong hồ sơ cá nhân.</p>
+                    <button onClick={onClose} className="w-full bg-gray-900 text-white font-black uppercase tracking-widest py-4 rounded-2xl hover:bg-amber-500 hover:text-gray-900 transition-all shadow-xl">Đóng</button>
+                </div>
+            </div>
+        );
+    }
+    return (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+            <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-md" />
+            <div onClick={e => e.stopPropagation()} className="relative bg-white rounded-[3rem] shadow-[0_35px_60px_-15px_rgba(0,0,0,0.3)] w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-modalIn border border-white/20">
+                <div className="px-10 pt-10 pb-6 bg-gradient-to-br from-gray-50 to-white border-b border-gray-100 flex items-center justify-between">
+                    <div>
+                        <h2 className="text-2xl font-black text-gray-900 tracking-tighter uppercase italic">Sổ <span className="text-amber-500">Địa Chỉ</span></h2>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mt-1">Chọn địa chỉ giao hàng của bạn</p>
+                    </div>
+                    <button onClick={onClose} className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-all text-gray-500 font-bold hover:rotate-90 duration-300">✕</button>
+                </div>
+                <div className="flex-1 overflow-y-auto px-8 py-6 space-y-4 custom-scrollbar bg-gray-50/30">
+                    {addresses.map(addr => (
+                        <div key={addr._id} onClick={() => onSelect(addr)} className="group cursor-pointer bg-white rounded-[2rem] border-2 border-gray-100 p-6 hover:border-amber-400 shadow-sm hover:shadow-xl transition-all duration-300 flex items-center justify-between relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-50 rounded-full -mr-16 -mt-16 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <div className="relative z-10 flex-1 pr-4">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <h5 className="font-black text-gray-900 uppercase tracking-widest text-sm">{addr.receiverName}</h5>
+                                    {addr.isDefault && <span className="bg-amber-100 text-amber-700 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-amber-200 shadow-sm">Mặc định</span>}
+                                </div>
+                                <p className="text-gray-500 text-xs font-bold mb-1">📞 {addr.phone}</p>
+                                <p className="text-gray-500 text-[11px] leading-relaxed line-clamp-2">{addr.street}, {addr.ward}, {addr.district}, {addr.city}</p>
+                            </div>
+                            <div className="relative z-10 flex-shrink-0 w-12 h-12 rounded-2xl bg-gray-50 group-hover:bg-amber-500 flex items-center justify-center transition-colors shadow-inner group-hover:shadow-amber-200">
+                                <span className="text-xl text-gray-300 group-hover:text-amber-900 transition-colors">👉</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ─── Main Checkout Component ─────────────────────────────────────────────────
 export default function Checkout() {
     const navigate = useNavigate();
@@ -208,6 +257,7 @@ export default function Checkout() {
     const [shippingDistance, setShippingDistance] = useState(null);
     const [showMap, setShowMap] = useState(false);
     const [calcLoading, setCalcLoading] = useState(false);
+    const [showAddressBook, setShowAddressBook] = useState(false);
 
     // Map click handler component
     function LocationPicker({ onPick }) {
@@ -344,7 +394,21 @@ export default function Checkout() {
         } finally {
             setCalcLoading(false);
         }
-    }, []);
+    }, [checkoutItems]);
+
+    const handleSelectSavedAddress = useCallback((addr) => {
+        setFormData(prev => ({
+            ...prev,
+            name: addr.receiverName,
+            phone: addr.phone,
+            address: `${addr.street}, ${addr.ward}, ${addr.district}, ${addr.city}`
+        }));
+        setShowAddressBook(false);
+        if (addr.lat && addr.lng) {
+            setShowMap(true);
+            handleMapPick({ lat: addr.lat, lng: addr.lng });
+        }
+    }, [handleMapPick]);
 
     const getFinalTotal = useCallback(() => {
         const subtotal = getCheckoutTotal();
@@ -473,6 +537,15 @@ export default function Checkout() {
                 />
             )}
 
+            {/* Address Book Modal */}
+            {showAddressBook && (
+                <AddressBookModal
+                    addresses={user?.addresses || []}
+                    onSelect={handleSelectSavedAddress}
+                    onClose={() => setShowAddressBook(false)}
+                />
+            )}
+
             <main className="flex-1 container mx-auto px-4 py-8 mt-44">
                 <div className="flex flex-col lg:flex-row gap-12">
 
@@ -488,7 +561,17 @@ export default function Checkout() {
                         <div className="bg-white rounded-[3rem] shadow-2xl shadow-gray-200/50 border border-gray-100 p-10 overflow-hidden relative">
                             <div className="absolute top-0 left-0 w-2 h-full bg-amber-500" />
 
-                            <h3 className="text-xl font-black text-gray-900 mb-8 uppercase tracking-widest border-b border-gray-50 pb-6">Thông Tin Giao Hàng</h3>
+                            <div className="flex items-center justify-between border-b border-gray-50 pb-6 mb-8">
+                                <h3 className="text-xl font-black text-gray-900 uppercase tracking-widest">Thông Tin Giao Hàng</h3>
+                                {user?.addresses?.length > 0 && (
+                                    <button 
+                                        onClick={() => setShowAddressBook(true)}
+                                        className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 transition-all font-black uppercase text-[9px] tracking-widest border border-amber-200 shadow-sm"
+                                    >
+                                        <span className="text-sm">📋</span> Chọn từ sổ địa chỉ
+                                    </button>
+                                )}
+                            </div>
 
                             <form onSubmit={handleSubmit} className="space-y-6">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

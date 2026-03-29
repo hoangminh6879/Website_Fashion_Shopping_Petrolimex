@@ -4,7 +4,10 @@ import {
     getMyOrders,
     getOrderById,
     updateOrderStatus,
-    cancelOrder
+    cancelOrder,
+    getSellerStats,
+    getSellerOrders,
+    confirmReceipt
 } from "../controllers/order.controller.js";
 import {
     createVNPayPaymentUrl,
@@ -25,6 +28,15 @@ router.use(protect);
 
 // VNPay: tạo URL thanh toán + đơn hàng
 router.post("/vnpay/create_payment_url", createVNPayPaymentUrl);
+
+// Seller stats
+router.get("/seller-stats", authorizeRoles("admin", "seller"), getSellerStats);
+
+// Seller orders list
+router.get("/seller", authorizeRoles("admin", "seller"), getSellerOrders);
+
+// User confirm receipt
+router.put("/:id/confirm-receipt", confirmReceipt);
 
 // COD order
 router.post("/", createOrder);

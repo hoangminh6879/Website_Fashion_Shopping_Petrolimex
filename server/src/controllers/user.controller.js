@@ -57,14 +57,14 @@ export const getAddresses = async (req, res) => {
 
 export const addAddress = async (req, res) => {
   try {
-    const { receiverName, phone, street, ward, district, city, isDefault } = req.body;
+    const { receiverName, phone, street, ward, district, city, isDefault, lat, lng } = req.body;
     const user = await User.findById(req.user.id);
 
     if (isDefault) {
       user.addresses.forEach(addr => (addr.isDefault = false));
     }
 
-    user.addresses.push({ receiverName, phone, street, ward, district, city, isDefault });
+    user.addresses.push({ receiverName, phone, street, ward, district, city, isDefault, lat, lng });
     
     // Nếu là địa chỉ đầu tiên, tự động đặt làm mặc định
     if (user.addresses.length === 1) {
@@ -103,7 +103,7 @@ export const deleteAddress = async (req, res) => {
 export const updateAddress = async (req, res) => {
   try {
     const { addressId } = req.params;
-    const { receiverName, phone, street, ward, district, city, isDefault } = req.body;
+    const { receiverName, phone, street, ward, district, city, isDefault, lat, lng } = req.body;
     const user = await User.findById(req.user.id);
 
     const address = user.addresses.id(addressId);
@@ -120,6 +120,8 @@ export const updateAddress = async (req, res) => {
     address.district = district || address.district;
     address.city = city || address.city;
     address.isDefault = isDefault !== undefined ? isDefault : address.isDefault;
+    if (lat !== undefined) address.lat = lat;
+    if (lng !== undefined) address.lng = lng;
 
     await user.save();
     res.json({ message: "Cập nhật địa chỉ thành công", addresses: user.addresses });

@@ -198,9 +198,9 @@ export const vnpayReturn = async (req, res) => {
                 vnp_PayDate: vnp_Params['vnp_PayDate']
             });
 
-            // Gửi thông báo
             const order = await Order.findById(orderId);
             if (order) {
+                // 1. Thông báo cho Người mua (User)
                 await Notification.create({
                     recipient: order.user,
                     title: 'Thanh toán VNPay thành công!',
@@ -209,7 +209,7 @@ export const vnpayReturn = async (req, res) => {
                     link: `/order-history?orderId=${orderId}`
                 });
 
-                // Gửi email xác nhận
+                // 2. Gửi email xác nhận cho Người mua
                 const user = await User.findById(order.user);
                 if (user?.email) {
                     sendEmail({
@@ -223,13 +223,43 @@ export const vnpayReturn = async (req, res) => {
                                 <p>Chào <strong>${user.name}</strong>,</p>
                                 <p>Đơn hàng <strong>#${orderId}</strong> đã được thanh toán thành công qua VNPay.</p>
                                 <p><strong>Tổng cộng:</strong> ${order.totalPrice.toLocaleString('vi-VN')} VND</p>
-                                <p><strong>Địa chỉ giao hàng:</strong> ${order.address}</p>
-                                <p><strong>Số điện thoại:</strong> ${order.phone}</p>
                                 <hr/>
                                 <p style="font-size: 12px; color: #777;">Cảm ơn bạn đã lựa chọn Petrolimex Fashion!</p>
                             </div>
                         `
                     }).catch(err => console.error('Lỗi gửi email VNPay:', err));
+                }
+
+                // 3. Thông báo cho Sellers (Chủ shop)
+                try {
+                    const orderItems = await OrderItem.find({ order: orderId }).populate({
+                        path: 'product',
+                        populate: { path: 'shop' }
+                    });
+
+                    const sellerNotifications = new Map();
+                    orderItems.forEach(item => {
+                        const shop = item.product?.shop;
+                        const ownerId = shop?.owner?.toString();
+                        if (ownerId && shop) {
+                            if (!sellerNotifications.has(ownerId)) {
+                                sellerNotifications.set(ownerId, { shopName: shop.name, count: 0 });
+                            }
+                            sellerNotifications.get(ownerId).count += item.quantity;
+                        }
+                    });
+
+                    for (const [ownerId, info] of sellerNotifications.entries()) {
+                        await Notification.create({
+                            recipient: ownerId,
+                            title: "Xác nhận thanh toán mới!",
+                            message: `Shop "${info.shopName}" có đơn hàng mới #${orderId.slice(-6).toUpperCase()} (${info.count} sản phẩm) vừa được thanh toán qua VNPay.`,
+                            type: "order",
+                            link: "/seller/dashboard?tab=orders"
+                        });
+                    }
+                } catch (notifyErr) {
+                    console.error("Lỗi gửi thông báo cho Seller (VNPay):", notifyErr);
                 }
             }
 

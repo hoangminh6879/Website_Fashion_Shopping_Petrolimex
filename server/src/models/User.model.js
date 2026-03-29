@@ -42,7 +42,9 @@ const userSchema = new mongoose.Schema(
         ward: String,
         district: String,
         city: String,
-        isDefault: { type: Boolean, default: false }
+        isDefault: { type: Boolean, default: false },
+        lat: Number,
+        lng: Number
       }
     ],
     avatar: String,
