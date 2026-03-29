@@ -1,4 +1,6 @@
 import Shop from "../models/Shop.model.js";
+import ShopMetrics from "../models/ShopMetrics.model.js";
+import { updateShopMetrics } from "../utils/shopMetrics.js";
 
 export const createShop = async (req, res) => {
   try {
@@ -35,6 +37,10 @@ export const getMyShop = async (req, res) => {
     if (!shop) {
       return res.status(404).json({ message: "Không tìm thấy shop" });
     }
+    
+    // Trigger update metrics when viewing dashboard
+    await updateShopMetrics(shop._id);
+    
     res.json(shop);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -43,11 +49,26 @@ export const getMyShop = async (req, res) => {
 
 export const getShopById = async (req, res) => {
   try {
-    const shop = await Shop.findById(req.params.id);
+    const shop = await Shop.findById(req.params.id).populate('owner', 'name avatar');
     if (!shop) {
       return res.status(404).json({ message: "Không tìm thấy shop" });
     }
     res.json(shop);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const getShopMetrics = async (req, res) => {
+  try {
+    const shop = await Shop.findOne({ owner: req.user.id });
+    if (!shop) return res.status(404).json({ message: "Shop not found" });
+
+    let metrics = await ShopMetrics.findOne({ shop: shop._id });
+    if (!metrics) {
+      metrics = await updateShopMetrics(shop._id);
+    }
+    res.json(metrics);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

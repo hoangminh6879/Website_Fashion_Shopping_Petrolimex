@@ -5,6 +5,7 @@ Mở terminal 2 terminal
 Cái 1: --> Chạy Server API
 cd server 
 npm install
+npm install socket.io
 npm install passport passport-google-oauth20
 npm install mailer
 npm install qs moment

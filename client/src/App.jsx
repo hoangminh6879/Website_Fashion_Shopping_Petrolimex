@@ -19,6 +19,7 @@ import ResetPassword from "./pages/ResetPassword";
 import Checkout from "./pages/Checkout";
 import OrderHistory from "./pages/OrderHistory";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ChatFloating from "./components/Chat/ChatFloating";
 
 
 function App() {
@@ -111,6 +112,7 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
       </Routes>
+      <ChatFloating />
     </BrowserRouter>
   );
 }

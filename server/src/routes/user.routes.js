@@ -5,7 +5,8 @@ import {
   getAddresses,
   addAddress,
   deleteAddress,
-  updateAddress
+  updateAddress,
+  getUserProfile
 } from "../controllers/user.controller.js";
 
 import { protect } from "../middlewares/auth.middleware.js";
@@ -20,6 +21,7 @@ router.delete("/addresses/:addressId", protect, deleteAddress);
 router.put("/addresses/:addressId", protect, updateAddress);
 
 // user gửi yêu cầu
+router.get("/profile/:id", protect, getUserProfile);
 router.post("/request-seller", protect, requestSeller);
 
 // admin duyệt

@@ -10,6 +10,7 @@ import {
   updateVariant,
   deleteVariant,
   updateFlashSale,
+  getTopRatedProducts,
 } from "../controllers/product.controller.js";
 
 import { protect } from "../middlewares/auth.middleware.js";
@@ -21,6 +22,7 @@ const router = express.Router();
 router.post("/", protect, authorizeRoles("seller"), createProduct);
 router.get("/seller-products", protect, authorizeRoles("seller"), getSellerProducts);
 router.get("/", getProducts);
+router.get("/top-rated", getTopRatedProducts);
 router.get("/:id", getProductById);
 router.put("/:id", protect, authorizeRoles("seller"), updateProduct);
 router.delete("/:id", protect, authorizeRoles("seller"), deleteProduct);
