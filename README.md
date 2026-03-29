@@ -8,13 +8,16 @@ npm install
 npm install passport passport-google-oauth20
 npm install mailer
 npm install qs moment
-
+npm install leaflet react-leaflet
+npm install recharts xlsx
+npm install sweetalert2
 npm run dev
+
 Cái 2: --> Chạy trang web
 cd client
 npm install
-
 npm run dev
+
 LƯU Ý QUANG TRỌNG !!!!!!!
 NHỚ ĐỔI TÊN .env.example thành .env trước khi chạy
 NHỚ MỞ MONGO DB RỒI KẾT NỐI MONGO DB TRƯỚC (Bấm Connection)

@@ -23,6 +23,7 @@ import productEventRoutes from "./src/routes/productEvent.routes.js";
 import orderRoutes from "./src/routes/order.route.js";
 import notificationRoutes from "./src/routes/notification.routes.js";
 import shippingRoutes from "./src/routes/shipping.routes.js";
+import { startEventWorker } from "./src/utils/eventWorker.js";
 
 import path from "path";
 
@@ -118,4 +119,8 @@ app.use("/api/shipping", shippingRoutes);
 
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    // Start automated background tasks
+    startEventWorker();
+});
