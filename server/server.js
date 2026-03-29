@@ -24,6 +24,9 @@ import orderRoutes from "./src/routes/order.route.js";
 import notificationRoutes from "./src/routes/notification.routes.js";
 import shippingRoutes from "./src/routes/shipping.routes.js";
 import { startEventWorker } from "./src/utils/eventWorker.js";
+import http from "http";
+import { initSocket } from "./src/utils/socket.js";
+import chatRoutes from "./src/routes/chat.routes.js";
 
 import path from "path";
 
@@ -116,10 +119,14 @@ app.use("/api/product-events", productEventRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/shipping", shippingRoutes);
+app.use("/api/chat", chatRoutes);
 
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+const server = http.createServer(app);
+initSocket(server);
+
+server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     // Start automated background tasks
     startEventWorker();

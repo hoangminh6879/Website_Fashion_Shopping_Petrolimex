@@ -25,6 +25,8 @@ export default function ProductDetail() {
   const [newReview, setNewReview] = useState({ rating: 5, comment: '', images: [] });
   const [isReviewing, setIsReviewing] = useState(false);
   const [reviewImages, setReviewImages] = useState([]);
+  const [selectedFullImage, setSelectedFullImage] = useState(null);
+  const [isViewingFullImage, setIsViewingFullImage] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -64,7 +66,7 @@ export default function ProductDetail() {
       formData.append('image', file);
       try {
         const res = await api.post('/images/upload', formData);
-        uploaded.push(res.data.url);
+        uploaded.push(res.data.image.url);
       } catch (err) {
         console.error(err);
       }
@@ -157,7 +159,7 @@ export default function ProductDetail() {
   const variantImage = getSelectedVariantImage();
   const mainImageSrc = variantImage
     ? `http://localhost:5000${variantImage}`
-    : (product.images?.[activeImage]?.url ? `http://localhost:5000${product.images[activeImage].url}` : "https://via.placeholder.com/800");
+    : (product.images?.[activeImage]?.url ? `http://localhost:5000${product.images[activeImage].url}` : "https://placehold.co/800x800?text=No+Image");
 
   const currentVariant = (product?.variants || []).find(
     v => v.color === selectedColor && v.size === selectedSize
@@ -185,8 +187,6 @@ export default function ProductDetail() {
                     key={img._id || idx}
                     onClick={() => {
                       setActiveImage(idx);
-                      // Khi chọn ảnh khác từ gallery, ta có thể muốn giữ ảnh đó thay vì ảnh biến thể
-                      // Nhưng yêu cầu của user là: "khi chọn combo nào thì hiện ảnh combo đó"
                     }}
                     className={`w-20 h-20 rounded-xl overflow-hidden border-2 flex-shrink-0 transition-all ${activeImage === idx ? 'border-amber-500 scale-95 shadow-lg' : 'border-transparent opacity-60 hover:opacity-100'}`}
                   >
@@ -274,9 +274,6 @@ export default function ProductDetail() {
                         alert(t('select_options_msg'));
                         return;
                       }
-                      // Calculate active price
-                      const isFlashSale = product.isFlashSale && new Date(product.flashSaleEndDate) > new Date() && product.flashSaleStock > 0;
-                      // Pass to cart (make sure Cart context uses the updated price or product object)
                       addToCart(product, selectedColor, selectedSize, 1);
                       alert(t('added_to_cart'));
                     }}
@@ -301,6 +298,35 @@ export default function ProductDetail() {
           <div className="prose prose-lg max-w-none text-gray-600 font-medium leading-relaxed">
             <AutoText text={product.description || "Đang cập nhật nội dung cho sản phẩm này..."} />
           </div>
+        </div>
+
+        {/* SHOP INFO */}
+        <div className="mt-12 bg-gray-900 text-white p-12 rounded-[3.5rem] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-amber-500/20 transition-all duration-1000"></div>
+            <div className="flex items-center gap-8 relative z-10">
+                <div className="w-24 h-24 rounded-full bg-amber-500 flex items-center justify-center text-4xl font-black text-gray-900 shadow-xl shadow-amber-500/20 border-4 border-white/10 uppercase italic">
+                    {product.shop?.name?.charAt(0) || 'S'}
+                </div>
+                <div className="space-y-2 text-center md:text-left">
+                    <h3 className="text-3xl font-black uppercase tracking-tighter italic leading-none">{product.shop?.name || 'Gian hàng chính hãng'}</h3>
+                    <div className="flex items-center gap-2 text-amber-500 text-sm font-black uppercase tracking-widest bg-white/5 px-4 py-1.5 rounded-full w-fit mx-auto md:mx-0 border border-white/5 shadow-inner">
+                        <span className="text-xl">★</span>
+                        <span>{product.shop?.rating?.toFixed(1) || '5.0'}</span>
+                        <span className="text-[10px] text-gray-500 ml-1">Shop Reputation Score</span>
+                    </div>
+                </div>
+            </div>
+            <div className="flex gap-4 relative z-10">
+                <button 
+                  onClick={() => navigate(`/shop/${product.shop?._id}`)}
+                  className="px-10 py-5 bg-white text-gray-900 rounded-3xl font-black uppercase text-xs tracking-[0.2em] hover:bg-amber-500 transition-all shadow-xl active:scale-95"
+                >
+                    <AutoText text="Xem Shop" />
+                </button>
+                <button className="px-10 py-5 bg-gray-800 text-white rounded-3xl font-black uppercase text-xs tracking-[0.2em] hover:bg-gray-700 transition-all shadow-xl border border-white/5">
+                    <AutoText text="Chat với Shop" />
+                </button>
+            </div>
         </div>
 
         {/* REVIEWS SECTION */}
@@ -408,14 +434,33 @@ export default function ProductDetail() {
                    <p className="text-gray-600 font-medium leading-relaxed mb-6 italic">"{review.comment}"</p>
                    
                    {review.images?.length > 0 && (
-                     <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-none">
-                        {review.images.map((img, idx) => (
-                          <div key={idx} className="w-32 h-32 rounded-3xl overflow-hidden border-2 border-gray-50 flex-shrink-0 cursor-zoom-in group">
-                             <img src={`http://localhost:5000${img}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
-                          </div>
-                        ))}
-                     </div>
-                   )}
+                      <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-none mb-6">
+                         {review.images.map((img, idx) => (
+                           <div 
+                             key={idx} 
+                             onClick={() => {
+                               setSelectedFullImage(`http://localhost:5000${img}`);
+                               setIsViewingFullImage(true);
+                             }}
+                             className="w-32 h-32 rounded-3xl overflow-hidden border-2 border-gray-100 flex-shrink-0 cursor-zoom-in group relative"
+                           >
+                              <img src={`http://localhost:5000${img}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none" />
+                           </div>
+                         ))}
+                      </div>
+                    )}
+
+                    {review.reply && (
+                      <div className="mt-4 bg-gray-900 text-white p-6 rounded-3xl relative animate-fadeIn shadow-xl">
+                        <div className="absolute -top-3 left-8 w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-b-[12px] border-b-gray-900"></div>
+                        <div className="flex justify-between items-center mb-2">
+                           <span className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Phản hồi của Shop</span>
+                           <span className="text-[9px] font-bold text-gray-500 uppercase">{new Date(review.repliedAt).toLocaleDateString('vi-VN')}</span>
+                        </div>
+                        <p className="text-sm font-medium leading-relaxed italic opacity-95">"{review.reply}"</p>
+                      </div>
+                    )}
                 </div>
               )) : (
                 <div className="bg-white p-20 rounded-[3rem] text-center border-2 border-dashed border-gray-100">
@@ -426,6 +471,30 @@ export default function ProductDetail() {
            </div>
         </div>
       </div>
+
+      {/* Full Image Modal */}
+      {isViewingFullImage && (
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-fadeIn"
+          style={{ transition: 'all 0.3s ease-out' }}
+          onClick={() => setIsViewingFullImage(false)}
+        >
+          <div className="relative max-w-5xl h-full flex items-center justify-center">
+            <button 
+              className="absolute top-4 right-4 text-white hover:text-amber-500 transition-all z-50 p-3 bg-white/10 rounded-full hover:bg-white/20 active:scale-90"
+              onClick={() => setIsViewingFullImage(false)}
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            <img 
+              src={selectedFullImage} 
+              className="max-h-[90vh] max-w-full object-contain shadow-2xl rounded-2xl animate-zoomIn border-4 border-white/5" 
+              alt="Full view" 
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
