@@ -138,3 +138,13 @@ export const getUserProfile = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+export const getAdminUser = async (req, res) => {
+  try {
+    const admin = await User.findOne({ role: "admin" }).select("name avatar role email");
+    if (!admin) return res.status(404).json({ message: "Không tìm thấy Admin" });
+    res.json(admin);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

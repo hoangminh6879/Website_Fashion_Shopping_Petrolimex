@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { liveTranslate } from "../i18n";
 import api from '../services/api';
 import NotificationDropdown from './NotificationDropdown';
+import { useSocket } from '../context/SocketContext';
 
 export default function Navbar() {
   const { user, handleLogout, getCartCount, userRole } = useCart();
@@ -24,6 +25,18 @@ export default function Navbar() {
   const [filterPrice, setFilterPrice] = useState({ min: '', max: '' });
   const [filterRating, setFilterRating] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+  const { openChatWithUser } = useSocket();
+
+  const handleContactAdmin = async () => {
+    try {
+      const res = await api.get('/users/admin');
+      if (res.data && res.data._id) {
+        openChatWithUser(res.data._id);
+      }
+    } catch (err) {
+      console.error("Lỗi khi kết nối với Admin:", err);
+    }
+  };
 
   useEffect(() => {
     api.get('/categories').then(res => setCategories(res.data)).catch(console.error);
@@ -102,9 +115,12 @@ export default function Navbar() {
                 <NotificationDropdown onClose={() => setShowNotifications(false)} />
               )}
             </div>
-            <a href="#" className="flex items-center gap-1 hover:text-amber-500 transition">
+            <button 
+              onClick={handleContactAdmin}
+              className="flex items-center gap-1 hover:text-amber-500 transition cursor-pointer"
+            >
               <span role="img" aria-label="support">❓</span> <AutoText text="Hỗ trợ" />
-            </a>
+            </button>
             <div className="h-4 w-px bg-gray-700/50 mx-1"></div>
             <button
               onClick={toggleLanguage}

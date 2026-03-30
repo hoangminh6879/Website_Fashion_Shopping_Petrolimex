@@ -4,7 +4,7 @@ import { useCart } from '../../context/CartContext';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
-const ChatWindow = () => {
+const ChatWindow = ({ fullScreen = false }) => {
   const { 
     conversations, 
     activeChat, 
@@ -42,8 +42,12 @@ const ChatWindow = () => {
 
   if (!user) return null;
 
+  const containerClasses = fullScreen 
+    ? "flex h-full w-full bg-white overflow-hidden"
+    : "flex h-[500px] w-[800px] bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100 animate-in fade-in zoom-in duration-300";
+
   return (
-    <div className="flex h-[500px] w-[800px] bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100 animate-in fade-in zoom-in duration-300">
+    <div className={containerClasses}>
       {/* Sidebar: Interactions/Conversations */}
       <div className="w-1/3 border-r border-gray-100 bg-gray-50 flex flex-col">
         <div className="p-4 border-b border-gray-100 bg-white">

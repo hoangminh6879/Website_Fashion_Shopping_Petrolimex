@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import ChatWindow from './ChatWindow';
 import { useSocket } from '../../context/SocketContext';
 import { useCart } from '../../context/CartContext';
@@ -6,9 +7,13 @@ import { useCart } from '../../context/CartContext';
 const ChatFloating = () => {
   const { conversations, user, isOpen, setIsOpen } = useSocket();
   const { user: cartUser } = useCart();
+  const location = useLocation();
 
   // Don't show for guests or if user logic isn't ready
   if (!cartUser || cartUser === 'guest') return null;
+
+  // Don't show floating chat in seller dashboard
+  if (location.pathname.startsWith('/seller')) return null;
 
   const totalUnread = conversations.reduce((sum, conv) => sum + (conv.unreadCount || 0), 0);
 
