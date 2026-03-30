@@ -32,10 +32,13 @@ export default function Login() {
         }
       });
     } catch (err) {
+      const status = err.response?.status;
+      const message = err.response?.data?.message || "Có lỗi xảy ra!";
+      
       Swal.fire({
-        icon: "error",
-        title: "Lỗi!",
-        text: err.response?.data?.message || "Có lỗi xảy ra!",
+        icon: status === 403 ? "warning" : "error",
+        title: status === 403 ? "Tài khoản bị khóa" : "Lỗi đăng nhập",
+        text: message,
         confirmButtonColor: "#f97316",
       });
     }

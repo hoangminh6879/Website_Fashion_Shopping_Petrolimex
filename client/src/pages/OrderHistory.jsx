@@ -5,9 +5,11 @@ import Navbar from '../components/Navbar';
 import Swal from 'sweetalert2';
 import ReviewModal from '../components/ReviewModal';
 import ShopReviewModal from '../components/ShopReviewModal';
+import { useSocket } from '../context/SocketContext';
 
 // ─── Order Details Modal ─────────────────────────────────────────────────────
 function OrderModal({ order, onClose, handleCancelOrder, handleConfirmReceipt, onReviewItem, onReviewShop }) {
+    const { openChatWithUser } = useSocket();
     if (!order) return null;
 
     const formatPrice = (price) =>
@@ -89,7 +91,22 @@ function OrderModal({ order, onClose, handleCancelOrder, handleConfirmReceipt, o
                                                 <div className="flex-1 min-w-0 py-1">
                                                     <h4 className="font-black text-gray-900 text-sm uppercase truncate mb-1">{item.product?.name}</h4>
                                                     <div className="flex flex-wrap items-center gap-2 mb-3">
-                                                        <span className="text-[9px] font-black bg-gray-900 text-amber-500 px-2 py-0.5 rounded-md uppercase tracking-widest">{item.product?.shop?.name || 'Cửa hàng'}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[9px] font-black bg-gray-900 text-amber-500 px-2 py-0.5 rounded-md uppercase tracking-widest">{item.product?.shop?.name || 'Cửa hàng'}</span>
+                                                            {item.product?.shop?.owner && (
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        openChatWithUser(item.product.shop.owner, item.product);
+                                                                        onClose();
+                                                                    }}
+                                                                    className="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-gray-900 rounded-full text-[10px] font-black uppercase tracking-widest transition-all shadow-sm flex items-center gap-1.5 active:scale-95"
+                                                                    title="Nhắn tin với Shop"
+                                                                >
+                                                                    <span className="text-[12px]">💬</span> 
+                                                                    <span>CHAT VỚI SHOP</span>
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                         <span className="w-1 h-1 rounded-full bg-gray-300"></span>
                                                         <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Màu: {item.color}</span>
                                                         <span className="text-[9px] font-bold text-gray-300">/</span>
