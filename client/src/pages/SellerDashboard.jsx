@@ -8,6 +8,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import * as XLSX from 'xlsx';
+import ChatWindow from '../components/Chat/ChatWindow';
+import { useSocket } from '../context/SocketContext';
 
 // Fix Leaflet default marker icon
 delete L.Icon.Default.prototype._getIconUrl;
@@ -26,6 +28,7 @@ function LocationPicker({ onPick }) {
 }
 
 export default function SellerDashboard() {
+  const { openChatWithUser } = useSocket();
   const [activeTab, setActiveTab] = useState('products');
   const [products, setProducts] = useState([]);
   const [shop, setShop] = useState(null);
@@ -739,6 +742,14 @@ export default function SellerDashboard() {
             </li>
             <li>
               <button
+                onClick={() => setActiveTab('messages')}
+                className={`w-full text-left px-4 py-3 rounded-md transition ${activeTab === 'messages' ? 'bg-amber-500 text-gray-900 font-bold' : 'hover:bg-gray-800'}`}
+              >
+                💬 Tin nhắn
+              </button>
+            </li>
+            <li>
+              <button
                 onClick={() => setActiveTab('settings')}
                 className={`w-full text-left px-4 py-3 rounded-md transition ${activeTab === 'settings' ? 'bg-amber-500 text-gray-900 font-bold' : 'hover:bg-gray-800'}`}
               >
@@ -797,6 +808,7 @@ export default function SellerDashboard() {
             {activeTab === 'products' && 'Quản lý Sản phẩm'}
             {activeTab === 'orders' && 'Quản lý Đơn hàng'}
             {activeTab === 'reviews' && 'Quản lý Đánh giá'}
+            {activeTab === 'messages' && 'Tin nhắn khách hàng'}
             {activeTab === 'settings' && 'Thiết lập Shop'}
             {activeTab === 'coupons' && 'Quản lý Mã Giảm Giá'}
             {activeTab === 'flash-sale' && 'Quản lý Flash Sale'}
@@ -1777,6 +1789,35 @@ export default function SellerDashboard() {
                     </button>
                   )}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'messages' && (
+            <div className="flex flex-col gap-4 animate-fadeIn">
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-black text-gray-900 tracking-tight uppercase italic leading-none">Tin nhắn khách hàng</h2>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.2em] mt-3">Quản lý các cuộc hội thoại với khách hàng</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await api.get('/users/admin');
+                      if (res.data && res.data._id) {
+                        openChatWithUser(res.data._id);
+                      }
+                    } catch (err) {
+                      Swal.fire('Lỗi', 'Không thể kết nối với Admin', 'error');
+                    }
+                  }}
+                  className="bg-gray-900 text-white px-6 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-amber-500 hover:text-gray-900 transition-all shadow-lg flex items-center gap-2"
+                >
+                  <span>🛡️</span> CHAT VỚI ADMIN
+                </button>
+              </div>
+              <div className="h-[calc(100vh-18rem)] min-h-[500px] bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
+                <ChatWindow fullScreen={true} />
               </div>
             </div>
           )}

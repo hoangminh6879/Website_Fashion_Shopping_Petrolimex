@@ -57,11 +57,41 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: "Email không tồn tại" });
     }
 
+    // 1.1 Kiểm tra nếu tài khoản đang bị khóa
+    if (user.lockUntil && user.lockUntil > Date.now()) {
+      const remainingTime = Math.ceil((user.lockUntil - Date.now()) / (1000 * 60 * 60)); // Tính giờ còn lại
+      return res.status(403).json({ 
+        message: `Tài khoản đã bị khóa do nhập sai quá nhiều lần. Vui lòng thử lại sau ${remainingTime} giờ.` 
+      });
+    }
+
     // 2. so sánh password
     const isMatch = await bcrypt.compare(password, user.password);
+    
     if (!isMatch) {
-      return res.status(400).json({ message: "Sai mật khẩu" });
+      // Tăng số lần thử sai
+      user.loginAttempts += 1;
+      
+      // Nếu sai 5 lần liên tiếp -> Khóa 24 giờ
+      if (user.loginAttempts >= 5) {
+        user.lockUntil = Date.now() + 24 * 60 * 60 * 1000;
+        await user.save();
+        return res.status(403).json({ 
+          message: "Bạn đã nhập sai mật khẩu 5 lần. Tài khoản đã bị khóa trong 24 giờ tới." 
+        });
+      }
+
+      await user.save();
+      return res.status(401).json({ 
+        message: `Sai mật khẩu. Bạn còn ${5 - user.loginAttempts} lần thử nữa.`,
+        remainingAttempts: 5 - user.loginAttempts
+      });
     }
+
+    // Nếu đúng mật khẩu -> Reset bộ đếm
+    user.loginAttempts = 0;
+    user.lockUntil = undefined;
+    await user.save();
 
     // 3. tạo token
     const token = jwt.sign(

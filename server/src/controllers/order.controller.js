@@ -186,7 +186,7 @@ export const getMyOrders = async (req, res) => {
         const populatedOrders = await Promise.all(orders.map(async (order) => {
             const items = await OrderItem.find({ order: order._id }).populate({
                 path: "product",
-                populate: { path: "shop", select: "name" }
+                populate: { path: "shop", select: "name owner" }
             });
             return { ...order._doc, items };
         }));
@@ -206,7 +206,7 @@ export const getOrderById = async (req, res) => {
 
         const items = await OrderItem.find({ order: order._id }).populate({
             path: "product",
-            populate: { path: "shop", select: "name" }
+            populate: { path: "shop", select: "name owner" }
         });
         res.json({ ...order._doc, items });
     } catch (error) {
