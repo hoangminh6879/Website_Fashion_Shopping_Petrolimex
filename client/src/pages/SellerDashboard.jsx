@@ -6,7 +6,7 @@ import api from '../services/api';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import * as XLSX from 'xlsx';
 import ChatWindow from '../components/Chat/ChatWindow';
 import { useSocket } from '../context/SocketContext';
@@ -27,9 +27,13 @@ function LocationPicker({ onPick }) {
   return null;
 }
 
+const PREDEFINED_COLORS = ['Trắng', 'Đen', 'Xám', 'Xanh navy', 'Be', 'Nâu Đỏ', 'Cam', 'Vàng', 'Hồng', 'Xanh dương', 'Xanh lá', 'Tím'];
+const CLOTHING_SIZES = ['S', 'M', 'L', 'XL'];
+const SHOE_SIZES = Array.from({ length: 16 }, (_, i) => (i + 30).toString());
+
 export default function SellerDashboard() {
   const { openChatWithUser } = useSocket();
-  const [activeTab, setActiveTab] = useState('products');
+  const [activeTab, setActiveTab] = useState('statistics');
   const [products, setProducts] = useState([]);
   const [shop, setShop] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -39,7 +43,12 @@ export default function SellerDashboard() {
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [editingProductId, setEditingProductId] = useState(null);
   const [uploadedImages, setUploadedImages] = useState([]); // List of Image objects {_id, url}
-  const [newProduct, setNewProduct] = useState({ name: '', description: '', price: '', colors: '', sizes: '', category: '', stock: [], variantImages: [] });
+  const [newProduct, setNewProduct] = useState({ name: '', description: '', price: '', colors: [], sizes: [], category: '', stock: [], variantImages: [] });
+  const [customColor, setCustomColor] = useState('');
+  const [customSize, setCustomSize] = useState('');
+  const [sizeType, setSizeType] = useState('clothing'); // clothing or shoes
+  const [showColorOptions, setShowColorOptions] = useState(true);
+  const [showSizeOptions, setShowSizeOptions] = useState(true);
 
   // Stock Modal States
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
@@ -57,6 +66,7 @@ export default function SellerDashboard() {
     address: '',
     phone: '',
     fanpage: '',
+    image: '',
     lat: null,
     lng: null
   });
@@ -120,6 +130,7 @@ export default function SellerDashboard() {
             address: shopRes.value.data.address || '',
             phone: shopRes.value.data.phone || '',
             fanpage: shopRes.value.data.fanpage || '',
+            image: shopRes.value.data.image || '',
             lat: shopRes.value.data.lat || null,
             lng: shopRes.value.data.lng || null
           });
@@ -157,6 +168,7 @@ export default function SellerDashboard() {
     }
     if (activeTab === 'statistics') {
       fetchStats();
+      fetchSellerOrders();
     }
     if (activeTab === 'orders') {
       fetchSellerOrders();
@@ -473,16 +485,16 @@ export default function SellerDashboard() {
       setUploadedImages(product.images || []);
 
       // Sanitization
-      const colorsStr = Array.isArray(product.colors) ? product.colors.join(', ') : (typeof product.colors === 'string' ? product.colors : '');
-      const sizesStr = Array.isArray(product.sizes) ? product.sizes.join(', ') : (typeof product.sizes === 'string' ? product.sizes : '');
+      const colorsArr = Array.isArray(product.colors) ? product.colors : (typeof product.colors === 'string' ? product.colors.split(',').map(c => c.trim()).filter(c => c) : []);
+      const sizesArr = Array.isArray(product.sizes) ? product.sizes : (typeof product.sizes === 'string' ? product.sizes.split(',').map(s => s.trim()).filter(s => s) : []);
       const categoryId = product.category?._id || (typeof product.category === 'string' ? product.category : '');
 
       setNewProduct({
         name: product.name || '',
         description: product.description || '',
         price: product.price || 0,
-        colors: colorsStr,
-        sizes: sizesStr,
+        colors: colorsArr,
+        sizes: sizesArr,
         category: categoryId,
         stock: Array.isArray(product.stock) ? product.stock : [],
         variantImages: Array.isArray(product.variantImages) ? product.variantImages : []
@@ -505,19 +517,35 @@ export default function SellerDashboard() {
 
     const formData = new FormData();
     formData.append('image', file);
-    // Optional: if editing, we can link it immediately, but better link it on product save
-    // if (editingProductId) formData.append('productId', editingProductId);
 
     try {
       const res = await api.post('/images/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       const newImg = res.data.image;
-      // Ensure we have a local copy of the image and its URL
       setUploadedImages(prev => [...prev, newImg]);
     } catch (err) {
       console.error("Upload failed:", err);
       Swal.fire({ icon: 'error', title: 'Lỗi', text: 'Upload ảnh thất bại' });
+    }
+  };
+
+  const handleShopImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+      const res = await api.post('/images/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      const newImg = res.data.image;
+      setShopForm(prev => ({ ...prev, image: newImg.url }));
+    } catch (err) {
+      console.error("Shop image upload failed:", err);
+      Swal.fire({ icon: 'error', title: 'Lỗi', text: 'Upload ảnh shop thất bại' });
     }
   };
 
@@ -538,8 +566,8 @@ export default function SellerDashboard() {
         name: newProduct.name,
         description: newProduct.description,
         price: Number(newProduct.price),
-        colors: newProduct.colors.split(',').map(c => c.trim()).filter(c => c),
-        sizes: newProduct.sizes.split(',').map(s => s.trim()).filter(s => s),
+        colors: newProduct.colors,
+        sizes: newProduct.sizes,
         images: uploadedImages.map(img => img._id),
         category: newProduct.category || null,
         stock: editingProductId ? newProduct.stock : [],
@@ -557,7 +585,7 @@ export default function SellerDashboard() {
       setIsAddingProduct(false);
       setEditingProductId(null);
       setUploadedImages([]);
-      setNewProduct({ name: '', description: '', price: '', colors: '', sizes: '', category: '', stock: [], variantImages: [] });
+      setNewProduct({ name: '', description: '', price: '', colors: [], sizes: [], category: '', stock: [], variantImages: [] });
       fetchProducts();
     } catch (err) {
       console.error("Product save error:", err);
@@ -714,8 +742,16 @@ export default function SellerDashboard() {
 
           {shop && <div className="text-xs text-gray-400 mt-1 italic">Shop: {shop.name}</div>}
         </div>
-        <div className="flex-1 overflow-y-auto mt-4">
+        <div className="flex-1 overflow-y-auto mt-4 uppercase">
           <ul className="space-y-2 px-4">
+            <li>
+              <button
+                onClick={() => setActiveTab('statistics')}
+                className={`w-full text-left px-4 py-3 rounded-md transition ${activeTab === 'statistics' ? 'bg-amber-500 text-gray-900 font-bold' : 'hover:bg-gray-800'}`}
+              >
+                📈 Thống kê Doanh thu
+              </button>
+            </li>
             <li>
               <button
                 onClick={() => setActiveTab('products')}
@@ -788,14 +824,6 @@ export default function SellerDashboard() {
                 🏬 Đánh giá Shop
               </button>
             </li>
-            <li className="pt-4 mt-4 border-t border-gray-800">
-              <button
-                onClick={() => setActiveTab('statistics')}
-                className={`w-full text-left px-4 py-3 rounded-md transition ${activeTab === 'statistics' ? 'bg-amber-500 text-gray-900 font-bold' : 'hover:bg-gray-800'}`}
-              >
-                📈 Thống kê Doanh thu
-              </button>
-            </li>
           </ul>
         </div>
       </div>
@@ -818,10 +846,18 @@ export default function SellerDashboard() {
           </h1>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 mr-4">
-              <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center font-bold text-gray-900">
-                {shop?.name?.charAt(0) || 'S'}
-              </div>
-              <span className="text-sm font-medium text-gray-700">{shop?.name || 'Shop Của Tôi'}</span>
+              {shop?.image ? (
+                <img
+                  src={shop.image.startsWith('http') ? shop.image : `http://localhost:5000${shop.image}`}
+                  className="w-10 h-10 rounded-xl object-cover border border-amber-500/20 shadow-sm"
+                  alt="Shop Logo"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center font-black text-gray-900 border border-amber-500/20 shadow-sm">
+                  {shop?.name?.charAt(0) || 'S'}
+                </div>
+              )}
+              <span className="text-sm font-black text-gray-800 uppercase italic tracking-tight">{shop?.name || 'Shop Của Tôi'}</span>
             </div>
             <Link to="/" className="text-sm text-amber-600 font-bold hover:underline">Trở về Trang chủ</Link>
             <button
@@ -954,24 +990,24 @@ export default function SellerDashboard() {
             <div className="space-y-6 animate-fadeIn">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
                 <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center">
-                   <div className="text-[10px] font-black text-amber-600 uppercase mb-1 tracking-widest">Điểm Uy Tín</div>
-                   <div className="text-3xl font-black text-gray-900 leading-none italic">{(metrics?.score || 0).toFixed(1)} <span className="text-amber-500 text-xl font-bold">★</span></div>
-                   <div className="text-[8px] text-gray-400 mt-2 font-black uppercase tracking-widest leading-none">Bayesian Adjusted</div>
+                  <div className="text-[10px] font-black text-amber-600 uppercase mb-1 tracking-widest">Điểm Uy Tín</div>
+                  <div className="text-3xl font-black text-gray-900 leading-none italic">{(metrics?.score || 0).toFixed(1)} <span className="text-amber-500 text-xl font-bold">★</span></div>
+                  <div className="text-[8px] text-gray-400 mt-2 font-black uppercase tracking-widest leading-none">Bayesian Adjusted</div>
                 </div>
                 <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center">
-                   <div className="text-[10px] font-black text-emerald-600 uppercase mb-1 tracking-widest">Tỉ Lệ Thành Công</div>
-                   <div className="text-3xl font-black text-gray-900 leading-none italic">{(metrics?.successRate || 0).toFixed(0)}%</div>
-                   <div className="text-[8px] text-gray-400 mt-2 font-black uppercase tracking-widest leading-none">{metrics?.completedOrders}/{metrics?.totalOrders} đơn</div>
+                  <div className="text-[10px] font-black text-emerald-600 uppercase mb-1 tracking-widest">Tỉ Lệ Thành Công</div>
+                  <div className="text-3xl font-black text-gray-900 leading-none italic">{(metrics?.successRate || 0).toFixed(0)}%</div>
+                  <div className="text-[8px] text-gray-400 mt-2 font-black uppercase tracking-widest leading-none">{metrics?.completedOrders}/{metrics?.totalOrders} đơn</div>
                 </div>
                 <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center">
-                   <div className="text-[10px] font-black text-red-600 uppercase mb-1 tracking-widest">Tỉ Lệ Hủy</div>
-                   <div className="text-3xl font-black text-gray-900 leading-none italic">{(metrics?.cancelRate || 0).toFixed(0)}%</div>
-                   <div className="text-[8px] text-gray-400 mt-2 font-black uppercase tracking-widest leading-none">{metrics?.cancelledOrders} đơn đã hủy</div>
+                  <div className="text-[10px] font-black text-red-600 uppercase mb-1 tracking-widest">Tỉ Lệ Hủy</div>
+                  <div className="text-3xl font-black text-gray-900 leading-none italic">{(metrics?.cancelRate || 0).toFixed(0)}%</div>
+                  <div className="text-[8px] text-gray-400 mt-2 font-black uppercase tracking-widest leading-none">{metrics?.cancelledOrders} đơn đã hủy</div>
                 </div>
                 <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center">
-                   <div className="text-[10px] font-black text-blue-600 uppercase mb-1 tracking-widest">Phản Hồi Chat</div>
-                   <div className="text-3xl font-black text-gray-900 leading-none italic">100%</div>
-                   <div className="text-[8px] text-gray-400 mt-2 font-black uppercase tracking-widest leading-none">Phục vụ siêu tốc</div>
+                  <div className="text-[10px] font-black text-blue-600 uppercase mb-1 tracking-widest">Phản Hồi Chat</div>
+                  <div className="text-3xl font-black text-gray-900 leading-none italic">100%</div>
+                  <div className="text-[8px] text-gray-400 mt-2 font-black uppercase tracking-widest leading-none">Phục vụ siêu tốc</div>
                 </div>
               </div>
 
@@ -984,58 +1020,58 @@ export default function SellerDashboard() {
                   {shopReviews.map(review => (
                     <div key={review._id} className="bg-white rounded-[1.5rem] shadow-sm border border-gray-100 overflow-hidden group hover:shadow-lg transition-all duration-500">
                       <div className="p-4">
-                         <div className="flex justify-between items-start mb-3">
-                            <div className="flex items-center gap-3">
-                               <img 
-                                 src={review.user?.avatar ? (review.user.avatar.startsWith('http') ? review.user.avatar : `http://localhost:5000${review.user.avatar}`) : `https://ui-avatars.com/api/?name=${review.user?.name}&background=f59e0b&color=fff`} 
-                                 className="w-10 h-10 rounded-full border-2 border-amber-500/20"
-                                 alt="user"
-                               />
-                               <div>
-                                 <div className="font-black text-gray-900 text-[13px] uppercase tracking-tighter italic leading-none">{review.user?.name}</div>
-                                 <div className="flex text-amber-400 text-xs mt-1">
-                                   {'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
-                                 </div>
-                               </div>
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={review.user?.avatar ? (review.user.avatar.startsWith('http') ? review.user.avatar : `http://localhost:5000${review.user.avatar}`) : `https://ui-avatars.com/api/?name=${review.user?.name}&background=f59e0b&color=fff`}
+                              className="w-10 h-10 rounded-full border-2 border-amber-500/20"
+                              alt="user"
+                            />
+                            <div>
+                              <div className="font-black text-gray-900 text-[13px] uppercase tracking-tighter italic leading-none">{review.user?.name}</div>
+                              <div className="flex text-amber-400 text-xs mt-1">
+                                {'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
+                              </div>
                             </div>
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{new Date(review.createdAt).toLocaleDateString('vi-VN')}</span>
-                         </div>
+                          </div>
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{new Date(review.createdAt).toLocaleDateString('vi-VN')}</span>
+                        </div>
 
-                         <div className="bg-amber-50/20 p-4 rounded-xl border border-amber-100/50 italic font-medium text-gray-700 text-[14px] leading-snug mb-4">
-                           "{review.comment}"
-                         </div>
+                        <div className="bg-amber-50/20 p-4 rounded-xl border border-amber-100/50 italic font-medium text-gray-700 text-[14px] leading-snug mb-4">
+                          "{review.comment}"
+                        </div>
 
-                         {/* Reply Section */}
-                         <div className="pt-4 border-t border-gray-100">
-                            {review.reply ? (
-                              <div className="bg-gray-900 text-white p-4 rounded-2xl relative animate-fadeIn shadow-lg">
-                                <div className="absolute -top-3 left-8 w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[10px] border-b-gray-900"></div>
-                                <div className="flex justify-between items-center mb-1">
-                                  <span className="text-[9px] font-black uppercase tracking-widest text-amber-500">Phản hồi của Shop</span>
-                                  <span className="text-[8px] font-bold text-gray-500 uppercase">{new Date(review.repliedAt).toLocaleDateString('vi-VN')}</span>
-                                </div>
-                                <p className="text-[13px] font-medium leading-snug italic opacity-90">"{review.reply}"</p>
+                        {/* Reply Section */}
+                        <div className="pt-4 border-t border-gray-100">
+                          {review.reply ? (
+                            <div className="bg-gray-900 text-white p-4 rounded-2xl relative animate-fadeIn shadow-lg">
+                              <div className="absolute -top-3 left-8 w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-b-[10px] border-b-gray-900"></div>
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-amber-500">Phản hồi của Shop</span>
+                                <span className="text-[8px] font-bold text-gray-500 uppercase">{new Date(review.repliedAt).toLocaleDateString('vi-VN')}</span>
                               </div>
-                            ) : (
-                              <div className="flex gap-3">
-                                <input 
-                                  type="text" 
-                                  id={`shop-reply-${review._id}`}
-                                  placeholder="Viết lời cảm ơn hoặc phản hồi cho khách..." 
-                                  className="flex-1 bg-gray-50 border-2 border-transparent focus:border-amber-500/20 rounded-2xl px-5 py-3 text-xs font-bold outline-none transition-all"
-                                />
-                                <button 
-                                  onClick={() => {
-                                    const input = document.getElementById(`shop-reply-${review._id}`);
-                                    if (input.value) handleReplyShopReview(review._id, input.value);
-                                  }}
-                                  className="bg-gray-900 text-white px-8 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-amber-500 hover:text-gray-900 transition-all shadow-lg active:scale-95"
-                                >
-                                  GỬI PHẢN HỒI
-                                </button>
-                              </div>
-                            )}
-                         </div>
+                              <p className="text-[13px] font-medium leading-snug italic opacity-90">"{review.reply}"</p>
+                            </div>
+                          ) : (
+                            <div className="flex gap-3">
+                              <input
+                                type="text"
+                                id={`shop-reply-${review._id}`}
+                                placeholder="Viết lời cảm ơn hoặc phản hồi cho khách..."
+                                className="flex-1 bg-gray-50 border-2 border-transparent focus:border-amber-500/20 rounded-2xl px-5 py-3 text-xs font-bold outline-none transition-all"
+                              />
+                              <button
+                                onClick={() => {
+                                  const input = document.getElementById(`shop-reply-${review._id}`);
+                                  if (input.value) handleReplyShopReview(review._id, input.value);
+                                }}
+                                className="bg-gray-900 text-white px-8 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-amber-500 hover:text-gray-900 transition-all shadow-lg active:scale-95"
+                              >
+                                GỬI PHẢN HỒI
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1092,9 +1128,83 @@ export default function SellerDashboard() {
                 </div>
               </div>
 
-              {/* Chart */}
+              {/* Charts Selection */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Revenue & Orders Chart */}
+                <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100">
+                  <div className="flex justify-between items-center mb-10">
+                    <h4 className="text-xs font-black uppercase text-gray-400 tracking-[0.2em]">Biểu đồ Tăng trưởng Doanh thu & Đơn hàng</h4>
+                  </div>
+                  <div className="h-[350px] w-full">
+                    {isStatsLoading ? (
+                      <div className="h-full w-full flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-amber-500"></div>
+                      </div>
+                    ) : statsData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={statsData}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#9ca3af' }} dy={10} />
+                          <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#9ca3af' }} tickFormatter={(v) => `${v / 1000}K`} />
+                          <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#9ca3af' }} />
+                          <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }} />
+                          <Legend verticalAlign="top" height={36} />
+                          <Line yAxisId="left" type="monotone" dataKey="revenue" name="Doanh thu" stroke="#f59e0b" strokeWidth={4} dot={{ r: 4, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 6 }} />
+                          <Line yAxisId="right" type="monotone" dataKey="orders" name="Số đơn hàng" stroke="#3b82f6" strokeWidth={4} dot={{ r: 4, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 6 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full w-full flex flex-col items-center justify-center text-gray-300 italic">
+                        <span className="text-5xl mb-2">📊</span>
+                        <p className="text-sm font-bold">Chưa có dữ liệu thống kê.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Order Status Distribution */}
+                <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100">
+                  <h4 className="text-xs font-black uppercase text-gray-400 tracking-[0.2em] mb-10">Tỉ lệ Trạng thái Đơn hàng</h4>
+                  <div className="h-[350px] w-full flex flex-col items-center">
+                    {sellerOrders.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={[
+                              { name: 'Hoàn thành', value: sellerOrders.filter(o => o.status === 'completed').length },
+                              { name: 'Đang xử lý', value: sellerOrders.filter(o => o.status === 'pending').length },
+                              { name: 'Đang giao', value: sellerOrders.filter(o => o.status === 'shipped').length },
+                              { name: 'Đã hủy', value: sellerOrders.filter(o => o.status === 'cancelled').length },
+                            ].filter(i => i.value > 0)}
+                            cx="50%" cy="50%"
+                            innerRadius={60}
+                            outerRadius={100}
+                            paddingAngle={5}
+                            dataKey="value"
+                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                          >
+                            <Cell fill="#10b981" />
+                            <Cell fill="#f59e0b" />
+                            <Cell fill="#3b82f6" />
+                            <Cell fill="#ef4444" />
+                          </Pie>
+                          <Tooltip />
+                          <Legend verticalAlign="bottom" height={36} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full w-full flex flex-col items-center justify-center text-gray-300 italic">
+                        <span className="text-5xl mb-2">🥧</span>
+                        <p className="text-sm font-bold">Chưa đủ dữ liệu để phân tích tỉ lệ.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Monthly Revenue Bar Chart */}
               <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-gray-100">
-                <h4 className="text-xs font-black uppercase text-gray-400 tracking-[0.2em] mb-10">Biểu đồ tăng trưởng doanh thu theo tháng</h4>
+                <h4 className="text-xs font-black uppercase text-gray-400 tracking-[0.2em] mb-10">Phân tích Doanh thu chi tiết (Bar Chart)</h4>
                 <div className="h-[400px] w-full">
                   {isStatsLoading ? (
                     <div className="h-full w-full flex items-center justify-center">
@@ -1191,13 +1301,204 @@ export default function SellerDashboard() {
                         <label className="block text-sm font-medium text-gray-700 mb-1">Giá (VNĐ)</label>
                         <input required type="number" value={newProduct.price} onChange={e => setNewProduct({ ...newProduct, price: e.target.value })} className="w-full border border-gray-300 rounded-md px-3 py-2 outline-none focus:border-amber-500" />
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Màu sắc (cách nhau dấu phẩy)</label>
-                        <input type="text" placeholder="Đỏ, Xanh, Đen" value={newProduct.colors} onChange={e => setNewProduct({ ...newProduct, colors: e.target.value })} className="w-full border border-gray-300 rounded-md px-3 py-2 outline-none focus:border-amber-500" />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Kích cỡ (cách nhau dấu phẩy)</label>
-                        <input type="text" placeholder="S, M, L, XL" value={newProduct.sizes} onChange={e => setNewProduct({ ...newProduct, sizes: e.target.value })} className="w-full border border-gray-300 rounded-md px-3 py-2 outline-none focus:border-amber-500" />
+                      <div className="md:col-span-2 space-y-4">
+                        {/* Màu sắc Selection */}
+                        <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="flex items-center gap-2">
+                              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest italic">Màu sắc sản phẩm</label>
+                              <button
+                                type="button"
+                                onClick={() => setShowColorOptions(!showColorOptions)}
+                                className="text-[9px] font-black uppercase text-gray-400 hover:text-amber-500 transition-colors"
+                              >
+                                {showColorOptions ? '[ Ẩn bảng chọn ]' : '[ Hiện bảng chọn ]'}
+                              </button>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setNewProduct({ ...newProduct, colors: Array.from(new Set([...newProduct.colors, ...PREDEFINED_COLORS])) })}
+                                className="text-[9px] font-black uppercase text-amber-600 hover:underline"
+                              >
+                                Chọn hết
+                              </button>
+                              <span className="text-gray-300">|</span>
+                              <button
+                                type="button"
+                                onClick={() => setNewProduct({ ...newProduct, colors: [] })}
+                                className="text-[9px] font-black uppercase text-red-500 hover:underline"
+                              >
+                                Xoá hết
+                              </button>
+                            </div>
+                          </div>
+                          {showColorOptions && (
+                            <div className="flex flex-wrap gap-2 mb-3 animate-fadeIn">
+                              {/* Merge predefined with whatever is chosen to show all as tags */}
+                              {Array.from(new Set([...PREDEFINED_COLORS, ...newProduct.colors])).map(color => (
+                                <button
+                                  key={color}
+                                  type="button"
+                                  onClick={() => {
+                                    const colors = newProduct.colors.includes(color)
+                                      ? newProduct.colors.filter(c => c !== color)
+                                      : [...newProduct.colors, color];
+                                    setNewProduct({ ...newProduct, colors });
+                                  }}
+                                  className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all border-2 ${newProduct.colors.includes(color) ? 'bg-amber-500 border-amber-500 text-gray-900 shadow-md shadow-amber-500/20' : 'bg-white border-gray-200 text-gray-400 hover:border-amber-500/30'}`}
+                                >
+                                  {color}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              placeholder="Thêm màu khác..."
+                              value={customColor}
+                              onChange={e => setCustomColor(e.target.value)}
+                              onKeyPress={e => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  if (customColor && !newProduct.colors.includes(customColor)) {
+                                    setNewProduct({ ...newProduct, colors: [...newProduct.colors, customColor.trim()] });
+                                    setCustomColor('');
+                                  }
+                                }
+                              }}
+                              className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:border-amber-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (customColor && !newProduct.colors.includes(customColor)) {
+                                  setNewProduct({ ...newProduct, colors: [...newProduct.colors, customColor.trim()] });
+                                  setCustomColor('');
+                                }
+                              }}
+                              className="bg-gray-900 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-500 hover:text-gray-900 transition-all"
+                            >
+                              Thêm
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Kích cỡ Selection */}
+                        <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                          <div className="flex justify-between items-center mb-3">
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-2">
+                                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest italic">Kích cỡ sản phẩm</label>
+                                <button
+                                  type="button"
+                                  onClick={() => setShowSizeOptions(!showSizeOptions)}
+                                  className="text-[9px] font-black uppercase text-gray-400 hover:text-amber-500 transition-colors"
+                                >
+                                  {showSizeOptions ? '[ Ẩn bảng chọn ]' : '[ Hiện bảng chọn ]'}
+                                </button>
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const pool = sizeType === 'clothing' ? CLOTHING_SIZES : SHOE_SIZES;
+                                    setNewProduct({ ...newProduct, sizes: Array.from(new Set([...newProduct.sizes, ...pool])) });
+                                  }}
+                                  className="text-[9px] font-black uppercase text-amber-600 hover:underline"
+                                >
+                                  Chọn hết
+                                </button>
+                                <span className="text-gray-300">|</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setNewProduct({ ...newProduct, sizes: [] })}
+                                  className="text-[9px] font-black uppercase text-red-500 hover:underline"
+                                >
+                                  Xoá hết
+                                </button>
+                              </div>
+                            </div>
+                            <div className="flex gap-2 bg-white p-1 rounded-xl border border-gray-100">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSizeType('clothing');
+                                  // Clear ANY number-based sizes when switching to clothing
+                                  setNewProduct(prev => ({ ...prev, sizes: prev.sizes.filter(s => isNaN(s)) }));
+                                }}
+                                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${sizeType === 'clothing' ? 'bg-gray-900 text-white' : 'text-gray-400 hover:bg-gray-50'}`}
+                              >
+                                Quần áo
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSizeType('shoes');
+                                  // Clear ANY text-based sizes (non-numbers) when switching to shoes
+                                  setNewProduct(prev => ({ ...prev, sizes: prev.sizes.filter(s => !isNaN(s)) }));
+                                }}
+                                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${sizeType === 'shoes' ? 'bg-gray-900 text-white' : 'text-gray-400 hover:bg-gray-50'}`}
+                              >
+                                Giày dép
+                              </button>
+                            </div>
+                          </div>
+                          {showSizeOptions && (
+                            <div className="flex flex-wrap gap-2 mb-3 animate-fadeIn">
+                              {/* Filter the pool and state based on current sizeType to hide other category items entirely */}
+                              {(sizeType === 'clothing'
+                                ? Array.from(new Set([...CLOTHING_SIZES, ...newProduct.sizes.filter(s => isNaN(s))]))
+                                : Array.from(new Set([...SHOE_SIZES, ...newProduct.sizes.filter(s => !isNaN(s))]))
+                              ).map(size => (
+                                <button
+                                  key={size}
+                                  type="button"
+                                  onClick={() => {
+                                    const sizes = newProduct.sizes.includes(size)
+                                      ? newProduct.sizes.filter(s => s !== size)
+                                      : [...newProduct.sizes, size];
+                                    setNewProduct({ ...newProduct, sizes });
+                                  }}
+                                  className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all border-2 ${newProduct.sizes.includes(size) ? 'bg-amber-500 border-amber-500 text-gray-900 shadow-md shadow-amber-500/20' : 'bg-white border-gray-200 text-gray-400 hover:border-amber-500/30'}`}
+                                >
+                                  {size}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              placeholder="Thêm size khác..."
+                              value={customSize}
+                              onChange={e => setCustomSize(e.target.value)}
+                              onKeyPress={e => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  if (customSize && !newProduct.sizes.includes(customSize)) {
+                                    setNewProduct({ ...newProduct, sizes: [...newProduct.sizes, customSize.trim()] });
+                                    setCustomSize('');
+                                  }
+                                }
+                              }}
+                              className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:border-amber-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (customSize && !newProduct.sizes.includes(customSize)) {
+                                  setNewProduct({ ...newProduct, sizes: [...newProduct.sizes, customSize.trim()] });
+                                  setCustomSize('');
+                                }
+                              }}
+                              className="bg-gray-900 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-500 hover:text-gray-900 transition-all"
+                            >
+                              Thêm
+                            </button>
+                          </div>
+                        </div>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Danh mục</label>
@@ -1841,6 +2142,39 @@ export default function SellerDashboard() {
                 </div>
 
                 <form onSubmit={handleUpdateShop} className="space-y-6">
+                  <div className="flex flex-col items-center mb-8">
+                    <div className="relative group">
+                      <div className="w-32 h-32 rounded-3xl bg-gray-50 border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden shadow-inner group-hover:border-amber-500 transition-all duration-300">
+                        {shopForm.image ? (
+                          <img
+                            src={shopForm.image.startsWith('http') ? shopForm.image : `http://localhost:5000${shopForm.image}`}
+                            alt="Shop Logo"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center text-gray-300">
+                            <span className="text-4xl">📸</span>
+                            <span className="text-[8px] font-black uppercase tracking-widest mt-2">Ảnh Shop</span>
+                          </div>
+                        )}
+                        <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                          <span className="text-white text-[10px] font-black uppercase tracking-widest">Đổi ảnh</span>
+                          <input type="file" className="hidden" accept="image/*" onChange={handleShopImageUpload} />
+                        </label>
+                      </div>
+                      {shopForm.image && (
+                        <button
+                          type="button"
+                          onClick={() => setShopForm(prev => ({ ...prev, image: '' }))}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs shadow-lg hover:bg-red-600 transition-colors"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mt-3">Ảnh đại diện cửa hàng</p>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block leading-none">Tên cửa hàng</label>

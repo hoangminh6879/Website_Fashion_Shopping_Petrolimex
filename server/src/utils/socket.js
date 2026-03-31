@@ -14,20 +14,18 @@ export const initSocket = (server) => {
   const onlineUsers = new Map();
 
   io.on('connection', (socket) => {
-    console.log('Client connected:', socket.id);
+
 
     socket.on('setup', (user) => {
       if (user && user._id) {
         socket.join(user._id);
         onlineUsers.set(user._id, socket.id);
-        console.log(`User ${user._id} setup and joined room`);
         socket.emit('connected');
       }
     });
 
     socket.on('join chat', (room) => {
       socket.join(room);
-      console.log('User joined room:', room);
     });
 
     socket.on('typing', (room) => socket.in(room).emit('typing'));
@@ -35,7 +33,7 @@ export const initSocket = (server) => {
 
     socket.on('new message', async (data) => {
       const { sender, receiver, message, shopId } = data;
-      
+
       try {
         // Save to DB
         const newMessage = await ChatMessage.create({
@@ -52,7 +50,7 @@ export const initSocket = (server) => {
 
         // Emit to receiver
         socket.in(receiver).emit('message received', populatedMessage);
-        
+
         // Also emit back to sender (for multi-device sync)
         socket.emit('message sent', populatedMessage);
       } catch (error) {
@@ -68,7 +66,6 @@ export const initSocket = (server) => {
           break;
         }
       }
-      console.log('User disconnected');
     });
   });
 
