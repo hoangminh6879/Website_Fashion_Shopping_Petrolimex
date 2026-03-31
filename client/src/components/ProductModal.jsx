@@ -83,13 +83,13 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
 
   const currentVariant = productVariants.find(v => v.color === selectedColor && v.size === selectedSize);
 
-  const displayPrice = productInfo?.eventPrice > 0 
-    ? productInfo.eventPrice 
+  const displayPrice = productInfo?.eventPrice > 0
+    ? productInfo.eventPrice
     : (selectedProduct?.isFlashSale && selectedProduct?.flashSaleEndDate && new Date(selectedProduct.flashSaleEndDate) > new Date() && selectedProduct?.flashSaleStock > 0
-        ? selectedProduct.flashSalePrice
-        : (selectedProduct?.price > 0
-            ? selectedProduct.price
-            : (currentVariant ? currentVariant.price : (productVariants.length > 0 ? productVariants[0].price : 0))));
+      ? selectedProduct.flashSalePrice
+      : (selectedProduct?.price > 0
+        ? selectedProduct.price
+        : (currentVariant ? currentVariant.price : (productVariants.length > 0 ? productVariants[0].price : 0))));
 
   const originalPrice = productInfo?.originalPrice || selectedProduct?.price || (currentVariant ? currentVariant.originalPrice : 0);
   const discountPercentage = productInfo?.discountPercentage || (selectedProduct?.isFlashSale && selectedProduct?.flashSaleEndDate && new Date(selectedProduct.flashSaleEndDate) > new Date() && selectedProduct?.flashSaleStock > 0 ? selectedProduct.flashSaleDiscount : 0);
@@ -126,7 +126,7 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
 
   const getVariantImage = () => {
     if (!selectedProduct) return null;
-    
+
     // 🔥 New system: Use individual variant's image
     if (currentVariant?.image) return currentVariant.image;
 
@@ -139,7 +139,7 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
         if (selectedProduct.variantImages[index]) return selectedProduct.variantImages[index];
       }
     }
-    
+
     return null;
   };
 
@@ -173,10 +173,10 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
     setAddingToCart(true);
     try {
       if (isBuyNow) {
-        navigate('/checkout', { 
-            state: { 
-                buyNowItem: { product: selectedProduct, color: selectedColor, size: selectedSize, quantity } 
-            } 
+        navigate('/checkout', {
+          state: {
+            buyNowItem: { product: selectedProduct, color: selectedColor, size: selectedSize, quantity }
+          }
         });
       } else {
         await addToCart(selectedProduct, selectedColor, selectedSize, quantity);
@@ -191,7 +191,7 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
         onClose();
       }
     } catch (error) {
-       Swal.fire(t('error'), t('add_to_cart_error'), 'error');
+      Swal.fire(t('error'), t('add_to_cart_error'), 'error');
     } finally {
       setAddingToCart(false);
     }
@@ -222,17 +222,18 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
                 alt={selectedProduct.name}
                 className="w-full max-w-sm aspect-square object-cover rounded-lg shadow-sm bg-white"
               />
-              <div className="mt-4 text-gray-500 text-sm px-4 text-center">
+              <div className="mt-6 text-gray-600 text-sm px-6 text-left border-t border-gray-200 pt-6 w-full">
+                <h4 className="text-xs font-black uppercase text-gray-400 mb-3 tracking-widest italic">Mô tả sản phẩm</h4>
                 <AutoText text={selectedProduct.description} />
               </div>
             </div>
-            
+
             {/* Right: Details */}
             <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col">
               <div className="mb-3 flex items-center gap-2">
                 <span className="bg-[#d0011b] text-white text-[10px] font-bold px-2 py-0.5 rounded-sm">MALL</span>
                 <span className="text-gray-500 text-sm">{t('provided_by')}: <Link to={`/shop/${selectedProduct.shop?._id}`} className="text-amber-600 font-black hover:underline transition-all cursor-pointer"><AutoText text={selectedProduct.shop?.name || 'Shop Của Tôi'} /></Link></span>
-                <button 
+                <button
                   onClick={() => {
                     onClose();
                     openChatWithUser(selectedProduct.shop?.owner, selectedProduct);
@@ -246,7 +247,7 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
                 </button>
               </div>
               <h2 className="text-2xl font-bold text-gray-800 mb-2 leading-tight"><AutoText text={selectedProduct.name} /></h2>
-              
+
               <div className="flex items-center gap-2 mb-4">
                 <div className="flex text-amber-500 text-sm">
                   {[1, 2, 3, 4, 5].map(star => (
@@ -257,7 +258,7 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
                   <span className="text-xs font-bold text-gray-400 border-l border-gray-200 pl-2">({selectedProduct.rating.toFixed(1)})</span>
                 )}
                 <span className="text-xs font-bold text-gray-400 border-l border-gray-200 pl-2 uppercase tracking-tighter"><AutoText text="Đã bán" /> {selectedProduct.sold || 0}</span>
-                <button 
+                <button
                   onClick={() => {
                     onClose();
                     navigate(`/product/${selectedProduct._id}`);
@@ -281,9 +282,9 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
                     )}
                   </div>
                   {discountPercentage > 0 && (
-                     <span className="bg-[#d0011b] text-white text-[10px] font-black px-1.5 py-0.5 rounded-sm uppercase tracking-tighter">
-                       -{discountPercentage}% {t('discount')}
-                     </span>
+                    <span className="bg-[#d0011b] text-white text-[10px] font-black px-1.5 py-0.5 rounded-sm uppercase tracking-tighter">
+                      -{discountPercentage}% {t('discount')}
+                    </span>
                   )}
                   {!currentVariant && productVariants.length > 0 && (
                     <span className="text-xs text-gray-400 ml-auto self-start"> ({t('select_options_price')})</span>

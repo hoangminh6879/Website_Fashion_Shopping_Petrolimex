@@ -564,7 +564,7 @@ export default function Checkout() {
                             <div className="flex items-center justify-between border-b border-gray-50 pb-6 mb-8">
                                 <h3 className="text-xl font-black text-gray-900 uppercase tracking-widest">Thông Tin Giao Hàng</h3>
                                 {user?.addresses?.length > 0 && (
-                                    <button 
+                                    <button
                                         onClick={() => setShowAddressBook(true)}
                                         className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 transition-all font-black uppercase text-[9px] tracking-widest border border-amber-200 shadow-sm"
                                     >

@@ -19,6 +19,7 @@ export const createShop = async (req, res) => {
       address: req.body.address,
       phone: req.body.phone,
       fanpage: req.body.fanpage,
+      image: req.body.image,
       lat: req.body.lat,
       lng: req.body.lng,
       owner: req.user.id,
@@ -37,10 +38,10 @@ export const getMyShop = async (req, res) => {
     if (!shop) {
       return res.status(404).json({ message: "Không tìm thấy shop" });
     }
-    
+
     // Trigger update metrics when viewing dashboard
     await updateShopMetrics(shop._id);
-    
+
     res.json(shop);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -75,10 +76,10 @@ export const getShopMetrics = async (req, res) => {
 };
 export const updateShop = async (req, res) => {
   try {
-    const { name, description, address, phone, fanpage, lat, lng } = req.body;
+    const { name, description, address, phone, fanpage, image, lat, lng } = req.body;
     const shop = await Shop.findOneAndUpdate(
       { owner: req.user.id },
-      { name, description, address, phone, fanpage, lat, lng },
+      { name, description, address, phone, fanpage, image, lat, lng },
       { new: true }
     );
     if (!shop) {
