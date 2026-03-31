@@ -431,21 +431,20 @@ export const getSellerStats = async (req, res) => {
 export const getSellerOrders = async (req, res) => {
     try {
         const userId = req.user.id;
-        console.log(`[getSellerOrders Trace] START for userId: ${userId}`);
+
 
         // 1. Tìm shop
         const shop = await Shop.findOne({ owner: userId }).lean();
         if (!shop) {
-            console.log(`[getSellerOrders Trace] No shop found for user ${userId}`);
             return res.json([]);
         }
         const shopIdString = shop._id.toString();
-        console.log(`[getSellerOrders Trace] Found shop: ${shopIdString} ("${shop.name}")`);
+
 
         // 2. Tìm tất cả Product ID của Shop
         const products = await Product.find({ shop: shop._id }).select('_id name').lean();
         const myProductIds = products.map(p => p._id.toString());
-        console.log(`[getSellerOrders Trace] Shop has ${myProductIds.length} products.`);
+
 
         if (myProductIds.length === 0) {
             return res.json([]);
@@ -454,7 +453,7 @@ export const getSellerOrders = async (req, res) => {
         // 3. Tìm tất cả OrderItem liên quan đến các sản phẩm này
         // (Sử dụng ID sản phẩm để tìm Item)
         const myOrderItems = await OrderItem.find({ product: { $in: myProductIds } }).lean();
-        console.log(`[getSellerOrders Trace] Found ${myOrderItems.length} matching order items across all orders.`);
+
 
         if (myOrderItems.length === 0) {
             return res.json([]);
@@ -468,7 +467,7 @@ export const getSellerOrders = async (req, res) => {
             }
         });
         const uniqueOrderIds = Array.from(orderIdsSet);
-        console.log(`[getSellerOrders Trace] Unique orders count: ${uniqueOrderIds.length}`);
+
 
         if (uniqueOrderIds.length === 0) {
             return res.json([]);
@@ -481,12 +480,12 @@ export const getSellerOrders = async (req, res) => {
             .sort('-createdAt')
             .lean();
 
-        console.log(`[getSellerOrders Trace] Fetched ${ordersFromDb.length} orders from DB.`);
+
 
         // 6. Gắn/Lọc các Item tương ứng cho từng đơn hàng
         const finalSellerOrders = ordersFromDb.map(order => {
             const currentOrderIdStr = order._id.toString();
-            
+
             // Chỉ lấy các item thuộc đơn hàng này VÀ thuộc shop hiện tại
             const itemsForThisOrder = myOrderItems.filter(item => {
                 return item.order && item.order.toString() === currentOrderIdStr;
@@ -508,12 +507,12 @@ export const getSellerOrders = async (req, res) => {
             };
         });
 
-        console.log(`[getSellerOrders Trace] COMPLETED. Sending ${finalSellerOrders.length} orders.`);
+
         return res.json(finalSellerOrders);
 
     } catch (error) {
         console.error('[getSellerOrders CRITICAL ERROR]:', error);
-        return res.status(500).json({ 
+        return res.status(500).json({
             message: "Lỗi hệ thống khi xử lý danh sách đơn hàng cho Seller",
             error: error.message,
             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
@@ -535,8 +534,8 @@ export const confirmReceipt = async (req, res) => {
 
         // Chỉ cho phát xác nhận khi đang ở trạng thái 'shipped' (đang giao)
         if (order.status !== 'shipped') {
-            return res.status(400).json({ 
-                message: `Chỉ có thể xác nhận khi đơn hàng đang ở trạng thái "Đang giao". Trạng thái hiện tại: ${order.status}` 
+            return res.status(400).json({
+                message: `Chỉ có thể xác nhận khi đơn hàng đang ở trạng thái "Đang giao". Trạng thái hiện tại: ${order.status}`
             });
         }
 
@@ -551,7 +550,7 @@ export const confirmReceipt = async (req, res) => {
                 path: 'product',
                 populate: { path: 'shop' }
             });
-            
+
             const sellerNotifications = new Map(); // OwnerID -> ShopName
 
             orderItems.forEach(item => {

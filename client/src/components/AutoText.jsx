@@ -18,12 +18,12 @@ const AutoText = ({ text }) => {
         setTranslatedText(text); // Quay lại Tiếng Việt
       }
     };
-    
+
     translate();
   }, [text, i18n.language]);
 
   if (loading) return <span className="opacity-50 blur-[1px] transition-all">{translatedText || text}</span>;
-  return <span>{translatedText}</span>;
+  return <span className="whitespace-pre-wrap">{translatedText}</span>;
 };
 
 export const useAutoTranslate = (text) => {
