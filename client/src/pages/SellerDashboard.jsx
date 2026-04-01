@@ -2432,10 +2432,10 @@ export default function SellerDashboard() {
                   </div>
 
                   <div>
-                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block leading-none">Ngày & Giờ hết hạn</label>
+                    <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block leading-none">Ngày hết hạn</label>
                     <input
                       required
-                      type="datetime-local"
+                      type="date"
                       value={newCoupon.expiryDate}
                       onChange={(e) => setNewCoupon({ ...newCoupon, expiryDate: e.target.value })}
                       className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-800 focus:border-amber-500 focus:bg-white transition outline-none shadow-inner"
@@ -2474,9 +2474,9 @@ export default function SellerDashboard() {
                 <div className="p-8 space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block">Thời gian kết thúc</label>
+                      <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1.5 block">Ngày kết thúc</label>
                       <input
-                        type="datetime-local"
+                        type="date"
                         value={flashSaleEndDate}
                         onChange={(e) => setFlashSaleEndDate(e.target.value)}
                         className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 font-bold text-gray-800 focus:border-amber-500 outline-none"

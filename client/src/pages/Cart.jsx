@@ -256,9 +256,12 @@ export default function Cart() {
                       {/* Shop Information */}
                       {item.product?.shop && (
                         <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 pt-2 group/shop">
-                          <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 rounded-full border border-amber-100 text-[9px] font-black uppercase tracking-widest transition-all group-hover/shop:bg-amber-100 w-fit">
+                          <Link 
+                            to={`/shop/${item.product.shop._id}`}
+                            className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 rounded-full border border-amber-100 text-[9px] font-black uppercase tracking-widest transition-all hover:bg-amber-500 hover:text-white w-fit cursor-pointer"
+                          >
                             🏬 {item.product.shop.name}
-                          </div>
+                          </Link>
                         </div>
                       )}
                     </div>

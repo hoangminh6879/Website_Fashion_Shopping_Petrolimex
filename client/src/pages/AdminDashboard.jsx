@@ -1462,9 +1462,9 @@ export default function AdminDashboard() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Ngày & Giờ hết hạn</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Ngày hết hạn</label>
                 <input
-                  type="datetime-local"
+                  type="date"
                   value={newCoupon.expiryDate}
                   onChange={(e) => setNewCoupon({ ...newCoupon, expiryDate: e.target.value })}
                   className="w-full bg-gray-50 p-4 rounded-xl border border-gray-200 focus:border-amber-500 focus:bg-white outline-none transition font-bold"
@@ -1530,10 +1530,10 @@ export default function AdminDashboard() {
                   {eventTypes.map(et => <option key={et._id} value={et._id}>{et.icon} {et.label}</option>)}
                 </select></div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-sm font-bold text-gray-700 mb-2">🕐 Ngày bắt đầu *</label>
-                  <input type="datetime-local" value={eventForm.startDate} onChange={e => setEventForm({ ...eventForm, startDate: e.target.value })} className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold" /></div>
-                <div><label className="block text-sm font-bold text-gray-700 mb-2">🕔 Ngày kết thúc *</label>
-                  <input type="datetime-local" value={eventForm.endDate} onChange={e => setEventForm({ ...eventForm, endDate: e.target.value })} className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold" /></div>
+                <div><label className="block text-sm font-bold text-gray-700 mb-2">📅 Ngày bắt đầu *</label>
+                  <input type="date" value={eventForm.startDate} onChange={e => setEventForm({ ...eventForm, startDate: e.target.value })} className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold" /></div>
+                <div><label className="block text-sm font-bold text-gray-700 mb-2">📅 Ngày kết thúc *</label>
+                  <input type="date" value={eventForm.endDate} onChange={e => setEventForm({ ...eventForm, endDate: e.target.value })} className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold" /></div>
               </div>
               <div><label className="block text-sm font-bold text-gray-700 mb-2">% Giảm giá chung (0 = không áp dụng)</label>
                 <input type="number" min="0" max="100" value={eventForm.discountPercentage} onChange={e => setEventForm({ ...eventForm, discountPercentage: e.target.value })} className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold" /></div>
