@@ -151,7 +151,7 @@ export default function ProductDetail() {
   );
 
   if (!product) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 uppercase font-black text-gray-400">
+    <div className="min-h-screen flex items-center justify-center bg-[#dfc27d] uppercase font-black text-gray-900/40">
       <AutoText text="Không tìm thấy sản phẩm" />
     </div>
   );
@@ -166,7 +166,7 @@ export default function ProductDetail() {
   );
 
   return (
-    <div className="bg-gray-50 min-h-screen font-sans pb-20 pt-32 md:pt-44">
+    <div className="min-h-screen bg-gray-50 font-sans pb-20 pt-32 md:pt-44">
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 bg-white p-8 rounded-3xl shadow-xl shadow-gray-200/50">
@@ -311,7 +311,7 @@ export default function ProductDetail() {
                     <h3 className="text-3xl font-black uppercase tracking-tighter italic leading-none">{product.shop?.name || 'Gian hàng chính hãng'}</h3>
                     <div className="flex items-center gap-2 text-amber-500 text-sm font-black uppercase tracking-widest bg-white/5 px-4 py-1.5 rounded-full w-fit mx-auto md:mx-0 border border-white/5 shadow-inner">
                         <span className="text-xl">★</span>
-                        <span>{product.shop?.rating?.toFixed(1) || '5.0'}</span>
+                        <span>{product.shop?.rating?.toFixed(1) || '0.0'}</span>
                         <span className="text-[10px] text-gray-500 ml-1">Shop Reputation Score</span>
                     </div>
                 </div>

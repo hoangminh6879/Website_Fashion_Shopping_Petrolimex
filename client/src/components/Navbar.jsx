@@ -152,8 +152,10 @@ export default function Navbar() {
                 <div className="absolute right-0 top-full pt-1 w-44 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[60]">
                   <div className="bg-white rounded-lg shadow-xl border border-gray-100 py-1.5 text-gray-800 overflow-hidden mt-1">
                     <Link to="/profile" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest">Tài khoản</Link>
-                    <Link to="/order-history" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50">Lịch sử đặt hàng</Link>
-                    {user.role !== 'admin' && (
+                    {user.role === 'user' && (
+                      <Link to="/order-history" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50">Lịch sử đặt hàng</Link>
+                    )}
+                    {user.role === 'user' && (
                       <Link to="/followed-shops" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50">{t('followed_shops')}</Link>
                     )}
                     {user.role === 'seller' && (
