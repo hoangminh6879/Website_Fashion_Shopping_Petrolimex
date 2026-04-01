@@ -6,7 +6,7 @@ import api from '../services/api';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area } from 'recharts';
 import * as XLSX from 'xlsx';
 import ChatWindow from '../components/Chat/ChatWindow';
 import { useSocket } from '../context/SocketContext';
@@ -1130,10 +1130,10 @@ export default function SellerDashboard() {
 
               {/* Charts Selection */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Revenue & Orders Chart */}
+                {/* Revenue Chart (Số tiền) */}
                 <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100">
                   <div className="flex justify-between items-center mb-10">
-                    <h4 className="text-xs font-black uppercase text-gray-400 tracking-[0.2em]">Biểu đồ Tăng trưởng Doanh thu & Đơn hàng</h4>
+                    <h4 className="text-xs font-black uppercase text-gray-400 tracking-[0.2em]">Biểu đồ Doanh thu (Số tiền)</h4>
                   </div>
                   <div className="h-[350px] w-full">
                     {isStatsLoading ? (
@@ -1142,110 +1142,62 @@ export default function SellerDashboard() {
                       </div>
                     ) : statsData.length > 0 ? (
                       <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={statsData}>
+                        <AreaChart data={statsData}>
+                          <defs>
+                            <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8} />
+                              <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                           <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#9ca3af' }} dy={10} />
-                          <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#9ca3af' }} tickFormatter={(v) => `${v / 1000}K`} />
-                          <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#9ca3af' }} />
-                          <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }} />
-                          <Legend verticalAlign="top" height={36} />
-                          <Line yAxisId="left" type="monotone" dataKey="revenue" name="Doanh thu" stroke="#f59e0b" strokeWidth={4} dot={{ r: 4, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 6 }} />
-                          <Line yAxisId="right" type="monotone" dataKey="orders" name="Số đơn hàng" stroke="#3b82f6" strokeWidth={4} dot={{ r: 4, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 6 }} />
-                        </LineChart>
+                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#9ca3af' }} tickFormatter={(v) => `${v / 1000}K`} />
+                          <Tooltip
+                            contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
+                            formatter={(value) => [new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value), 'Doanh thu']}
+                          />
+                          <Area type="monotone" dataKey="revenue" name="Doanh thu" stroke="#f59e0b" strokeWidth={4} fillOpacity={1} fill="url(#colorRevenue)" activeDot={{ r: 6 }} />
+                        </AreaChart>
                       </ResponsiveContainer>
                     ) : (
                       <div className="h-full w-full flex flex-col items-center justify-center text-gray-300 italic">
-                        <span className="text-5xl mb-2">📊</span>
-                        <p className="text-sm font-bold">Chưa có dữ liệu thống kê.</p>
+                        <span className="text-5xl mb-2">💰</span>
+                        <p className="text-sm font-bold">Chưa có dữ liệu doanh thu.</p>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Order Status Distribution */}
+                {/* Orders Chart (Số đơn hàng) */}
                 <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100">
-                  <h4 className="text-xs font-black uppercase text-gray-400 tracking-[0.2em] mb-10">Tỉ lệ Trạng thái Đơn hàng</h4>
-                  <div className="h-[350px] w-full flex flex-col items-center">
-                    {sellerOrders.length > 0 ? (
+                  <div className="flex justify-between items-center mb-10">
+                    <h4 className="text-xs font-black uppercase text-gray-400 tracking-[0.2em]">Biểu đồ Số lượng đơn hàng</h4>
+                  </div>
+                  <div className="h-[350px] w-full">
+                    {isStatsLoading ? (
+                      <div className="h-full w-full flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-amber-500"></div>
+                      </div>
+                    ) : statsData.length > 0 ? (
                       <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={[
-                              { name: 'Hoàn thành', value: sellerOrders.filter(o => o.status === 'completed').length },
-                              { name: 'Đang xử lý', value: sellerOrders.filter(o => o.status === 'pending').length },
-                              { name: 'Đang giao', value: sellerOrders.filter(o => o.status === 'shipped').length },
-                              { name: 'Đã hủy', value: sellerOrders.filter(o => o.status === 'cancelled').length },
-                            ].filter(i => i.value > 0)}
-                            cx="50%" cy="50%"
-                            innerRadius={60}
-                            outerRadius={100}
-                            paddingAngle={5}
-                            dataKey="value"
-                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                          >
-                            <Cell fill="#10b981" />
-                            <Cell fill="#f59e0b" />
-                            <Cell fill="#3b82f6" />
-                            <Cell fill="#ef4444" />
-                          </Pie>
-                          <Tooltip />
-                          <Legend verticalAlign="bottom" height={36} />
-                        </PieChart>
+                        <BarChart data={statsData}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#9ca3af' }} dy={10} />
+                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#9ca3af' }} />
+                          <Tooltip
+                            cursor={{ fill: '#f9fafb' }}
+                            contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
+                          />
+                          <Bar dataKey="orders" name="Số đơn hàng" fill="#3b82f6" radius={[8, 8, 0, 0]} barSize={40} />
+                        </BarChart>
                       </ResponsiveContainer>
                     ) : (
                       <div className="h-full w-full flex flex-col items-center justify-center text-gray-300 italic">
-                        <span className="text-5xl mb-2">🥧</span>
-                        <p className="text-sm font-bold">Chưa đủ dữ liệu để phân tích tỉ lệ.</p>
+                        <span className="text-5xl mb-2">🛒</span>
+                        <p className="text-sm font-bold">Chưa có dữ liệu đơn hàng.</p>
                       </div>
                     )}
                   </div>
-                </div>
-              </div>
-
-              {/* Monthly Revenue Bar Chart */}
-              <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-gray-100">
-                <h4 className="text-xs font-black uppercase text-gray-400 tracking-[0.2em] mb-10">Phân tích Doanh thu chi tiết (Bar Chart)</h4>
-                <div className="h-[400px] w-full">
-                  {isStatsLoading ? (
-                    <div className="h-full w-full flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-amber-500"></div>
-                    </div>
-                  ) : statsData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={statsData}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                        <XAxis
-                          dataKey="name"
-                          axisLine={false}
-                          tickLine={false}
-                          tick={{ fontSize: 10, fontWeight: 900, fill: '#9ca3af' }}
-                          dy={10}
-                        />
-                        <YAxis
-                          axisLine={false}
-                          tickLine={false}
-                          tick={{ fontSize: 10, fontWeight: 900, fill: '#9ca3af' }}
-                          tickFormatter={(value) => `${value / 1000000}M`}
-                        />
-                        <Tooltip
-                          cursor={{ fill: '#f9fafb' }}
-                          contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
-                          formatter={(value) => [formatPrice(value), 'Doanh thu']}
-                        />
-                        <Bar
-                          dataKey="revenue"
-                          fill="#f59e0b"
-                          radius={[8, 8, 0, 0]}
-                          barSize={40}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="h-full w-full flex flex-col items-center justify-center text-gray-300 italic">
-                      <span className="text-5xl mb-2">📊</span>
-                      <p className="text-sm font-bold">Chưa có dữ liệu thống kê nào được ghi nhận.</p>
-                    </div>
-                  )}
                 </div>
               </div>
 

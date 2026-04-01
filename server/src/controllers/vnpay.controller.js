@@ -10,6 +10,7 @@ import Notification from '../models/Notification.model.js';
 import User from '../models/User.model.js';
 import Coupon from '../models/Coupon.model.js';
 import sendEmail from '../utils/sendEmail.js';
+import Shop from '../models/Shop.model.js';
 
 // ─── Helper ────────────────────────────────────────────────────────────────
 function sortObject(obj) {
@@ -85,6 +86,20 @@ export const createVNPayPaymentUrl = async (req, res) => {
                 product.stock[stockIndex] -= item.quantity;
                 product.sold = (product.sold || 0) + item.quantity;
                 await product.save();
+
+                // Thông báo hết hàng cho Seller
+                if (product.stock[stockIndex] === 0) {
+                    const shop = await Shop.findById(product.shop);
+                    if (shop && shop.owner) {
+                        await Notification.create({
+                            recipient: shop.owner,
+                            title: "Sản phẩm hết hàng!",
+                            message: `Sản phẩm "${product.name}" (Màu: ${item.color}, Size: ${item.size}) đã hết hàng lúc ${new Date().toLocaleTimeString('vi-VN')} ngày ${new Date().toLocaleDateString('vi-VN')}.`,
+                            type: "system",
+                            link: "/seller/dashboard?tab=products"
+                        });
+                    }
+                }
             }
 
             return OrderItem.create({
