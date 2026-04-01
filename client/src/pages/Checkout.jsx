@@ -383,11 +383,9 @@ export default function Checkout() {
             });
             setShippingFee(res.data.shippingFee);
             setShippingDistance(res.data.distance);
-            // Reverse geocode with Nominatim
-            const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latlng.lat}&lon=${latlng.lng}`);
-            const geoData = await geoRes.json();
-            if (geoData.display_name) {
-                setFormData(prev => ({ ...prev, address: geoData.display_name }));
+            // Use address returned by server if available
+            if (res.data.address) {
+                setFormData(prev => ({ ...prev, address: res.data.address }));
             }
         } catch (err) {
             console.error('Shipping calc error:', err);

@@ -51,10 +51,25 @@ router.post('/calculate', async (req, res) => {
     // Tối đa 100.000đ
     fee = Math.min(fee, 100000);
 
+    // Add Reverse Geocoding on server side
+    let address = null;
+    try {
+        const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, {
+            headers: { 'User-Agent': 'Petrolimex-Fashion-Store' }
+        });
+        if (geoRes.ok) {
+            const geoData = await geoRes.json();
+            address = geoData.display_name || (geoData.address ? [geoData.address.road, geoData.address.suburb, geoData.address.city].filter(Boolean).join(', ') : null);
+        }
+    } catch (e) {
+        console.error("Reverse Geocode Error:", e.message);
+    }
+
     res.json({
         distance: parseFloat(distance.toFixed(2)),
         shippingFee: Math.round(fee),
-        fromShop: shopId ? true : false
+        fromShop: !!shopId,
+        address: address
     });
 });
 
