@@ -6,6 +6,7 @@ import ProductModal from '../components/ProductModal';
 import AutoText from '../components/AutoText';
 import { useTranslation } from 'react-i18next';
 import { useSocket } from '../context/SocketContext';
+import Navbar from '../components/Navbar';
 
 export default function ShopDetail() {
   const { id } = useParams();
@@ -88,6 +89,7 @@ export default function ShopDetail() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans pb-10 pt-32 md:pt-44">
+      <Navbar />
       {/* SHOP HEADER (Premium Look) */}
       <div className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border-b border-amber-900/50 pt-10 pb-16">
         <div className="container mx-auto px-4">
@@ -144,7 +146,7 @@ export default function ShopDetail() {
       </div>
 
       {/* PRODUCTS NAV */}
-      <div className="sticky top-32 md:top-44 z-40 bg-white border-b border-gray-200 shadow-sm mb-8">
+      <div className="bg-white border-b border-gray-200 shadow-sm mb-8">
          <div className="container mx-auto px-4 flex">
             <button 
               onClick={() => setActiveTab('all')}
@@ -193,7 +195,7 @@ export default function ShopDetail() {
                         />
                         <div className="absolute top-0 right-0 p-2 z-30">
                            <span className="bg-amber-500 text-gray-900 text-[8px] font-black px-1.5 py-0.5 rounded-sm shadow-md flex items-center gap-1">
-                             <span className="animate-pulse">🔥</span> {product.rating?.toFixed(1) || '5.0'}
+                             <span className="animate-pulse">🔥</span> {product.rating?.toFixed(1) || '0.0'}
                            </span>
                         </div>
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20">
@@ -206,7 +208,7 @@ export default function ShopDetail() {
                             <div className="text-amber-600 font-black text-base">{formatPrice(product.price)}</div>
                             <div className="flex items-center justify-between mt-2">
                                <div className="flex text-amber-400 text-[10px]">
-                                 {'★'.repeat(Math.round(product.rating || 5))}
+                                 {'★'.repeat(Math.round(product.rating || 0))}
                                </div>
                                <span className="text-[9px] text-gray-400 font-bold uppercase tracking-tight italic opacity-70"><AutoText text="Bán chạy" /></span>
                             </div>
@@ -270,7 +272,7 @@ export default function ShopDetail() {
                         <div className="text-amber-600 font-black text-base">{formatPrice(product.price)}</div>
                         <div className="flex items-center justify-between mt-2">
                            <div className="flex text-yellow-400 text-[10px]">
-                              {'★'.repeat(Math.round(product.rating || 5))}
+                              {'★'.repeat(Math.round(product.rating || 0))}
                            </div>
                            <span className="text-[10px] text-gray-400 font-medium"><AutoText text="Đã bán" /> {Math.floor(Math.random() * 100) + 1}</span>
                         </div>

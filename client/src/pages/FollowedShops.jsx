@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
 import Swal from 'sweetalert2';
+import Navbar from '../components/Navbar';
 
 export default function FollowedShops() {
   const [followedShops, setFollowedShops] = useState([]);
@@ -59,6 +60,7 @@ export default function FollowedShops() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans pb-20 pt-32 md:pt-44">
+      <Navbar />
       {/* HEADER BAR */}
       <div className="bg-white border-b border-gray-100 sticky top-36 md:top-44 z-10 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">

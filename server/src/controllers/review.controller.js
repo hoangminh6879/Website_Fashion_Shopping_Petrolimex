@@ -28,7 +28,7 @@ export const createReview = async (req, res) => {
       product: productId,
       shop: product.shop, 
       order: orderId,
-      rating: Number(rating) || 5,
+      rating: Number(rating) || 0,
       comment,
       images: Array.isArray(images) ? images : [],
     });
@@ -39,7 +39,7 @@ export const createReview = async (req, res) => {
     // Calculate product's own average rating
     const productReviews = await Review.find({ product: productId });
     const productAvgRating = productReviews.reduce((acc, r) => acc + r.rating, 0) / productReviews.length;
-    await Product.findByIdAndUpdate(productId, { rating: productAvgRating || 5 });
+    await Product.findByIdAndUpdate(productId, { rating: productAvgRating || 0 });
 
     res.status(201).json({
       message: "Đã đăng đánh giá thành công! ⭐",
@@ -120,10 +120,7 @@ export const createShopReview = async (req, res) => {
       comment,
     });
 
-    const metrics = await updateShopMetrics(shopId);
-    if (metrics) {
-        await Shop.findByIdAndUpdate(shopId, { rating: metrics.score });
-    }
+    await updateShopMetrics(shopId);
 
     res.status(201).json({
       message: "Đã đánh giá Shop thành công! ⭐",

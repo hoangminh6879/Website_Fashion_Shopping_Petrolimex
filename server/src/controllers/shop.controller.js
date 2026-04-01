@@ -90,3 +90,13 @@ export const updateShop = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+export const getTopShops = async (req, res) => {
+  try {
+    const shops = await Shop.find({ status: "active" })
+      .sort({ rating: -1 })
+      .limit(10);
+    res.json(shops);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
