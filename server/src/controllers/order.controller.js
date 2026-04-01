@@ -67,6 +67,20 @@ export const createOrder = async (req, res) => {
                 product.stock[stockIndex] -= item.quantity;
                 product.sold = (product.sold || 0) + item.quantity;
                 await product.save();
+
+                // Thông báo hết hàng cho Seller
+                if (product.stock[stockIndex] === 0) {
+                    const shop = await Shop.findById(product.shop);
+                    if (shop && shop.owner) {
+                        await Notification.create({
+                            recipient: shop.owner,
+                            title: "Sản phẩm hết hàng!",
+                            message: `Sản phẩm "${product.name}" (Màu: ${item.color}, Size: ${item.size}) đã hết hàng lúc ${new Date().toLocaleTimeString('vi-VN')} ngày ${new Date().toLocaleDateString('vi-VN')}.`,
+                            type: "system",
+                            link: "/seller/products?tab=products"
+                        });
+                    }
+                }
             }
 
             return OrderItem.create({
@@ -251,7 +265,8 @@ export const updateOrderStatus = async (req, res) => {
             recipient: order.user,
             title: "Cập nhật đơn hàng",
             message: `Đơn hàng #${order._id.toString().slice(-6).toUpperCase()} của bạn ${statusText}.`,
-            type: "order"
+            type: "order",
+            link: `/order-history?orderId=${order._id}`
         });
 
         res.json(order);
@@ -348,7 +363,8 @@ export const cancelOrder = async (req, res) => {
             recipient: order.user,
             title: "Đơn hàng đã hủy",
             message: `Đơn hàng #${order._id.toString().slice(-6).toUpperCase()} của bạn đã được hủy thành công.`,
-            type: "order"
+            type: "order",
+            link: `/order-history?orderId=${order._id}`
         });
 
         res.json({ message: "Đã hủy đơn hàng thành công", order });
