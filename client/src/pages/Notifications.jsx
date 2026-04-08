@@ -20,14 +20,16 @@ export default function Notifications() {
     order: '📦',
     shop: '🏪',
     promotion: '🔥',
-    system: '⚙️'
+    system: '⚙️',
+    social: '📸'
   };
 
   const typeColors = {
     order: 'bg-blue-50 border-blue-200 text-blue-700',
     shop: 'bg-green-50 border-green-200 text-green-700',
     promotion: 'bg-red-50 border-red-200 text-red-700',
-    system: 'bg-gray-50 border-gray-200 text-gray-700'
+    system: 'bg-gray-50 border-gray-200 text-gray-700',
+    social: 'bg-amber-50 border-amber-200 text-amber-700'
   };
 
   const handleClick = (n) => {
@@ -83,9 +85,9 @@ export default function Notifications() {
                     </p>
 
                     {/* Type Badge + Link */}
-                    <div className="flex items-center justify-between mt-3">
-                      <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${typeColors[n.type] || typeColors.system}`}>
-                        {n.type === 'order' ? 'Đơn hàng' : n.type === 'shop' ? 'Cửa hàng' : n.type === 'promotion' ? 'Khuyến mãi' : 'Hệ thống'}
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border ${typeColors[n.type] || typeColors.system}`}>
+                        {n.type === 'order' ? 'Đơn hàng' : n.type === 'shop' ? 'Cửa hàng' : n.type === 'promotion' ? 'Khuyến mãi' : n.type === 'social' ? 'Xã hội' : 'Hệ thống'}
                       </span>
                       <div className="flex items-center gap-2">
                         {(n.link || n.type === 'order') && (
@@ -94,7 +96,7 @@ export default function Notifications() {
                           </span>
                         )}
                         {!n.isRead && (
-                          <span className="h-2 w-2 bg-amber-500 rounded-full animate-pulse"></span>
+                          <span className="h-1.5 w-1.5 bg-amber-500 rounded-full"></span>
                         )}
                       </div>
                     </div>

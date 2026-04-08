@@ -27,7 +27,7 @@ export default function Home() {
   const [currentCouponSlide, setCurrentCouponSlide] = useState(0);
   const [currentShopSlide, setCurrentShopSlide] = useState(0);
   const [timeLeft, setTimeLeft] = useState({});
-  
+
   const navigate = useNavigate();
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
@@ -66,15 +66,16 @@ export default function Home() {
         ]);
         setCategories(catRes.data);
         setOngoingEvents(eventRes.data);
-        setCoupons(couponRes.data);
+        // Special filter for Home Carousel: Show all public coupons (Admin/Seller) but exceed Lucky Wheel awards
+        setCoupons(couponRes.data.filter(c => !c.isLuckyWheel));
         setTopShops(shopRes.data);
 
         const prods = prodRes.data;
         const unique = [];
         const groupMap = {};
-        
+
         // Lọc ở frontend để đảm bảo tính năng tìm kiếm hoạt động chính xác
-        const finalProds = prods.filter(p => 
+        const finalProds = prods.filter(p =>
           p.name.toLowerCase().includes(finalSearch.toLowerCase()) ||
           p.description.toLowerCase().includes(finalSearch.toLowerCase())
         );
@@ -90,9 +91,9 @@ export default function Home() {
         setProductGroupMap(groupMap);
 
         const now = new Date();
-        const flashSales = prods.filter(p => 
-          p.isFlashSale && 
-          p.flashSaleEndDate && 
+        const flashSales = prods.filter(p =>
+          p.isFlashSale &&
+          p.flashSaleEndDate &&
           new Date(p.flashSaleEndDate) > now &&
           p.flashSaleStock > 0
         );
@@ -178,7 +179,7 @@ export default function Home() {
     if (!product) return 0;
     let price = product.price;
     if (product.isFlashSale && product.flashSaleEndDate && new Date(product.flashSaleEndDate) > new Date() && product.flashSaleStock > 0) {
-       price = product.flashSalePrice || price;
+      price = product.flashSalePrice || price;
     }
     return price;
   };
@@ -192,13 +193,13 @@ export default function Home() {
   }
 
   const currentList = products;
-  
+
   const filteredProducts = currentList.filter(p => {
     const matchesCat = selectedCategory ? (p.category === selectedCategory || p.category?._id === selectedCategory) : true;
     const matchesMinPrice = filterPrice.min ? getFlashSalePrice(p) >= filterPrice.min : true;
     const matchesMaxPrice = filterPrice.max ? getFlashSalePrice(p) <= filterPrice.max : true;
     const matchesRating = selectedRating > 0 ? (p.rating && Math.round(p.rating) >= selectedRating) : true;
-    
+
     // Evaluate Khuyen Mai
     const isFlashSaleActive = p.isFlashSale && p.flashSaleEndDate && new Date(p.flashSaleEndDate) > new Date() && p.flashSaleStock > 0;
     const matchesFlashSale = filterPromotion.flashSale ? isFlashSaleActive : true;
@@ -208,14 +209,14 @@ export default function Home() {
   });
 
   const sortedProducts = [...filteredProducts].sort((a, b) => {
-    switch(sort) {
+    switch (sort) {
       case 'price_asc': return getFlashSalePrice(a) - getFlashSalePrice(b);
       case 'price_desc': return getFlashSalePrice(b) - getFlashSalePrice(a);
       case 'rating_asc': return (a.rating || 0) - (b.rating || 0);
       case 'rating_desc': return (b.rating || 0) - (a.rating || 0);
       case 'newest':
       default:
-         return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
     }
   });
 
@@ -229,12 +230,12 @@ export default function Home() {
           {ongoingEvents.length > 0 ? (
             <div className="relative w-full h-full group">
               {ongoingEvents.map((ev, idx) => (
-                <div 
-                  key={ev._id} 
+                <div
+                  key={ev._id}
                   className={`absolute inset-0 transition-all duration-1000 ease-in-out transform ${idx === currentSlide ? 'opacity-100 scale-100' : 'opacity-0 scale-110 pointer-events-none'}`}
                 >
-                  <img 
-                    src={ev.thumbnailImage ? (ev.thumbnailImage.startsWith('http') ? ev.thumbnailImage : `http://localhost:5000${ev.thumbnailImage}`) : `https://picsum.photos/seed/${ev._id}/1200/600`} 
+                  <img
+                    src={ev.thumbnailImage ? (ev.thumbnailImage.startsWith('http') ? ev.thumbnailImage : `http://localhost:5000${ev.thumbnailImage}`) : `https://picsum.photos/seed/${ev._id}/1200/600`}
                     className={`w-full h-full object-cover transition-transform duration-[10000ms] ${idx === currentSlide ? 'scale-110' : 'scale-100'}`}
                     alt={ev.name}
                   />
@@ -247,7 +248,7 @@ export default function Home() {
                       <AutoText text={ev.name} />
                     </h2>
                     <p className="text-gray-200 mb-8 drop-shadow-lg max-w-xl text-sm md:text-base font-medium line-clamp-2 opacity-90 animate-fadeInUp delay-100"><AutoText text={ev.description} /></p>
-                    <button 
+                    <button
                       onClick={() => navigate(`/event/${ev._id}`)}
                       className="bg-gradient-to-r from-[#D4AF37] to-[#B8860B] hover:from-white hover:to-gray-100 text-gray-900 font-black px-10 py-4 rounded-2xl w-max transition-all shadow-2xl shadow-[#D4AF37]/40 uppercase tracking-[0.2em] text-[11px] active:scale-95 animate-fadeInUp delay-200 group/btn flex items-center gap-2"
                     >
@@ -257,11 +258,11 @@ export default function Home() {
                   </div>
                 </div>
               ))}
-              
+
               {/* Carousel Indicators */}
               <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-3 z-30 bg-black/20 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
                 {ongoingEvents.map((_, idx) => (
-                  <button 
+                  <button
                     key={idx}
                     onClick={() => setCurrentSlide(idx)}
                     className={`h-2 transition-all duration-500 rounded-full ${idx === currentSlide ? 'w-10 bg-[#D4AF37] shadow-[0_0_15px_#D4AF37]' : 'w-2 bg-white/40 hover:bg-white/70'}`}
@@ -284,7 +285,7 @@ export default function Home() {
         </div>
 
         <div className="w-full lg:w-1/3 flex flex-row lg:flex-col gap-4">
-          <div 
+          <div
             onClick={() => navigate('/coupons')}
             className="flex-1 lg:h-1/2 bg-gray-900 rounded-2xl overflow-hidden relative shadow-xl group border border-gray-800 cursor-pointer"
           >
@@ -294,11 +295,11 @@ export default function Home() {
                   const name = (coupon.couponType?.name || '').toUpperCase();
                   const isFreeship = name.includes('FREESHIP') || name.includes('SHIP');
                   const isPercent = name.includes('PERCENT') || name.includes('%');
-                  
+
                   let bgColor = "from-blue-600 to-blue-900";
                   let icon = "🎟";
                   let label = "Giảm giá cố định";
-                  
+
                   if (isFreeship) {
                     bgColor = "from-emerald-600 to-emerald-900";
                     icon = "🚚";
@@ -312,7 +313,7 @@ export default function Home() {
                   }
 
                   return (
-                    <div 
+                    <div
                       key={coupon._id}
                       className={`absolute inset-0 transition-opacity duration-1000 flex flex-col justify-center p-6 bg-gradient-to-br ${bgColor} ${idx === currentCouponSlide ? 'opacity-100' : 'opacity-0'}`}
                     >
@@ -326,10 +327,10 @@ export default function Home() {
                       <p className="text-amber-300 font-bold text-sm drop-shadow-md">{label}</p>
                       <div className="mt-4 flex items-center gap-2">
                         <div className="h-0.5 flex-1 bg-white/20 rounded-full overflow-hidden">
-                           <div 
-                             className="h-full bg-white transition-all duration-[4000ms] linear"
-                             style={{ width: idx === currentCouponSlide ? '100%' : '0%' }}
-                           ></div>
+                          <div
+                            className="h-full bg-white transition-all duration-[4000ms] linear"
+                            style={{ width: idx === currentCouponSlide ? '100%' : '0%' }}
+                          ></div>
                         </div>
                         <span className="text-[8px] text-white/50 font-black uppercase tracking-widest">Săn ngay</span>
                       </div>
@@ -348,21 +349,21 @@ export default function Home() {
               </>
             )}
           </div>
-          <div 
+          <div
             className="flex-1 lg:h-1/2 bg-gray-900 rounded-2xl overflow-hidden relative shadow-xl group border border-gray-800 cursor-pointer"
           >
             {topShops.length > 0 ? (
               <div className="w-full h-full relative">
                 {topShops.map((shop, idx) => (
-                  <div 
+                  <div
                     key={shop._id}
                     onClick={() => navigate(`/shop/${shop._id}`)}
                     className={`absolute inset-0 transition-all duration-1000 flex flex-col justify-end p-6 ${idx === currentShopSlide ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
                   >
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent"></div>
-                    <img 
-                      src={shop.image ? (shop.image.startsWith('http') ? shop.image : `http://localhost:5000${shop.image}`) : `https://picsum.photos/seed/${shop._id}/600/300`} 
-                      className="absolute inset-0 w-full h-full object-cover opacity-50 mix-blend-overlay group-hover:scale-110 transition-transform duration-1000" 
+                    <img
+                      src={shop.image ? (shop.image.startsWith('http') ? shop.image : `http://localhost:5000${shop.image}`) : `https://picsum.photos/seed/${shop._id}/600/300`}
+                      className="absolute inset-0 w-full h-full object-cover opacity-50 mix-blend-overlay group-hover:scale-110 transition-transform duration-1000"
                       alt={shop.name}
                     />
                     <div className="relative z-10">
@@ -376,13 +377,13 @@ export default function Home() {
                         <AutoText text={shop.name} />
                       </h3>
                       <div className="mt-4 flex items-center justify-between">
-                         <span className="text-[10px] text-white/60 font-black uppercase tracking-[0.2em]">Khám phá shop</span>
-                         <div className="h-1 w-24 bg-white/10 rounded-full overflow-hidden">
-                           <div 
-                             className="h-full bg-amber-500 transition-all duration-[5000ms] linear"
-                             style={{ width: idx === currentShopSlide ? '100%' : '0%' }}
-                           ></div>
-                         </div>
+                        <span className="text-[10px] text-white/60 font-black uppercase tracking-[0.2em]">Khám phá shop</span>
+                        <div className="h-1 w-24 bg-white/10 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-amber-500 transition-all duration-[5000ms] linear"
+                            style={{ width: idx === currentShopSlide ? '100%' : '0%' }}
+                          ></div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -412,7 +413,7 @@ export default function Home() {
             </h2>
           </div>
           <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-6 border-l border-t border-gray-100">
-            <button 
+            <button
               onClick={() => setSelectedCategory(null)}
               className={`flex flex-col items-center gap-3 p-5 border-r border-b border-gray-100 transition-all duration-300 group ${!selectedCategory ? 'bg-gray-50 border-b-2 border-b-[#D4AF37]' : 'hover:bg-gray-50'}`}
             >
@@ -422,8 +423,8 @@ export default function Home() {
               <span className={`text-sm text-center font-bold uppercase tracking-tighter transition-colors ${!selectedCategory ? 'text-[#D4AF37]' : 'text-gray-700 group-hover:text-[#D4AF37]'}`}><AutoText text="Tất Cả" /></span>
             </button>
             {categories.map((cat) => (
-              <button 
-                key={cat._id} 
+              <button
+                key={cat._id}
                 onClick={() => setSelectedCategory(cat._id)}
                 className={`flex flex-col items-center gap-3 p-5 border-r border-b border-gray-100 transition-all duration-300 group ${selectedCategory === cat._id ? 'bg-gray-50 border-b-2 border-b-[#D4AF37]' : 'hover:bg-gray-50'}`}
               >
@@ -444,24 +445,24 @@ export default function Home() {
         <section className="container mx-auto px-4 mt-8">
           <div className="bg-white rounded-xl shadow-lg border border-[#D4AF37]/20 overflow-hidden">
             <div className="px-6 py-4 bg-gradient-to-r from-black via-gray-900 to-black flex items-center justify-between text-white border-b border-[#D4AF37]/30">
-               <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl italic font-black tracking-tighter uppercase text-transparent bg-clip-text bg-gradient-to-b from-[#D4AF37] to-[#8B7355]">Flash Sale</span>
-                    <span className="text-2xl animate-pulse text-[#D4AF37]">⚡</span>
-                  </div>
-                  <div className="hidden md:flex items-center gap-2">
-                    <div className="bg-[#D4AF37] text-black px-2 py-1 rounded font-black text-sm">{String(timeLeft.hours || 0).padStart(2, '0')}</div>
-                    <span className="font-bold text-[#D4AF37]">:</span>
-                    <div className="bg-[#D4AF37] text-black px-2 py-1 rounded font-black text-sm">{String(timeLeft.minutes || 0).padStart(2, '0')}</div>
-                    <span className="font-bold text-[#D4AF37]">:</span>
-                    <div className="bg-[#D4AF37] text-black px-2 py-1 rounded font-black text-sm">{String(timeLeft.seconds || 0).padStart(2, '0')}</div>
-                  </div>
-               </div>
-               <Link to="/flash-sale" className="text-[#D4AF37] text-xs font-bold hover:text-white transition flex items-center gap-1 uppercase tracking-widest">
-                 <AutoText text="XEM TẤT CẢ" />
-               </Link>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl italic font-black tracking-tighter uppercase text-transparent bg-clip-text bg-gradient-to-b from-[#D4AF37] to-[#8B7355]">Flash Sale</span>
+                  <span className="text-2xl animate-pulse text-[#D4AF37]">⚡</span>
+                </div>
+                <div className="hidden md:flex items-center gap-2">
+                  <div className="bg-[#D4AF37] text-black px-2 py-1 rounded font-black text-sm">{String(timeLeft.hours || 0).padStart(2, '0')}</div>
+                  <span className="font-bold text-[#D4AF37]">:</span>
+                  <div className="bg-[#D4AF37] text-black px-2 py-1 rounded font-black text-sm">{String(timeLeft.minutes || 0).padStart(2, '0')}</div>
+                  <span className="font-bold text-[#D4AF37]">:</span>
+                  <div className="bg-[#D4AF37] text-black px-2 py-1 rounded font-black text-sm">{String(timeLeft.seconds || 0).padStart(2, '0')}</div>
+                </div>
+              </div>
+              <Link to="/flash-sale" className="text-[#D4AF37] text-xs font-bold hover:text-white transition flex items-center gap-1 uppercase tracking-widest">
+                <AutoText text="XEM TẤT CẢ" />
+              </Link>
             </div>
-            
+
             <div className="p-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 bg-white">
               {flashSaleProducts.slice(0, 6).map(p => (
                 <div key={p._id} onClick={() => openProductModal(p)} className="group relative flex flex-col cursor-pointer border border-transparent hover:border-[#D4AF37]/30 transition-all p-2 rounded-lg">
@@ -490,16 +491,16 @@ export default function Home() {
       {/* TOP RATED SECTION */}
       <section className="container mx-auto px-4 mt-12 mb-8">
         <div className="flex items-center justify-between mb-8">
-           <div className="flex flex-col">
-             <h2 className="text-2xl font-black italic tracking-tighter text-gray-900 uppercase leading-none">
-                <AutoText text="Sản phẩm" /> <span className="text-[#D4AF37]"><AutoText text="Đánh Giá Cao" /></span>
-             </h2>
-             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.3em] mt-2"><AutoText text="Được hàng nghìn khách hàng tin dùng" /></p>
-           </div>
-           <button className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-[#D4AF37] transition-colors border-b-2 border-transparent hover:border-[#D4AF37] pb-1"><AutoText text="XEM TẤT CẢ" /></button>
+          <div className="flex flex-col">
+            <h2 className="text-2xl font-black italic tracking-tighter text-gray-900 uppercase leading-none">
+              <AutoText text="Sản phẩm" /> <span className="text-[#D4AF37]"><AutoText text="Đánh Giá Cao" /></span>
+            </h2>
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.3em] mt-2"><AutoText text="Được hàng nghìn khách hàng tin dùng" /></p>
+          </div>
+          <button className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-[#D4AF37] transition-colors border-b-2 border-transparent hover:border-[#D4AF37] pb-1"><AutoText text="XEM TẤT CẢ" /></button>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {products.filter(p => p.rating && p.rating >= 4.0).sort((a,b) => (b.rating)-(a.rating)).slice(0, 6).map(product => (
+          {products.filter(p => p.rating && p.rating >= 4.0).sort((a, b) => (b.rating) - (a.rating)).slice(0, 6).map(product => (
             <div key={product._id} onClick={() => openProductModal(product)} className="group bg-white rounded-sm shadow-sm hover:shadow-md transition-all border border-gray-100 flex flex-col h-full cursor-pointer">
               <div className="w-full aspect-square bg-gray-50 overflow-hidden relative">
                 <img src={product.images && product.images.length > 0 ? (product.images[0].url.startsWith('http') ? product.images[0].url : `http://localhost:5000${product.images[0].url}`) : `https://picsum.photos/seed/${product._id}/400/400`} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700" />
@@ -513,25 +514,25 @@ export default function Home() {
               <div className="p-2.5 flex-1 flex flex-col">
                 <h3 className="text-[12px] text-gray-800 line-clamp-2 leading-tight mb-2 font-medium group-hover:text-[#D4AF37] uppercase italic"><AutoText text={product.name} /></h3>
                 <div className="mt-auto">
-                    <div className="flex items-center gap-2">
-                        <div className="text-[#D4AF37] font-black text-sm">{formatPrice(getFlashSalePrice(product))}</div>
-                        {product.isFlashSale && new Date(product.flashSaleEndDate) > new Date() && product.flashSaleStock > 0 && (
-                          <div className="text-[9px] text-gray-400 line-through">{formatPrice(product.price)}</div>
-                        )}
-                    </div>
-                    <div className="flex justify-between items-center mt-1">
-                      <div className="flex items-center gap-1">
-                        <div className="flex text-[10px] text-amber-400">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <span key={star}>{product.rating >= star ? '★' : '☆'}</span>
-                          ))}
-                        </div>
-                        {product.rating > 0 && (
-                          <span className="text-[10px] font-bold text-gray-400">({product.rating.toFixed(1)})</span>
-                        )}
+                  <div className="flex items-center gap-2">
+                    <div className="text-[#D4AF37] font-black text-sm">{formatPrice(getFlashSalePrice(product))}</div>
+                    {product.isFlashSale && new Date(product.flashSaleEndDate) > new Date() && product.flashSaleStock > 0 && (
+                      <div className="text-[9px] text-gray-400 line-through">{formatPrice(product.price)}</div>
+                    )}
+                  </div>
+                  <div className="flex justify-between items-center mt-1">
+                    <div className="flex items-center gap-1">
+                      <div className="flex text-[10px] text-amber-400">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <span key={star}>{product.rating >= star ? '★' : '☆'}</span>
+                        ))}
                       </div>
-                      <span className="text-[9px] text-gray-400 uppercase font-bold"><AutoText text="Đã bán" /> {product.sold || 0}</span>
+                      {product.rating > 0 && (
+                        <span className="text-[10px] font-bold text-gray-400">({product.rating.toFixed(1)})</span>
+                      )}
                     </div>
+                    <span className="text-[9px] text-gray-400 uppercase font-bold"><AutoText text="Đã bán" /> {product.sold || 0}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -547,48 +548,48 @@ export default function Home() {
               <span className="w-1.5 h-6 bg-[#D4AF37] rounded-full inline-block"></span>
               <AutoText text={searchTerm ? `Kết quả tìm kiếm: ${searchTerm}` : "Gợi ý cho bạn"} />
             </h2>
-            
+
             <div className="flex items-center gap-3">
-               <span className="text-sm text-gray-500 font-bold whitespace-nowrap uppercase tracking-widest hidden md:inline"><AutoText text="Sắp xếp" />:</span>
-               <select 
-                  value={sort} 
-                  onChange={(e) => setSort(e.target.value)}
-                  className="bg-gray-50 border border-gray-200 text-[13px] font-bold rounded-lg px-4 py-2 focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] text-gray-700 min-w-[180px] shadow-sm cursor-pointer"
-               >
-                  <option value="newest">Mới nhất</option>
-                  <option value="price_asc">Giá: Thấp đến Cao</option>
-                  <option value="price_desc">Giá: Cao đến Thấp</option>
-                  <option value="rating_asc">Đánh giá: Thấp đến Cao</option>
-                  <option value="rating_desc">Đánh giá: Cao đến Thấp</option>
-               </select>
+              <span className="text-sm text-gray-500 font-bold whitespace-nowrap uppercase tracking-widest hidden md:inline"><AutoText text="Sắp xếp" />:</span>
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value)}
+                className="bg-gray-50 border border-gray-200 text-[13px] font-bold rounded-lg px-4 py-2 focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] text-gray-700 min-w-[180px] shadow-sm cursor-pointer"
+              >
+                <option value="newest">Mới nhất</option>
+                <option value="price_asc">Giá: Thấp đến Cao</option>
+                <option value="price_desc">Giá: Cao đến Thấp</option>
+                <option value="rating_asc">Đánh giá: Thấp đến Cao</option>
+                <option value="rating_desc">Đánh giá: Cao đến Thấp</option>
+              </select>
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
-          {sortedProducts.length > 0 ? sortedProducts.map((product) => (
-            <div key={product._id} onClick={() => openProductModal(product)} className="group bg-white rounded-sm shadow-sm hover:shadow-md transition-all border border-gray-100 flex flex-col h-full cursor-pointer">
-              <div className="w-full aspect-square bg-gray-50 overflow-hidden relative">
-                <img src={product.images && product.images.length > 0 ? (product.images[0].url.startsWith('http') ? product.images[0].url : `http://localhost:5000${product.images[0].url}`) : `https://picsum.photos/seed/${product._id}/400/400`} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700" />
-                <button onClick={(e) => { e.stopPropagation(); toggleWishlist(product._id); }} className="absolute top-2 right-2 z-30 p-2 rounded-full bg-white/80 backdrop-blur shadow-sm hover:scale-110 transition-all">
-                  <svg className={`w-4 h-4 transition-colors ${isInWishlist(product._id) ? 'text-red-500 fill-current' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
-                </button>
-                {product.isFlashSale && new Date(product.flashSaleEndDate) > new Date() && product.flashSaleStock > 0 && (
-                  <div className="absolute top-2 left-2 z-30 bg-[#D4AF37] text-white text-[9px] font-black px-1.5 py-0.5 rounded-sm shadow-sm">
-                    -{product.flashSaleDiscount}%
+            {sortedProducts.length > 0 ? sortedProducts.map((product) => (
+              <div key={product._id} onClick={() => openProductModal(product)} className="group bg-white rounded-sm shadow-sm hover:shadow-md transition-all border border-gray-100 flex flex-col h-full cursor-pointer">
+                <div className="w-full aspect-square bg-gray-50 overflow-hidden relative">
+                  <img src={product.images && product.images.length > 0 ? (product.images[0].url.startsWith('http') ? product.images[0].url : `http://localhost:5000${product.images[0].url}`) : `https://picsum.photos/seed/${product._id}/400/400`} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700" />
+                  <button onClick={(e) => { e.stopPropagation(); toggleWishlist(product._id); }} className="absolute top-2 right-2 z-30 p-2 rounded-full bg-white/80 backdrop-blur shadow-sm hover:scale-110 transition-all">
+                    <svg className={`w-4 h-4 transition-colors ${isInWishlist(product._id) ? 'text-red-500 fill-current' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+                  </button>
+                  {product.isFlashSale && new Date(product.flashSaleEndDate) > new Date() && product.flashSaleStock > 0 && (
+                    <div className="absolute top-2 left-2 z-30 bg-[#D4AF37] text-white text-[9px] font-black px-1.5 py-0.5 rounded-sm shadow-sm">
+                      -{product.flashSaleDiscount}%
+                    </div>
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 top-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 z-20">
+                    <button onClick={(e) => { e.stopPropagation(); openProductModal(product); }} className="w-4/5 bg-[#D4AF37] text-gray-900 font-bold py-2 rounded-lg text-[10px] uppercase hover:bg-white active:scale-95"><AutoText text="THÊM VÀO GIỎ" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); openProductModal(product); }} className="w-4/5 bg-white text-gray-900 font-bold py-2 rounded-lg text-[10px] uppercase hover:bg-gray-100 active:scale-95"><AutoText text="MUA NGAY" /></button>
                   </div>
-                )}
-                <div className="absolute inset-x-0 bottom-0 top-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 z-20">
-                  <button onClick={(e) => { e.stopPropagation(); openProductModal(product); }} className="w-4/5 bg-[#D4AF37] text-gray-900 font-bold py-2 rounded-lg text-[10px] uppercase hover:bg-white active:scale-95"><AutoText text="THÊM VÀO GIỎ" /></button>
-                  <button onClick={(e) => { e.stopPropagation(); openProductModal(product); }} className="w-4/5 bg-white text-gray-900 font-bold py-2 rounded-lg text-[10px] uppercase hover:bg-gray-100 active:scale-95"><AutoText text="MUA NGAY" /></button>
                 </div>
-              </div>
-              <div className="p-2.5 flex-1 flex flex-col">
-                <h3 className="text-[12.5px] text-gray-800 line-clamp-2 leading-tight mb-2 font-medium group-hover:text-[#D4AF37]"><AutoText text={product.name} /></h3>
-                <div className="mt-auto">
+                <div className="p-2.5 flex-1 flex flex-col">
+                  <h3 className="text-[12.5px] text-gray-800 line-clamp-2 leading-tight mb-2 font-medium group-hover:text-[#D4AF37]"><AutoText text={product.name} /></h3>
+                  <div className="mt-auto">
                     <div className="flex items-center gap-2">
-                        <div className="text-[#D4AF37] font-black text-sm">{formatPrice(getFlashSalePrice(product))}</div>
-                        {product.isFlashSale && new Date(product.flashSaleEndDate) > new Date() && product.flashSaleStock > 0 && (
-                          <div className="text-[9px] text-gray-400 line-through">{formatPrice(product.price)}</div>
-                        )}
+                      <div className="text-[#D4AF37] font-black text-sm">{formatPrice(getFlashSalePrice(product))}</div>
+                      {product.isFlashSale && new Date(product.flashSaleEndDate) > new Date() && product.flashSaleStock > 0 && (
+                        <div className="text-[9px] text-gray-400 line-through">{formatPrice(product.price)}</div>
+                      )}
                     </div>
                     <div className="flex justify-between items-center mt-1">
                       <div className="flex items-center gap-1">
@@ -603,12 +604,12 @@ export default function Home() {
                       </div>
                       <span className="text-[11px] text-gray-600 font-medium"><AutoText text="Đã bán" /> {product.sold || 0}</span>
                     </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          )) : (
-            <div className="col-span-full p-8 text-center text-gray-500"><AutoText text="Không tìm thấy sản phẩm nào..." /></div>
-          )}
+            )) : (
+              <div className="col-span-full p-8 text-center text-gray-500"><AutoText text="Không tìm thấy sản phẩm nào..." /></div>
+            )}
           </div>
           {sortedProducts.length > 0 && (
             <div className="mt-10 flex justify-center">

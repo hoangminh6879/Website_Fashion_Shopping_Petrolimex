@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import ChatWindow from './ChatWindow';
 import { useSocket } from '../../context/SocketContext';
 import { useCart } from '../../context/CartContext';
@@ -21,9 +21,33 @@ const ChatFloating = () => {
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-4">
       {/* Chat Window Container */}
       {isOpen && (
-        <div className="mb-2 transition-all duration-300 transform origin-bottom-right">
+        <div className="mb-4 animate-in fade-in slide-in-from-bottom-10 duration-300">
           <ChatWindow />
         </div>
+      )}
+
+      {/* Lucky Wheel Button - Hidden on Lucky Wheel page */}
+      {cartUser?.role === 'user' && location.pathname !== '/lucky-wheel' && (
+        <Link 
+          to="/lucky-wheel"
+          className="group relative w-14 h-14 rounded-full bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 text-white flex items-center justify-center shadow-[0_8px_20px_rgba(245,158,11,0.4)] transition-all duration-500 transform hover:scale-115 hover:-rotate-12 active:scale-90"
+          title="Vòng quay may mắn"
+        >
+          {/* Pulsing Outer Glow */}
+          <div className="absolute inset-0 rounded-full bg-amber-500 opacity-20 animate-ping group-hover:animate-none"></div>
+          <div className="absolute inset-0 rounded-full border-2 border-white/30 group-hover:border-white/50 transition-all duration-300"></div>
+
+          <span className="text-3xl group-hover:animate-spin block duration-1000 z-10 filter drop-shadow-md">🎡</span>
+          
+          {/* Premium Tooltip */}
+          <div className="absolute right-full mr-5 px-4 py-2 bg-gray-900/90 backdrop-blur-xl text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 whitespace-nowrap border border-white/20 shadow-2xl translate-x-4 group-hover:translate-x-0">
+             Vòng Quay May Mắn
+            <div className="absolute top-1/2 -translate-y-1/2 left-full border-[6px] border-transparent border-l-gray-900/90"></div>
+          </div>
+          
+          {/* Notification Glow Dot */}
+          <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white shadow-[0_0_10px_rgba(239,68,68,0.8)] animate-pulse z-20"></div>
+        </Link>
       )}
 
       {/* Floating Button */}

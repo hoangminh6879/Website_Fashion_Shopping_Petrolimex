@@ -52,6 +52,16 @@ const couponSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // 👉 Nếu là coupon dành riêng cho 1 user (ví dụ từ vòng quay)
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    isLuckyWheel: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

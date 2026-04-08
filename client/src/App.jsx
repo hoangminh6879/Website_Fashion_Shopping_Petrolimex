@@ -22,6 +22,7 @@ import Checkout from "./pages/Checkout";
 import OrderHistory from "./pages/OrderHistory";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ChatFloating from "./components/Chat/ChatFloating";
+import SocialFeed from "./pages/SocialFeed";
 
 
 function App() {
@@ -119,6 +120,7 @@ function App() {
         <Route path="/shop/:id" element={<ShopDetail />} />
         <Route path="/event/:id" element={<EventDetail />} />
         <Route path="/flash-sale" element={<FlashSalePage />} />
+        <Route path="/social-feed" element={<SocialFeed />} />
         <Route path="/lucky-wheel" element={<LuckyWheel />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
