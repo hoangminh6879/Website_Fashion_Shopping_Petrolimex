@@ -7,7 +7,8 @@ import {
   deleteAddress,
   updateAddress,
   getUserProfile,
-  getAdminUser
+  getAdminUser,
+  getMyCoupons
 } from "../controllers/user.controller.js";
 
 import { protect } from "../middlewares/auth.middleware.js";
@@ -20,6 +21,9 @@ router.get("/addresses", protect, getAddresses);
 router.post("/addresses", protect, addAddress);
 router.delete("/addresses/:addressId", protect, deleteAddress);
 router.put("/addresses/:addressId", protect, updateAddress);
+
+// Kho Voucher
+router.get("/my-coupons", protect, getMyCoupons);
 
 // user gửi yêu cầu
 router.get("/profile/:id", protect, getUserProfile);
