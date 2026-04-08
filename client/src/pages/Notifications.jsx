@@ -33,6 +33,8 @@ export default function Notifications() {
   const handleClick = (n) => {
     if (n.link) {
       navigate(n.link);
+    } else if (n.type === 'order') {
+      navigate('/order-history');
     }
   };
 
@@ -44,7 +46,7 @@ export default function Notifications() {
           <h1 className="text-2xl font-black uppercase italic tracking-tighter text-gray-900">
             {t('notifications')}
           </h1>
-          <button 
+          <button
             onClick={markAllRead}
             className="text-xs font-bold text-amber-600 hover:text-amber-700 uppercase tracking-widest"
           >
@@ -55,8 +57,8 @@ export default function Notifications() {
         <div className="space-y-4">
           {notifications.length > 0 ? (
             notifications.map((n) => (
-              <div 
-                key={n._id} 
+              <div
+                key={n._id}
                 onClick={() => handleClick(n)}
                 className={`p-5 rounded-2xl border transition-all cursor-pointer hover:shadow-lg hover:scale-[1.01] ${n.isRead ? 'bg-white border-gray-100 shadow-sm' : 'bg-amber-50 border-amber-200 shadow-md'}`}
               >
@@ -86,8 +88,8 @@ export default function Notifications() {
                         {n.type === 'order' ? 'Đơn hàng' : n.type === 'shop' ? 'Cửa hàng' : n.type === 'promotion' ? 'Khuyến mãi' : 'Hệ thống'}
                       </span>
                       <div className="flex items-center gap-2">
-                        {n.link && (
-                          <span className="text-[9px] font-bold text-amber-500 uppercase tracking-widest">
+                        {(n.link || n.type === 'order') && (
+                          <span className="text-[9px] font-bold text-amber-500 uppercase tracking-widest transition-all group-hover:translate-x-1">
                             <AutoText text="Xem chi tiết →" />
                           </span>
                         )}

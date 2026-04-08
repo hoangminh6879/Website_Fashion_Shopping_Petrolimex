@@ -67,6 +67,37 @@ const userSchema = new mongoose.Schema(
 
     resetPasswordToken: String,
     resetPasswordExpires: Date,
+
+    loginAttempts: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+    lockUntil: {
+      type: Date,
+    },
+
+    loyaltyPoints: { 
+      type: Number, 
+      default: 0 
+    },
+    customerTier: {
+      type: String,
+      enum: ["thường", "đồng", "bạc", "vàng", "bạch kim", "kim cương"],
+      default: "thường"
+    },
+    loyaltyCycleStart: { 
+      type: Date, 
+      default: Date.now 
+    },
+    
+    adminLockUntil: {
+      type: Date,
+    },
+    adminLockReason: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true }
 );

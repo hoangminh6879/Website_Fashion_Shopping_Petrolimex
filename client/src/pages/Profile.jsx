@@ -164,6 +164,36 @@ export default function Profile() {
     setShowAddressModal(true);
   };
 
+  // TỰ ĐỘNG ĐIỀN ĐỊA CHỈ KHI CHỌN TRÊN BẢN ĐỒ
+  useEffect(() => {
+    const reverseGeocode = async () => {
+      if (!showAddressModal || !mapPosition) return;
+      try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${mapPosition.lat}&lon=${mapPosition.lng}&addressdetails=1`);
+        const data = await response.json();
+        
+        if (data && data.address) {
+          const addr = data.address;
+          setAddressForm(prev => ({
+            ...prev,
+            city: addr.city || addr.state || addr.province || '',
+            district: addr.district || addr.suburb || addr.city_district || addr.county || '',
+            ward: addr.ward || addr.quarter || addr.neighborhood || addr.suburb || '',
+            street: (addr.house_number ? addr.house_number + ' ' : '') + (addr.road || '')
+          }));
+        }
+      } catch (err) {
+        console.error("Geocoding error:", err);
+      }
+    };
+
+    const timer = setTimeout(() => {
+       reverseGeocode();
+    }, 500); // Debounce to avoid too many requests
+
+    return () => clearTimeout(timer);
+  }, [mapPosition, showAddressModal]);
+
   const handleSaveAddress = async () => {
     setIsSavingAddress(true);
     try {
@@ -273,11 +303,22 @@ export default function Profile() {
 
   if (loading || !user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center font-sans">
+      <div className="min-h-screen bg-[#FBFBFB] flex items-center justify-center font-sans">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500"></div>
       </div>
     );
   }
+
+  const getTierInfo = (tier, points) => {
+    switch (tier) {
+      case 'đồng': return { icon: '🥉', color: 'text-orange-500', barBg: 'bg-orange-400', nextTier: 'bạc', nextPoints: 2000 };
+      case 'bạc': return { icon: '🥈', color: 'text-slate-500', barBg: 'bg-gray-400', nextTier: 'vàng', nextPoints: 3000 };
+      case 'vàng': return { icon: '🥇', color: 'text-amber-500', barBg: 'bg-amber-400', nextTier: 'bạch kim', nextPoints: 4000 };
+      case 'bạch kim': return { icon: '💎', color: 'text-teal-400', barBg: 'bg-teal-400', nextTier: 'kim cương', nextPoints: 5000 };
+      case 'kim cương': return { icon: '👑', color: 'text-indigo-500', barBg: 'bg-indigo-400', nextTier: null, nextPoints: 5000 };
+      default: return { icon: '⭐', color: 'text-slate-300', barBg: 'bg-amber-500', nextTier: 'đồng', nextPoints: 1000 };
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#FBFBFB] font-sans pb-20 overflow-x-hidden">
@@ -353,7 +394,7 @@ export default function Profile() {
                     </div>
                     <button
                       onClick={() => isEditing ? handleSaveProfile() : setIsEditing(true)}
-                      className={`px-10 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-xl ${isEditing ? 'bg-amber-500 text-gray-900 hover:bg-amber-600' : 'bg-gray-900 text-white hover:bg-amber-500 hover:text-gray-900'}`}
+                      className={`px-10 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-xl ${isEditing ? 'bg-amber-500 text-slate-100 hover:bg-amber-600' : 'bg-gray-900 text-white hover:bg-amber-500 hover:text-gray-900'}`}
                     >
                       {isEditing ? (isSaving ? 'ĐANG LƯU...' : 'LƯU THÔNG TIN') : 'CHỈNH SỬA'}
                     </button>
@@ -405,14 +446,47 @@ export default function Profile() {
                       />
                     </div>
                   </div>
+
+                  {/* TIẾN TRÌNH HẠNG THÀNH VIÊN */}
+                  <div className="mt-8 pt-8 border-t border-gray-50">
+                     <div className="flex items-center gap-4 mb-6">
+                        <span className="text-4xl">{getTierInfo(user.customerTier, user.loyaltyPoints).icon}</span>
+                        <div>
+                           <h4 className="text-xl font-black italic uppercase text-gray-900 tracking-tighter">Hạng <span className={getTierInfo(user.customerTier, user.loyaltyPoints).color}>{user.customerTier || 'Thường'}</span></h4>
+                           <p className="text-[10px] font-bold uppercase text-gray-400 tracking-widest mt-1">Điểm tích lũy: <span className="text-amber-500 font-black text-sm">{user.loyaltyPoints || 0}</span> điểm</p>
+                        </div>
+                     </div>
+                     
+                     {/* Progress Bar */}
+                     {getTierInfo(user.customerTier, user.loyaltyPoints).nextTier ? (
+                         <div className="bg-slate-800 rounded-full h-3 w-full overflow-hidden relative shadow-inner">
+                             <div 
+                                className={`absolute top-0 left-0 h-full ${getTierInfo(user.customerTier, user.loyaltyPoints).barBg} transition-all duration-1000`} 
+                                style={{ width: `${Math.min(100, Math.max(0, ((user.loyaltyPoints || 0) / getTierInfo(user.customerTier, user.loyaltyPoints).nextPoints) * 100))}%` }}
+                             />
+                         </div>
+                     ) : (
+                         <div className="bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full h-3 w-full shadow-inner" />
+                     )}
+                     
+                     {getTierInfo(user.customerTier, user.loyaltyPoints).nextTier ? (
+                         <p className="text-right text-[9px] font-black uppercase text-slate-500 mt-2 tracking-widest">
+                            Cần thêm <span className="text-amber-500">{getTierInfo(user.customerTier, user.loyaltyPoints).nextPoints - (user.loyaltyPoints || 0)} điểm</span> để lên hạng {getTierInfo(user.customerTier, user.loyaltyPoints).nextTier}
+                         </p>
+                     ) : (
+                         <p className="text-right text-[9px] font-black uppercase text-indigo-400 mt-2 tracking-widest">
+                            Bạn đã đạt hạng cao nhất!
+                         </p>
+                     )}
+                  </div>
                   
                   {/* SỔ ĐỊA CHỈ GIAO HÀNG */}
                   {user.role === 'user' && (
                     <div className="md:col-span-2 mt-8 pt-8 border-t border-gray-50">
                       <div className="flex justify-between items-center mb-6">
                           <div>
-                              <h4 className="text-xl font-black italic uppercase text-gray-900 tracking-tighter">Sổ Địa Chỉ <span className="text-amber-500">Giao Hàng</span></h4>
-                              <p className="text-[10px] font-bold uppercase text-gray-400 tracking-widest mt-1">Quản lý các địa chỉ nhận hàng của bạn</p>
+                              <h4 className="text-xl font-black italic uppercase text-slate-100 tracking-tighter">Sổ Địa Chỉ <span className="text-amber-500">Giao Hàng</span></h4>
+                              <p className="text-[10px] font-bold uppercase text-slate-400 tracking-widest mt-1">Quản lý các địa chỉ nhận hàng của bạn</p>
                           </div>
                           <button
                               onClick={() => handleOpenAddressModal()}
@@ -424,19 +498,19 @@ export default function Profile() {
                       
                       <div className="space-y-4">
                           {addresses.length === 0 ? (
-                              <div className="p-8 text-center bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
-                                  <p className="text-gray-400 text-sm font-bold">Chưa có địa chỉ nào được lưu.</p>
+                              <div className="p-8 text-center bg-slate-950 rounded-3xl border-2 border-dashed border-slate-700">
+                                  <p className="text-slate-500 text-sm font-bold">Chưa có địa chỉ nào được lưu.</p>
                               </div>
                           ) : (
                               addresses.map(addr => (
-                                  <div key={addr._id} className={`p-6 bg-white rounded-3xl border-2 transition-all shadow-sm flex flex-col md:flex-row justify-between gap-4 ${addr.isDefault ? 'border-amber-500 shadow-amber-500/10' : 'border-gray-100 hover:border-gray-200'}`}>
+                                  <div key={addr._id} className={`p-6 bg-slate-900 rounded-3xl border-2 transition-all shadow-sm flex flex-col md:flex-row justify-between gap-4 ${addr.isDefault ? 'border-amber-500 shadow-amber-500/10' : 'border-slate-800 hover:border-gray-200'}`}>
                                       <div className="flex-1">
                                           <div className="flex items-center gap-3 mb-2">
-                                              <h5 className="font-black text-gray-900 uppercase tracking-widest text-sm">{addr.receiverName}</h5>
+                                              <h5 className="font-black text-slate-100 uppercase tracking-widest text-sm">{addr.receiverName}</h5>
                                               {addr.isDefault && <span className="bg-amber-100 text-amber-700 text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg">Mặc định</span>}
                                           </div>
-                                          <p className="text-gray-500 text-xs font-bold mb-1">📞 {addr.phone}</p>
-                                          <p className="text-gray-500 text-xs leading-relaxed">{addr.street}, {addr.ward}, {addr.district}, {addr.city}</p>
+                                          <p className="text-slate-400 text-xs font-bold mb-1">📞 {addr.phone}</p>
+                                          <p className="text-slate-400 text-xs leading-relaxed">{addr.street}, {addr.ward}, {addr.district}, {addr.city}</p>
                                           {addr.lat && addr.lng && (
                                             <p className="text-amber-600 text-[10px] font-bold mt-2">🗺️ Tọa độ: {addr.lat.toFixed(4)}, {addr.lng.toFixed(4)}</p>
                                           )}
@@ -453,12 +527,12 @@ export default function Profile() {
                     </div>
                   )}
 
-                  <div className="pt-10 bg-gray-50/50 p-8 rounded-[2rem] border border-gray-100 mt-12">
+                  <div className="pt-10 bg-gray-50 p-8 rounded-[2rem] border border-gray-100 mt-12">
                     <div className="flex items-center gap-4 text-amber-600 mb-2">
                       <span className="text-2xl">⚡</span>
                       <h4 className="text-xs font-black uppercase tracking-widest">Đặc quyền Thành viên</h4>
                     </div>
-                    <p className="text-[11px] text-gray-400 font-medium leading-relaxed">Là thành viên của Petrolimex Fashion, bạn được hưởng các ưu đãi độc quyền: Miễn phí vận chuyển cho đơn từ 2 triệu, Ưu tiên hỗ trợ 24/7 và Hoàn tiền 2% cho mỗi đơn hàng thành công.</p>
+                    <p className="text-[11px] text-gray-500 font-medium leading-relaxed">Là thành viên của Petrolimex Fashion, bạn được hưởng các ưu đãi độc quyền: Miễn phí vận chuyển cho đơn từ 2 triệu, Ưu tiên hỗ trợ 24/7 và Hoàn tiền 2% cho mỗi đơn hàng thành công.</p>
                   </div>
                 </div>
               )}
@@ -472,7 +546,7 @@ export default function Profile() {
                   </div>
 
                   <div className="max-w-md space-y-8">
-                    <div className="bg-gradient-to-br from-amber-500 to-amber-600 p-8 rounded-[2.5rem] text-gray-900 shadow-xl shadow-amber-500/10">
+                    <div className="bg-gradient-to-br from-amber-500 to-amber-600 p-8 rounded-[2.5rem] text-white shadow-xl shadow-amber-500/10">
                       <h4 className="font-black uppercase text-xs mb-3 italic">Khuyến nghị bảo mật</h4>
                       <p className="text-[11px] font-bold leading-relaxed opacity-90">Hãy thay đổi mật khẩu ít nhất 3 tháng một lần và sử dụng các ký tự đặc biệt để đảm bảo an toàn tối đa cho tài khoản của bạn.</p>
                     </div>
@@ -515,9 +589,9 @@ export default function Profile() {
                   </div>
 
                   {user.sellerRequest?.status === 'pending' ? (
-                    <div className="bg-amber-50 p-12 rounded-[3rem] border border-amber-100 text-center py-24 shadow-inner">
+                    <div className="bg-gray-50 p-12 rounded-[3rem] border border-amber-500/30 text-center py-24 shadow-inner">
                       <div className="text-7xl mb-8 animate-bounce">⏳</div>
-                      <h4 className="text-2xl font-black uppercase tracking-tighter text-gray-900 mb-3 italic">Yêu cầu đang được xác thực</h4>
+                      <h4 className="text-2xl font-black uppercase tracking-tighter text-gray-900 mb-3 italic">Yêu cầu đang được <span className="text-amber-500">xác thực</span></h4>
                       <p className="text-sm text-gray-500 font-bold max-w-sm mx-auto leading-relaxed">Đội ngũ kiểm duyệt đang xem xét hồ sơ của bạn. Quy trình này thường mất từ 12-24 giờ làm việc.</p>
                     </div>
                   ) : (
@@ -542,7 +616,7 @@ export default function Profile() {
 
                         <button
                           onClick={() => setShowSellerModal(true)}
-                          className="bg-amber-500 text-gray-900 px-12 py-6 rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-white transition-all shadow-2xl shadow-amber-500/20 hover:scale-105 active:scale-95 mt-4"
+                          className="bg-amber-500 text-slate-100 px-12 py-6 rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-white transition-all shadow-2xl shadow-amber-500/20 hover:scale-105 active:scale-95 mt-4"
                         >
                           ĐĂNG KÝ GIAN HÀNG NGAY
                         </button>
@@ -561,7 +635,7 @@ export default function Profile() {
       {showSellerModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
           <div className="bg-white rounded-[2.5rem] w-full max-w-lg p-7 md:p-10 shadow-2xl animate-scaleIn my-8 border border-gray-100 relative">
-            <button onClick={() => setShowSellerModal(false)} className="absolute top-6 right-6 text-gray-300 hover:text-red-500 transition-colors">
+            <button onClick={() => setShowSellerModal(false)} className="absolute top-6 right-6 text-gray-400 hover:text-red-500 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
 
@@ -578,7 +652,7 @@ export default function Profile() {
                     rows="3"
                     value={sellerForm.reason}
                     onChange={(e) => setSellerForm({ ...sellerForm, reason: e.target.value })}
-                    className="w-full p-5 bg-gray-50 rounded-2xl border-2 border-gray-50 focus:border-amber-500 focus:bg-white transition-all outline-none font-medium shadow-inner text-sm leading-relaxed"
+                    className="w-full p-5 bg-gray-50 rounded-2xl border-2 border-gray-100 focus:border-amber-500 focus:bg-white transition-all outline-none font-medium shadow-inner text-sm leading-relaxed"
                     placeholder="Hãy chia sẻ kế hoạch kinh doanh và dòng sản phẩm định hướng của bạn..."
                   />
                 </div>
@@ -624,7 +698,7 @@ export default function Profile() {
             ) : (
               <div className="space-y-10">
                 <div className="bg-gray-50 p-10 rounded-[3rem] border border-gray-100 h-72 overflow-y-auto custom-scrollbar shadow-inner">
-                  <h4 className="font-black text-gray-900 uppercase tracking-tighter mb-6 text-sm italic border-b border-gray-200 pb-2">Điều khoản đối tác chiến lược</h4>
+                  <h4 className="font-black text-gray-900 uppercase tracking-tighter mb-6 text-sm italic border-b border-gray-100 pb-2">Điều khoản đối tác chiến lược</h4>
                   <div className="space-y-6 text-[11px] text-gray-400 font-bold uppercase tracking-widest leading-relaxed">
                     <p className="flex gap-3"><span className="text-amber-500">01.</span> Cam kết tuyệt đối về chất lượng sản phẩm chính hãng hoặc tự thiết kế cao cấp.</p>
                     <p className="flex gap-3"><span className="text-amber-500">02.</span> Tuân thủ quy tắc đóng gói và bộ nhận diện thương hiệu Petrolimex Fashion.</p>
@@ -661,7 +735,7 @@ export default function Profile() {
       {showAddressModal && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
           <div className="bg-white rounded-[2.5rem] w-full max-w-4xl p-7 md:p-10 shadow-2xl animate-scaleIn border border-gray-100 relative max-h-[90vh] flex flex-col">
-            <button onClick={() => setShowAddressModal(false)} className="absolute top-6 right-6 text-gray-300 hover:text-red-500 transition-colors z-10">
+            <button onClick={() => setShowAddressModal(false)} className="absolute top-6 right-6 text-gray-400 hover:text-red-500 transition-colors z-10">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
             
@@ -707,7 +781,7 @@ export default function Profile() {
               {/* Bản đồ */}
               <div className="flex-1 min-h-[300px] border-2 border-gray-100 rounded-3xl overflow-hidden relative shadow-inner flex flex-col">
                 <div className="bg-gray-50 p-3 border-b border-gray-100">
-                    <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest text-center">Ghim vị trí chính xác trên bản đồ</p>
+                    <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest text-center">Ghim vị trí chính xác trên bản đồ</p>
                 </div>
                 <div className="flex-1 w-full bg-gray-100 relative">
                   {showAddressModal && (
@@ -764,7 +838,7 @@ export default function Profile() {
                   onChange={(e) => setZoom(e.target.value)}
                   className="w-full h-2 bg-gray-100 rounded-full appearance-none cursor-pointer accent-gray-900"
                 />
-                <div className="flex justify-between mt-2 text-[8px] font-black text-gray-300 uppercase tracking-widest">
+                <div className="flex justify-between mt-2 text-[8px] font-black text-gray-400 uppercase tracking-widest">
                   <span>Thu nhỏ</span>
                   <span>Phóng to</span>
                 </div>

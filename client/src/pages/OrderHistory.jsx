@@ -3,9 +3,13 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
 import Swal from 'sweetalert2';
+import ReviewModal from '../components/ReviewModal';
+import ShopReviewModal from '../components/ShopReviewModal';
+import { useSocket } from '../context/SocketContext';
 
 // ─── Order Details Modal ─────────────────────────────────────────────────────
-function OrderModal({ order, onClose, handleCancelOrder }) {
+function OrderModal({ order, onClose, handleCancelOrder, handleConfirmReceipt, onReviewItem, onReviewShop }) {
+    const { openChatWithUser } = useSocket();
     if (!order) return null;
 
     const formatPrice = (price) =>
@@ -87,7 +91,22 @@ function OrderModal({ order, onClose, handleCancelOrder }) {
                                                 <div className="flex-1 min-w-0 py-1">
                                                     <h4 className="font-black text-gray-900 text-sm uppercase truncate mb-1">{item.product?.name}</h4>
                                                     <div className="flex flex-wrap items-center gap-2 mb-3">
-                                                        <span className="text-[9px] font-black bg-gray-900 text-amber-500 px-2 py-0.5 rounded-md uppercase tracking-widest">{item.product?.shop?.name || 'Cửa hàng'}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[9px] font-black bg-gray-900 text-amber-500 px-2 py-0.5 rounded-md uppercase tracking-widest">{item.product?.shop?.name || 'Cửa hàng'}</span>
+                                                            {item.product?.shop?.owner && (
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        openChatWithUser(item.product.shop.owner, item.product);
+                                                                        onClose();
+                                                                    }}
+                                                                    className="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-gray-900 rounded-full text-[10px] font-black uppercase tracking-widest transition-all shadow-sm flex items-center gap-1.5 active:scale-95"
+                                                                    title="Nhắn tin với Shop"
+                                                                >
+                                                                    <span className="text-[12px]">💬</span> 
+                                                                    <span>CHAT VỚI SHOP</span>
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                         <span className="w-1 h-1 rounded-full bg-gray-300"></span>
                                                         <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Màu: {item.color}</span>
                                                         <span className="text-[9px] font-bold text-gray-300">/</span>
@@ -95,7 +114,10 @@ function OrderModal({ order, onClose, handleCancelOrder }) {
                                                     </div>
                                                     <div className="flex justify-between items-end">
                                                         <p className="text-[9px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">Số lượng: x{item.quantity}</p>
-                                                        <p className="font-black text-gray-900 tabular-nums">{formatPrice(item.price * item.quantity)}</p>
+                                                        <div className="flex flex-col items-end gap-2">
+                                                            <p className="font-black text-gray-900 tabular-nums">{formatPrice(item.price * item.quantity)}</p>
+                                                             {/* Review button moved to bottom */}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -216,6 +238,16 @@ function OrderModal({ order, onClose, handleCancelOrder }) {
                                 Yêu cầu hủy đơn
                             </button>
                         )}
+
+                    {/* Nút đánh giá sản phẩm: Chỉ khi hoàn thành */}
+                    {order.status === 'completed' && order.items?.length > 0 && (
+                        <button
+                            onClick={() => onReviewItem(order.items[0])}
+                            className="px-12 py-4 bg-amber-500 text-gray-900 font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-amber-600 transition-all text-[10px] shadow-xl shadow-amber-200"
+                        >
+                            ⭐ Đánh giá sản phẩm
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
@@ -227,6 +259,8 @@ export default function OrderHistory() {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedOrder, setSelectedOrder] = useState(null);
+    const [reviewingItem, setReviewingItem] = useState(null);
+    const [reviewingShop, setReviewingShop] = useState(null);
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -373,8 +407,6 @@ export default function OrderHistory() {
             const order = orders.find(o => o._id === orderId);
             if (order) {
                 setSelectedOrder(order);
-                // Clear the query param without refreshing page if you want
-                // window.history.replaceState(null, '', window.location.pathname);
             }
         }
     }, [location.search, orders]);
@@ -427,7 +459,32 @@ export default function OrderHistory() {
                 order={selectedOrder}
                 onClose={() => setSelectedOrder(null)}
                 handleCancelOrder={handleCancelOrder}
+                handleConfirmReceipt={handleConfirmReceipt}
+                onReviewItem={(item) => setReviewingItem(item)}
+                onReviewShop={(shop) => setReviewingShop(shop)}
             />
+
+            {reviewingItem && (
+                <ReviewModal
+                    item={reviewingItem}
+                    onClose={() => setReviewingItem(null)}
+                    onSuccess={() => {
+                        fetchOrders();
+                        setReviewingItem(null);
+                    }}
+                />
+            )}
+
+            {reviewingShop && (
+                <ShopReviewModal 
+                    shop={reviewingShop} 
+                    onClose={() => setReviewingShop(null)} 
+                    onSuccess={() => {
+                        fetchOrders();
+                        setReviewingShop(null);
+                    }}
+                />
+            )}
 
             <main className="container mx-auto px-4 py-12 mt-44">
                 <div className="max-w-6xl mx-auto">
@@ -482,13 +539,11 @@ export default function OrderHistory() {
                                     className="bg-white rounded-[2.5rem] border border-gray-50 p-8 lg:px-12 lg:py-8 shadow-sm hover:shadow-2xl hover:shadow-gray-200/50 hover:border-amber-100 cursor-pointer transition-all duration-500 group relative overflow-hidden"
                                 >
                                     <div className="lg:grid lg:grid-cols-12 lg:gap-4 items-center flex flex-col gap-6 relative z-10">
-                                        {/* ID */}
                                         <div className="col-span-2 w-full lg:w-auto">
                                             <p className="lg:hidden text-[9px] font-black text-gray-300 uppercase tracking-widest mb-1">Mã đơn hàng</p>
                                             <span className="font-black text-gray-900 tracking-wider text-sm">#{order._id.slice(-8).toUpperCase()}</span>
                                         </div>
 
-                                        {/* Item Teaser */}
                                         <div className="col-span-3 w-full flex items-center gap-4">
                                             <div className="w-14 h-14 rounded-2xl bg-gray-50 border border-gray-50 flex-shrink-0 overflow-hidden shadow-inner p-1">
                                                 <img
@@ -499,18 +554,17 @@ export default function OrderHistory() {
                                                     alt="thumb"
                                                 />
                                             </div>
-                                              <div className="min-w-0">
-                                                  <div className="flex items-center gap-2 mb-0.5">
-                                                      <p className="font-black text-xs text-gray-900 uppercase truncate">{order.items?.[0]?.product?.name || 'Đơn hàng'}</p>
-                                                      <span className="text-[8px] font-black bg-gray-100 text-gray-900 px-1.5 py-0.5 rounded uppercase tracking-tighter">
-                                                          {order.items?.[0]?.product?.shop?.name || 'Shop'}
-                                                      </span>
-                                                  </div>
-                                                  <p className="text-[10px] font-bold text-gray-400 capitalize">{order.items?.length > 1 ? `và ${order.items.length - 1} sản phẩm khác` : '1 sản phẩm'}</p>
-                                              </div>
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-2 mb-0.5">
+                                                    <p className="font-black text-xs text-gray-900 uppercase truncate">{order.items?.[0]?.product?.name || 'Đơn hàng'}</p>
+                                                    <span className="text-[8px] font-black bg-gray-100 text-gray-900 px-1.5 py-0.5 rounded uppercase tracking-tighter">
+                                                        {order.items?.[0]?.product?.shop?.name || 'Shop'}
+                                                    </span>
+                                                </div>
+                                                <p className="text-[10px] font-bold text-gray-400 capitalize">{order.items?.length > 1 ? `và ${order.items.length - 1} sản phẩm khác` : '1 sản phẩm'}</p>
+                                            </div>
                                         </div>
 
-                                        {/* Date */}
                                         <div className="col-span-2 text-center w-full lg:w-auto">
                                             <p className="lg:hidden text-[9px] font-black text-gray-300 uppercase tracking-widest mb-1">Ngày đặt</p>
                                             <span className="text-[11px] font-black text-gray-600 uppercase tracking-tighter italic">
@@ -518,7 +572,6 @@ export default function OrderHistory() {
                                             </span>
                                         </div>
 
-                                        {/* Status & Action */}
                                         <div className="col-span-2 text-center w-full lg:w-auto flex flex-col items-center gap-2">
                                             <span className={`px-5 py-2 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] border-2 ${getStatusColor(order.status)}`}>
                                                 {getStatusText(order.status)}
@@ -536,7 +589,6 @@ export default function OrderHistory() {
                                             )}
                                         </div>
 
-                                        {/* Amount */}
                                         <div className="col-span-2 text-right w-full lg:w-auto">
                                             <p className="lg:hidden text-[9px] font-black text-gray-300 uppercase tracking-widest text-center mb-1">Tổng cộng</p>
                                             <span className="text-xl font-black text-amber-500 italic tracking-tighter tabular-nums">
@@ -544,15 +596,12 @@ export default function OrderHistory() {
                                             </span>
                                         </div>
 
-                                        {/* Arrow Button */}
                                         <div className="col-span-1 text-right w-full lg:w-auto lg:block flex justify-center mt-4 lg:mt-0">
                                             <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-amber-500 group-hover:text-gray-900 text-gray-300 transition-all duration-300 text-xl font-black shadow-inner">
                                                 ›
                                             </div>
                                         </div>
                                     </div>
-
-                                    {/* Hover background splash */}
                                     <div className="absolute top-0 left-0 w-1 h-full bg-amber-500 scale-y-0 group-hover:scale-y-100 transition-transform origin-top duration-500" />
                                 </div>
                             ))}

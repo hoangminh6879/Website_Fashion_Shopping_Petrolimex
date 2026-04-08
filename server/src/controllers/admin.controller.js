@@ -195,3 +195,72 @@ export const updateShopStatus = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+export const lockUserAccount = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { lockDays, reason } = req.body;
+    
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ message: "Không tìm thấy người dùng" });
+
+    if (lockDays === 0 || !lockDays) {
+       user.adminLockUntil = undefined;
+       user.adminLockReason = "";
+       await Notification.create({
+          recipient: user._id,
+          title: "Tài khoản được mở khóa",
+          message: `Tài khoản của bạn đã được mở khóa bởi quản trị viên.`,
+          type: "system"
+       });
+    } else {
+       const lockDate = new Date();
+       lockDate.setDate(lockDate.getDate() + parseInt(lockDays));
+       user.adminLockUntil = lockDate;
+       user.adminLockReason = reason || "Vi phạm chính sách của sàn";
+       
+       // Force remove tokens or at least log lock logic
+    }
+    await user.save();
+    res.json({ message: lockDays ? "Đã khóa người dùng" : "Đã mở khóa người dùng", user });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const lockShopAccount = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { lockDays, reason } = req.body;
+    
+    const shop = await Shop.findById(id).populate("owner");
+    if (!shop) return res.status(404).json({ message: "Không tìm thấy Shop" });
+
+    if (lockDays === 0 || !lockDays) {
+       shop.adminLockUntil = undefined;
+       shop.adminLockReason = "";
+       await Notification.create({
+          recipient: shop.owner._id || shop.owner,
+          title: "Kênh bán hàng được mở khóa",
+          message: `Shop "${shop.name}" của bạn đã được mở khóa bởi quản trị viên.`,
+          type: "shop"
+       });
+    } else {
+       const lockDate = new Date();
+       lockDate.setDate(lockDate.getDate() + parseInt(lockDays));
+       shop.adminLockUntil = lockDate;
+       shop.adminLockReason = reason || "Vi phạm quy định bán hàng";
+       
+       await Notification.create({
+          recipient: shop.owner._id || shop.owner,
+          title: "CẢNH BÁO: Kênh bán hàng bị khóa tạm thời",
+          message: `Shop "${shop.name}" của bạn đã bị quản trị viên khóa trong ${lockDays} ngày. Lý do: ${shop.adminLockReason}`,
+          type: "shop"
+       });
+    }
+    await shop.save();
+    res.json({ message: lockDays ? "Đã khóa Shop" : "Đã mở khóa Shop", shop });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

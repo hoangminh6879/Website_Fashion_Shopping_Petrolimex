@@ -9,7 +9,7 @@ import { protect, authorizeRoles } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-router.get("/available", protect, getAvailableCoupons);
+router.get("/available", getAvailableCoupons);
 
 router
   .route("/")

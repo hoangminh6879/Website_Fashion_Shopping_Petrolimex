@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { registerUser } from "../services/authService";
+import Swal from "sweetalert2";
 import "../main"; // index.css chứa @tailwind base/components/utilities
 
 export default function Register() {
@@ -15,6 +16,14 @@ export default function Register() {
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
+  const validateEmail = (email) => {
+    return String(email)
+      .toLowerCase()
+      .match(
+        /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+      );
+  };
+
   const validatePassword = (password) => {
     if (password.length < 6) return "Mật khẩu phải có tối thiểu 6 ký tự.";
     if (!/[0-9]/.test(password)) return "Mật khẩu phải chứa ít nhất 1 chữ số.";
@@ -27,23 +36,68 @@ export default function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Check for empty fields
+    if (!form.name.trim() || !form.email.trim() || !form.password.trim()) {
+      Swal.fire({
+        icon: "warning",
+        title: "Thông báo",
+        text: "Các trường không được bỏ trống!",
+        confirmButtonColor: "#f59e0b",
+      });
+      return;
+    }
+
+    // Email validation
+    if (!validateEmail(form.email)) {
+      Swal.fire({
+        icon: "error",
+        title: "Lỗi định dạng",
+        text: "Email không đúng định dạng. Vui lòng nhập lại!",
+        confirmButtonColor: "#f59e0b",
+      });
+      return;
+    }
+    
     const passwordError = validatePassword(form.password);
     if (passwordError) {
-      alert("Vui lòng đáp ứng tất cả yêu cầu mật khẩu.");
+      Swal.fire({
+        icon: "warning",
+        title: "Lỗi mật khẩu",
+        text: passwordError,
+        confirmButtonColor: "#f59e0b",
+      });
       return;
     }
 
     if (form.password !== form.confirmPassword) {
-      alert("Mật khẩu xác nhận không khớp.");
+      Swal.fire({
+        icon: "error",
+        title: "Lỗi xác nhận",
+        text: "Mật khẩu xác nhận không khớp!",
+        confirmButtonColor: "#f59e0b",
+      });
       return;
     }
 
     try {
       await registerUser({ name: form.name, email: form.email, password: form.password });
-      alert("Đăng ký thành công 🎉");
-      navigate("/login");
+      
+      Swal.fire({
+        icon: "success",
+        title: "Đăng ký thành công",
+        text: "Chúc mừng! Bạn đã đăng ký tài khoản thành công 🎉",
+        confirmButtonColor: "#10b981",
+      }).then(() => {
+        navigate("/login");
+      });
+
     } catch (err) {
-      alert(err.response?.data?.message);
+      Swal.fire({
+        icon: "error",
+        title: "Đăng ký thất bại",
+        text: err.response?.data?.message || "Đã có lỗi xảy ra, vui lòng thử lại sau.",
+        confirmButtonColor: "#ef4444",
+      });
     }
   };
 

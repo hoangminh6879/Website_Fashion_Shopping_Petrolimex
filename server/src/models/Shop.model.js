@@ -7,11 +7,14 @@ const shopSchema = new mongoose.Schema(
     address: { type: String },
     phone: { type: String },
     fanpage: { type: String },
+    image: { type: String },
     lat: { type: Number },
     lng: { type: Number },
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     status: { type: String, enum: ["pending", "active", "rejected"], default: "pending" },
     rating: { type: Number, default: 0 },
+    adminLockUntil: { type: Date },
+    adminLockReason: { type: String, default: "" },
   },
   { timestamps: true }
 );

@@ -7,6 +7,8 @@ import AutoText, { useAutoTranslate } from "./AutoText";
 import { useTranslation } from "react-i18next";
 import { liveTranslate } from "../i18n";
 import api from '../services/api';
+import NotificationDropdown from './NotificationDropdown';
+import { useSocket } from '../context/SocketContext';
 
 export default function Navbar() {
   const { user, handleLogout, getCartCount, userRole } = useCart();
@@ -22,9 +24,32 @@ export default function Navbar() {
   const [filterCat, setFilterCat] = useState('');
   const [filterPrice, setFilterPrice] = useState({ min: '', max: '' });
   const [filterRating, setFilterRating] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const { openChatWithUser } = useSocket();
+
+  const handleContactAdmin = async () => {
+    try {
+      const res = await api.get('/users/admin');
+      if (res.data && res.data._id) {
+        openChatWithUser(res.data._id);
+      }
+    } catch (err) {
+      console.error("Lỗi khi kết nối với Admin:", err);
+    }
+  };
 
   useEffect(() => {
     api.get('/categories').then(res => setCategories(res.data)).catch(console.error);
+    
+    // Close dropdowns on outside click
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.notification-container')) {
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handleSearch = (e) => {
@@ -74,17 +99,28 @@ export default function Navbar() {
 
           {/* RIGHT: Thông báo, Hỗ trợ, Ngôn ngữ, User */}
           <div className="flex gap-6 items-center">
-            <Link to="/notifications" className="flex items-center gap-1 hover:text-amber-500 transition relative">
-              <span role="img" aria-label="notification">🔔</span> <AutoText text="Thông báo" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] rounded-full h-3 w-3 flex items-center justify-center">
-                  {unreadCount}
-                </span>
+            <div className="relative notification-container">
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="flex items-center gap-1 hover:text-amber-500 transition relative outline-none"
+              >
+                <span role="img" aria-label="notification">🔔</span> <AutoText text="Thông báo" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] rounded-full h-3 w-3 flex items-center justify-center">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+              {showNotifications && (
+                <NotificationDropdown onClose={() => setShowNotifications(false)} />
               )}
-            </Link>
-            <a href="#" className="flex items-center gap-1 hover:text-amber-500 transition">
+            </div>
+            <button 
+              onClick={handleContactAdmin}
+              className="flex items-center gap-1 hover:text-amber-500 transition cursor-pointer"
+            >
               <span role="img" aria-label="support">❓</span> <AutoText text="Hỗ trợ" />
-            </a>
+            </button>
             <div className="h-4 w-px bg-gray-700/50 mx-1"></div>
             <button
               onClick={toggleLanguage}
@@ -116,8 +152,10 @@ export default function Navbar() {
                 <div className="absolute right-0 top-full pt-1 w-44 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[60]">
                   <div className="bg-white rounded-lg shadow-xl border border-gray-100 py-1.5 text-gray-800 overflow-hidden mt-1">
                     <Link to="/profile" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest">Tài khoản</Link>
-                    <Link to="/order-history" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50">Lịch sử đặt hàng</Link>
-                    {user.role !== 'admin' && (
+                    {user.role === 'user' && (
+                      <Link to="/order-history" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50">Lịch sử đặt hàng</Link>
+                    )}
+                    {user.role === 'user' && (
                       <Link to="/followed-shops" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50">{t('followed_shops')}</Link>
                     )}
                     {user.role === 'seller' && (

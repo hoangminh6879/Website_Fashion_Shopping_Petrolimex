@@ -129,3 +129,22 @@ export const updateAddress = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+export const getUserProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('name avatar role email');
+    if (!user) return res.status(404).json({ message: 'Nguoi dung khong ton tai' });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const getAdminUser = async (req, res) => {
+  try {
+    const admin = await User.findOne({ role: "admin" }).select("name avatar role email");
+    if (!admin) return res.status(404).json({ message: "Không tìm thấy Admin" });
+    res.json(admin);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

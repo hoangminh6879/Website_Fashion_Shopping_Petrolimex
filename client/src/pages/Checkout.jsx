@@ -19,7 +19,7 @@ L.Icon.Default.mergeOptions({
 const BASE_SHIPPING_FEE = 15000;
 
 // ─── Coupon Modal ─────────────────────────────────────────────────────────────
-function CouponModal({ coupons, onSelect, onClose, selectedCoupon }) {
+function CouponModal({ coupons, onSelect, onClose, selectedCoupons = [] }) {
     const [search, setSearch] = useState('');
 
     const filtered = coupons.filter(c =>
@@ -104,7 +104,7 @@ function CouponModal({ coupons, onSelect, onClose, selectedCoupon }) {
                         <div className="grid grid-cols-1 gap-4">
                             {filtered.map(coupon => {
                                 const meta = getTypeMeta(coupon.couponType?.name);
-                                const isSelected = selectedCoupon?._id === coupon._id;
+                                const isSelected = selectedCoupons.some(sc => sc._id === coupon._id);
                                 return (
                                     <div
                                         key={coupon._id}
@@ -159,9 +159,9 @@ function CouponModal({ coupons, onSelect, onClose, selectedCoupon }) {
 
                 {/* Footer */}
                 <div className="px-10 py-8 bg-gray-50 border-t border-gray-100 flex gap-4">
-                    {selectedCoupon ? (
+                    {selectedCoupons.length > 0 ? (
                         <button
-                            onClick={() => onSelect(null)}
+                            onClick={() => onSelect([])}
                             className="flex-1 py-5 rounded-[1.5rem] border-2 border-dashed border-red-100 text-[11px] font-black text-red-400 uppercase tracking-widest hover:bg-red-50 hover:border-red-200 transition-all flex items-center justify-center gap-3"
                         >
                             <span>🗑</span> Gỡ mã giảm giá
@@ -169,9 +169,9 @@ function CouponModal({ coupons, onSelect, onClose, selectedCoupon }) {
                     ) : null}
                     <button
                         onClick={onClose}
-                        className={`flex-[2] bg-gray-900 text-white font-black uppercase tracking-[0.3em] py-5 rounded-[1.5rem] hover:bg-amber-500 hover:text-gray-900 transition-all shadow-2xl flex items-center justify-center gap-3 text-xs ${!selectedCoupon ? 'w-full' : ''}`}
+                        className={`flex-[2] bg-gray-900 text-white font-black uppercase tracking-[0.3em] py-5 rounded-[1.5rem] hover:bg-amber-500 hover:text-gray-900 transition-all shadow-2xl flex items-center justify-center gap-3 text-xs ${selectedCoupons.length === 0 ? 'w-full' : ''}`}
                     >
-                        <span>{selectedCoupon ? 'Xác Nhận Áp Dụng' : 'Trở Lại'}</span>
+                        <span>{selectedCoupons.length > 0 ? 'Xác Nhận Áp Dụng' : 'Trở Lại'}</span>
                         <span className="text-lg">✨</span>
                     </button>
                 </div>
@@ -241,7 +241,7 @@ export default function Checkout() {
 
     // Coupon State
     const [coupons, setCoupons] = useState([]);
-    const [selectedCoupon, setSelectedCoupon] = useState(null);
+    const [selectedCoupons, setSelectedCoupons] = useState([]);
     const [showCouponModal, setShowCouponModal] = useState(false);
 
     const [formData, setFormData] = useState({
@@ -341,30 +341,61 @@ export default function Checkout() {
         return 'fixed';
     }, []);
 
-    const getCouponTypeName = useCallback(() =>
-        (selectedCoupon?.couponType?.name || '').toUpperCase(), [selectedCoupon]);
+    const isFreeship = useCallback((coupon) =>
+        detectCouponKind(coupon) === 'freeship'
+        , [detectCouponKind]);
 
-    const isFreeship = useCallback(() =>
-        detectCouponKind(selectedCoupon) === 'freeship'
-        , [detectCouponKind, selectedCoupon]);
+    const isPercent = useCallback((coupon) =>
+        detectCouponKind(coupon) === 'percent'
+        , [detectCouponKind]);
 
-    const isPercent = useCallback(() =>
-        detectCouponKind(selectedCoupon) === 'percent'
-        , [detectCouponKind, selectedCoupon]);
+    const getTierDiscountRates = useCallback(() => {
+        const tier = user?.customerTier || "thường";
+        let shippingDiscountRate = 0;
+        let orderDiscountRate = 0;
+        
+        switch (tier) {
+            case "đồng": shippingDiscountRate = 0.05; break;
+            case "bạc": shippingDiscountRate = 0.10; break;
+            case "vàng": shippingDiscountRate = 0.10; orderDiscountRate = 0.05; break;
+            case "bạch kim": shippingDiscountRate = 0.15; orderDiscountRate = 0.10; break;
+            case "kim cương": shippingDiscountRate = 0.20; orderDiscountRate = 0.20; break;
+        }
+        return { shippingDiscountRate, orderDiscountRate };
+    }, [user?.customerTier]);
 
     const getOrderDiscount = useCallback(() => {
-        if (!selectedCoupon) return 0;
         const subtotal = getCheckoutTotal();
-        const value = selectedCoupon.discount || 0;
-        if (isFreeship()) return 0; // freeship không giảm tiền hàng
-        if (isPercent()) return (subtotal * value) / 100;
-        return value; // FIXED discount
-    }, [selectedCoupon, getCheckoutTotal, isFreeship, isPercent]);
+        let totalDiscount = 0;
+        
+        if (selectedCoupons && selectedCoupons.length > 0) {
+            selectedCoupons.forEach(coupon => {
+                if (isFreeship(coupon)) return;
+                const value = coupon.discount || 0;
+                if (isPercent(coupon)) {
+                     totalDiscount += (subtotal * value) / 100;
+                } else {
+                     totalDiscount += value;
+                }
+            });
+        }
+        
+        const { orderDiscountRate } = getTierDiscountRates();
+        if (orderDiscountRate > 0) {
+             totalDiscount += (subtotal * orderDiscountRate);
+        }
+        
+        return Math.floor(totalDiscount);
+    }, [selectedCoupons, getCheckoutTotal, isFreeship, isPercent, getTierDiscountRates]);
 
     const getShippingAfterDiscount = useCallback(() => {
-        if (isFreeship() && selectedCoupon) return 0;
-        return shippingFee;
-    }, [isFreeship, selectedCoupon, shippingFee]);
+        const hasFreeship = selectedCoupons.some(c => isFreeship(c));
+        if (hasFreeship) return 0;
+        
+        const { shippingDiscountRate } = getTierDiscountRates();
+        const result = shippingFee - (shippingFee * shippingDiscountRate);
+        return Math.floor(result > 0 ? result : 0);
+    }, [isFreeship, selectedCoupons, shippingFee, getTierDiscountRates]);
 
     // Calculate shipping from server when coords change
     const handleMapPick = useCallback(async (latlng) => {
@@ -383,11 +414,9 @@ export default function Checkout() {
             });
             setShippingFee(res.data.shippingFee);
             setShippingDistance(res.data.distance);
-            // Reverse geocode with Nominatim
-            const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latlng.lat}&lon=${latlng.lng}`);
-            const geoData = await geoRes.json();
-            if (geoData.display_name) {
-                setFormData(prev => ({ ...prev, address: geoData.display_name }));
+            // Use address returned by server if available
+            if (res.data.address) {
+                setFormData(prev => ({ ...prev, address: res.data.address }));
             }
         } catch (err) {
             console.error('Shipping calc error:', err);
@@ -423,8 +452,49 @@ export default function Checkout() {
     };
 
     const handleSelectCoupon = (coupon) => {
-        setSelectedCoupon(coupon);
-        if (coupon) setShowCouponModal(false);
+        if (!coupon) {
+            setSelectedCoupons([]);
+            return;
+        }
+
+        const isAlreadySelected = selectedCoupons.some(sc => sc._id === coupon._id);
+        if (isAlreadySelected) {
+            setSelectedCoupons(prev => prev.filter(sc => sc._id !== coupon._id));
+            return;
+        }
+
+        const kind = detectCouponKind(coupon);
+        
+        // Kiểm tra xem việc thêm coupon mới có gây ra xung đột loại không (% vs Giá tiền)
+        const hasPercent = selectedCoupons.some(c => detectCouponKind(c) === 'percent');
+        const hasFixed = selectedCoupons.some(c => detectCouponKind(c) === 'fixed');
+
+        if ((kind === 'percent' && hasFixed) || (kind === 'fixed' && hasPercent)) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Không thể kết hợp!',
+                text: 'Hệ thống không cho phép áp dụng đồng thời mã giảm giá theo % và mã giảm giá theo giá tiền cố định.',
+                confirmButtonColor: '#111827'
+            });
+            return;
+        }
+
+        // Nếu đã chọn 2 mã, tiến hành thay thế mã cùng loại hoặc mã cũ nhất
+        if (selectedCoupons.length >= 2) {
+             const sameKindIdx = selectedCoupons.findIndex(c => detectCouponKind(c) === kind);
+             if (sameKindIdx > -1) {
+                 const newSelected = [...selectedCoupons];
+                 newSelected[sameKindIdx] = coupon;
+                 setSelectedCoupons(newSelected);
+             } else {
+                 // Nếu khác loại (ví dụ chọn mã thứ 3), thay thế mã đầu tiên
+                 setSelectedCoupons(prev => [prev[1], coupon]);
+             }
+             return;
+        }
+
+        // Nếu chưa đủ 2 mã, cho phép thêm thoải mái (vì đã qua check xung đột loại ở trên)
+        setSelectedCoupons(prev => [...prev, coupon]);
     };
 
     const handleSubmit = async (e) => {
@@ -433,8 +503,9 @@ export default function Checkout() {
 
         setLoading(true);
         try {
-            const voucherIds = selectedCoupon ? [selectedCoupon._id] : [];
-            const discountAmount = getOrderDiscount() + (isFreeship() && selectedCoupon ? SHIPPING_FEE : 0);
+            const voucherIds = selectedCoupons.map(c => c._id);
+            const hasFreeship = selectedCoupons.some(c => isFreeship(c));
+            const discountAmount = getOrderDiscount() + (hasFreeship ? shippingFee : 0);
 
             // ── Thanh toán VNPay ──────────────────────────────────────────
             if (formData.paymentMethod === 'VNPAY') {
@@ -521,7 +592,7 @@ export default function Checkout() {
         );
     }
 
-    const selectedMeta = selectedCoupon ? getTypeMeta(selectedCoupon) : null;
+
 
     return (
         <div className="min-h-screen bg-[#FBFBFB] flex flex-col font-sans">
@@ -531,7 +602,7 @@ export default function Checkout() {
             {showCouponModal && (
                 <CouponModal
                     coupons={coupons}
-                    selectedCoupon={selectedCoupon}
+                    selectedCoupons={selectedCoupons}
                     onSelect={handleSelectCoupon}
                     onClose={() => setShowCouponModal(false)}
                 />
@@ -561,17 +632,21 @@ export default function Checkout() {
                         <div className="bg-white rounded-[3rem] shadow-2xl shadow-gray-200/50 border border-gray-100 p-10 overflow-hidden relative">
                             <div className="absolute top-0 left-0 w-2 h-full bg-amber-500" />
 
-                            <div className="flex items-center justify-between border-b border-gray-50 pb-6 mb-8">
-                                <h3 className="text-xl font-black text-gray-900 uppercase tracking-widest">Thông Tin Giao Hàng</h3>
-                                {user?.addresses?.length > 0 && (
-                                    <button 
+                                <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-gray-50 pb-8 mb-10 gap-4">
+                                    <div>
+                                        <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tighter italic">Thông Tin <span className="text-amber-500">Giao Hàng</span></h3>
+                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Vui lòng cung cấp chính xác để nhận hàng nhanh nhất</p>
+                                    </div>
+                                    <button
+                                        type="button"
                                         onClick={() => setShowAddressBook(true)}
-                                        className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 transition-all font-black uppercase text-[9px] tracking-widest border border-amber-200 shadow-sm"
+                                        className="group relative flex items-center gap-3 px-6 py-3.5 rounded-[1.5rem] bg-gray-900 text-amber-400 hover:bg-amber-500 hover:text-gray-900 transition-all duration-500 font-black uppercase text-[10px] tracking-[0.2em] shadow-xl shadow-gray-200 overflow-hidden"
                                     >
-                                        <span className="text-sm">📋</span> Chọn từ sổ địa chỉ
+                                        <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
+                                        <span className="relative z-10 text-lg">📋</span>
+                                        <span className="relative z-10 tracking-widest">Chọn từ sổ địa chỉ</span>
                                     </button>
-                                )}
-                            </div>
+                                </div>
 
                             <form onSubmit={handleSubmit} className="space-y-6">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -736,39 +811,45 @@ export default function Checkout() {
 
                                 {/* Selected coupon display or button */}
                                 {/* Selected voucher display or button */}
-                                {selectedCoupon ? (
-                                    <div className="group relative overflow-hidden">
-                                        <div className={`rounded-[2rem] border-2 p-6 ${selectedMeta?.border} ${selectedMeta?.bg} shadow-lg shadow-amber-100 hover:shadow-2xl transition-all duration-500`}>
-                                            <div className="flex items-center gap-4 relative z-10">
-                                                <div className={`w-14 h-14 rounded-2xl ${selectedMeta?.tagBg} flex items-center justify-center text-2xl flex-shrink-0 transform rotate-3 shadow-inner`}>
-                                                    ✨
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${selectedMeta?.tagBg} ${selectedMeta?.tagText}`}>
-                                                            {selectedMeta?.label}
-                                                        </span>
+                                {selectedCoupons.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {selectedCoupons.map(coupon => {
+                                            const meta = getTypeMeta(coupon);
+                                            return (
+                                                <div key={coupon._id} className="group relative overflow-hidden">
+                                                    <div className={`rounded-[2rem] border-2 p-6 ${meta?.border} ${meta?.bg} shadow-lg shadow-amber-100 hover:shadow-2xl transition-all duration-500`}>
+                                                        <div className="flex items-center gap-4 relative z-10">
+                                                            <div className={`w-14 h-14 rounded-2xl ${meta?.tagBg} flex items-center justify-center text-2xl flex-shrink-0 shadow-inner`}>
+                                                                {isFreeship(coupon) ? '🚚' : '✨'}
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${meta?.tagBg} ${meta?.tagText}`}>
+                                                                        {meta?.label}
+                                                                    </span>
+                                                                </div>
+                                                                <p className="font-black text-gray-900 text-base uppercase tracking-wider">{coupon.code}</p>
+                                                                <p className={`text-[11px] font-black mt-0.5 ${meta?.tagText}`}>{formatCouponValue(coupon)}</p>
+                                                            </div>
+                                                            <button
+                                                                onClick={() => setSelectedCoupons(prev => prev.filter(c => c._id !== coupon._id))}
+                                                                className="w-10 h-10 rounded-full bg-white/80 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-white shadow-sm transition-all font-bold"
+                                                                title="Gỡ coupon"
+                                                            >
+                                                                ✕
+                                                            </button>
+                                                        </div>
                                                     </div>
-                                                    <p className="font-black text-gray-900 text-base uppercase tracking-wider">{selectedCoupon.code}</p>
-                                                    <p className={`text-[11px] font-black mt-0.5 ${selectedMeta?.tagText}`}>{formatCouponValue(selectedCoupon)}</p>
                                                 </div>
-                                                <button
-                                                    onClick={() => setSelectedCoupon(null)}
-                                                    className="w-10 h-10 rounded-full bg-white/80 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-white shadow-sm transition-all font-bold"
-                                                    title="Gỡ coupon"
-                                                >
-                                                    ✕
-                                                </button>
-                                            </div>
-
-                                            {/* Action to change */}
-                                            <button
-                                                onClick={() => setShowCouponModal(true)}
-                                                className="mt-4 w-full py-3 bg-white/50 hover:bg-white border border-dashed border-gray-200 hover:border-amber-300 rounded-xl text-[9px] font-black uppercase tracking-widest text-gray-400 hover:text-amber-500 transition-all"
-                                            >
-                                                Thay đổi Voucher khác
-                                            </button>
-                                        </div>
+                                            );
+                                        })}
+                                        {/* Action to change/add */}
+                                        <button
+                                            onClick={() => setShowCouponModal(true)}
+                                            className="w-full py-4 bg-amber-50 hover:bg-amber-100 border border-dashed border-amber-300 rounded-2xl text-[10px] font-black uppercase tracking-widest text-amber-600 transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <span>➕</span> {selectedCoupons.length === 1 && !selectedCoupons.some(c => isFreeship(c)) ? 'Thêm Freeship' : (selectedCoupons.length === 1 ? 'Thêm mã giảm giá' : 'Thay đổi Voucher')}
+                                        </button>
                                     </div>
                                 ) : (
                                     <button
@@ -802,22 +883,22 @@ export default function Checkout() {
                                         <div className="w-8 h-8 rounded-xl bg-white border border-gray-200 flex items-center justify-center text-sm shadow-inner">🏷</div>
                                         <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Tổng tiền gốc</span>
                                     </div>
-                                    <span className={`font-black tracking-tight tabular-nums ${selectedCoupon ? 'line-through text-gray-300 text-sm' : 'text-gray-900 text-base'}`}>
+                                    <span className={`font-black tracking-tight tabular-nums ${selectedCoupons.length > 0 ? 'line-through text-gray-300 text-sm' : 'text-gray-900 text-base'}`}>
                                         {formatPrice(getCheckoutTotal())}
                                     </span>
                                 </div>
 
                                 {/* Row 2: After voucher price */}
-                                <div className={`flex items-center justify-between px-6 py-4 rounded-[1.5rem] border-2 transition-all duration-500 ${selectedCoupon ? 'bg-amber-50 border-amber-200 shadow-lg shadow-amber-100' : 'bg-gray-50/30 border-dashed border-gray-100 opacity-60'}`}>
+                                <div className={`flex items-center justify-between px-6 py-4 rounded-[1.5rem] border-2 transition-all duration-500 ${selectedCoupons.length > 0 ? 'bg-amber-50 border-amber-200 shadow-lg shadow-amber-100' : 'bg-gray-50/30 border-dashed border-gray-100 opacity-60'}`}>
                                     <div className="flex items-center gap-3">
-                                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm shadow-inner border ${selectedCoupon ? 'bg-amber-500 border-amber-400 text-white' : 'bg-white border-gray-200'}`}>✨</div>
-                                        <span className={`text-[10px] font-black uppercase tracking-widest ${selectedCoupon ? 'text-amber-700' : 'text-gray-400'}`}>Sau khi áp Voucher</span>
+                                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm shadow-inner border ${selectedCoupons.length > 0 ? 'bg-amber-500 border-amber-400 text-white' : 'bg-white border-gray-200'}`}>✨</div>
+                                        <span className={`text-[10px] font-black uppercase tracking-widest ${selectedCoupons.length > 0 ? 'text-amber-700' : 'text-gray-400'}`}>Sau khi áp Voucher</span>
                                     </div>
                                     <div className="text-right">
-                                        <p className={`font-black tracking-tight tabular-nums text-lg ${selectedCoupon ? 'text-amber-500' : 'text-gray-400'}`}>
-                                            {selectedCoupon ? formatPrice(getCheckoutTotal() - getOrderDiscount()) : '---'}
+                                        <p className={`font-black tracking-tight tabular-nums text-lg ${selectedCoupons.length > 0 ? 'text-amber-500' : 'text-gray-400'}`}>
+                                            {selectedCoupons.length > 0 ? formatPrice(getCheckoutTotal() - getOrderDiscount()) : '---'}
                                         </p>
-                                        {selectedCoupon && getOrderDiscount() > 0 && (
+                                        {selectedCoupons.length > 0 && getOrderDiscount() > 0 && (
                                             <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest mt-0.5">
                                                 Tiết kiệm {formatPrice(getOrderDiscount())} 🎉
                                             </p>
@@ -842,7 +923,7 @@ export default function Checkout() {
 
                                 <div className="flex justify-between items-center">
                                     <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Phí vận chuyển</span>
-                                    {isFreeship() && selectedCoupon ? (
+                                    {selectedCoupons.some(c => isFreeship(c)) ? (
                                         <div className="flex items-center gap-2">
                                             <span className="text-[10px] line-through text-gray-300 font-bold">{formatPrice(shippingFee)}</span>
                                             <span className="text-[10px] font-black uppercase text-emerald-500 tracking-widest bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">Miễn Phí 🚚</span>

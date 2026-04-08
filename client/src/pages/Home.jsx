@@ -21,7 +21,11 @@ export default function Home() {
   const [user, setUser] = useState(null);
   const [flashSaleProducts, setFlashSaleProducts] = useState([]);
   const [ongoingEvents, setOngoingEvents] = useState([]);
+  const [coupons, setCoupons] = useState([]);
+  const [topShops, setTopShops] = useState([]);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [currentCouponSlide, setCurrentCouponSlide] = useState(0);
+  const [currentShopSlide, setCurrentShopSlide] = useState(0);
   const [timeLeft, setTimeLeft] = useState({});
   
   const navigate = useNavigate();
@@ -53,13 +57,17 @@ export default function Home() {
       try {
         let finalSearch = searchTerm;
 
-        const [catRes, prodRes, eventRes] = await Promise.all([
+        const [catRes, prodRes, eventRes, couponRes, shopRes] = await Promise.all([
           api.get('/categories'),
           api.get(`/products?search=${finalSearch}&category=${selectedCategory || ""}&sort=${sort}`),
-          api.get('/events/ongoing')
+          api.get('/events/ongoing'),
+          api.get('/coupons/available'),
+          api.get('/shops/top-rated')
         ]);
         setCategories(catRes.data);
         setOngoingEvents(eventRes.data);
+        setCoupons(couponRes.data);
+        setTopShops(shopRes.data);
 
         const prods = prodRes.data;
         const unique = [];
@@ -140,6 +148,22 @@ export default function Home() {
     }, 5000);
     return () => clearInterval(slideTimer);
   }, [ongoingEvents]);
+
+  useEffect(() => {
+    if (coupons.length <= 1) return;
+    const couponTimer = setInterval(() => {
+      setCurrentCouponSlide(prev => (prev + 1) % coupons.length);
+    }, 4000);
+    return () => clearInterval(couponTimer);
+  }, [coupons]);
+
+  useEffect(() => {
+    if (topShops.length <= 1) return;
+    const shopTimer = setInterval(() => {
+      setCurrentShopSlide(prev => (prev + 1) % topShops.length);
+    }, 5000);
+    return () => clearInterval(shopTimer);
+  }, [topShops]);
 
   const openProductModal = (productInfo) => {
     setSelectedProduct(productInfo);
@@ -261,23 +285,119 @@ export default function Home() {
 
         <div className="w-full lg:w-1/3 flex flex-row lg:flex-col gap-4">
           <div 
-            onClick={() => navigate('/flash-sale')}
-            className="flex-1 lg:h-1/2 bg-gray-800 rounded-2xl overflow-hidden relative shadow-xl group border border-gray-200/10 cursor-pointer"
+            onClick={() => navigate('/coupons')}
+            className="flex-1 lg:h-1/2 bg-gray-900 rounded-2xl overflow-hidden relative shadow-xl group border border-gray-800 cursor-pointer"
           >
-            <div className="absolute inset-0 bg-gradient-to-tr from-gray-900 to-gray-700 opacity-80 transition group-hover:scale-105 duration-500"></div>
-            <img src="https://picsum.photos/seed/flash/600/300" className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay group-hover:scale-110 transition-transform duration-1000" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent p-6 flex flex-col justify-end">
-              <span className="text-[#D4AF37] font-black text-[10px] bg-black/60 w-max px-3 py-1 rounded-full uppercase tracking-widest border border-[#D4AF37]/30 mb-2">⚡ <AutoText text="Flash Sale" /></span>
-              <h3 className="text-white text-xl font-black uppercase italic leading-tight"><AutoText text="Deal Thời Trang Nam" /> <br /> <span className="text-[#D4AF37]"><AutoText text="Săn Ngay 0Đ" /></span></h3>
-            </div>
+            {coupons.length > 0 ? (
+              <div className="w-full h-full relative">
+                {coupons.map((coupon, idx) => {
+                  const name = (coupon.couponType?.name || '').toUpperCase();
+                  const isFreeship = name.includes('FREESHIP') || name.includes('SHIP');
+                  const isPercent = name.includes('PERCENT') || name.includes('%');
+                  
+                  let bgColor = "from-blue-600 to-blue-900";
+                  let icon = "🎟";
+                  let label = "Giảm giá cố định";
+                  
+                  if (isFreeship) {
+                    bgColor = "from-emerald-600 to-emerald-900";
+                    icon = "🚚";
+                    label = "Miễn phí vận chuyển";
+                  } else if (isPercent) {
+                    bgColor = "from-amber-500 to-amber-700";
+                    icon = "⚡";
+                    label = `Giảm ${coupon.discount}%`;
+                  } else {
+                    label = `Giảm ${new Intl.NumberFormat('vi-VN').format(coupon.discount)}đ`;
+                  }
+
+                  return (
+                    <div 
+                      key={coupon._id}
+                      className={`absolute inset-0 transition-opacity duration-1000 flex flex-col justify-center p-6 bg-gradient-to-br ${bgColor} ${idx === currentCouponSlide ? 'opacity-100' : 'opacity-0'}`}
+                    >
+                      <div className="absolute top-0 right-0 p-4 opacity-10 text-6xl transform rotate-12">{icon}</div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest text-white border border-white/10">{coupon.couponType?.description || label}</span>
+                      </div>
+                      <h3 className="text-white text-2xl font-black uppercase tracking-tighter italic leading-none mb-1">
+                        <AutoText text={coupon.code} />
+                      </h3>
+                      <p className="text-amber-300 font-bold text-sm drop-shadow-md">{label}</p>
+                      <div className="mt-4 flex items-center gap-2">
+                        <div className="h-0.5 flex-1 bg-white/20 rounded-full overflow-hidden">
+                           <div 
+                             className="h-full bg-white transition-all duration-[4000ms] linear"
+                             style={{ width: idx === currentCouponSlide ? '100%' : '0%' }}
+                           ></div>
+                        </div>
+                        <span className="text-[8px] text-white/50 font-black uppercase tracking-widest">Săn ngay</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <>
+                <div className="absolute inset-0 bg-gradient-to-tr from-gray-900 to-gray-700 opacity-80 transition group-hover:scale-105 duration-500"></div>
+                <img src="https://picsum.photos/seed/flash/600/300" className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay group-hover:scale-110 transition-transform duration-1000" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent p-6 flex flex-col justify-end">
+                  <span className="text-[#D4AF37] font-black text-[10px] bg-black/60 w-max px-3 py-1 rounded-full uppercase tracking-widest border border-[#D4AF37]/30 mb-2">⚡ <AutoText text="Ưu đãi" /></span>
+                  <h3 className="text-white text-xl font-black uppercase italic leading-tight"><AutoText text="Kho Voucher Petrolimex" /> <br /> <span className="text-[#D4AF37]"><AutoText text="Đang cập nhật..." /></span></h3>
+                </div>
+              </>
+            )}
           </div>
-          <div className="flex-1 lg:h-1/2 bg-gray-800 rounded-2xl overflow-hidden relative shadow-xl group border border-gray-200/10 cursor-pointer">
-            <div className="absolute inset-0 bg-gradient-to-tr from-gray-900 to-gray-700 opacity-60 transition group-hover:scale-105 duration-500"></div>
-            <img src="https://picsum.photos/seed/shipping/600/300" className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay group-hover:scale-110 transition-transform duration-1000" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent p-6 flex flex-col justify-end">
-              <span className="text-[#D4AF37] font-black text-[10px] bg-black/60 w-max px-3 py-1 rounded-full uppercase tracking-widest border border-[#D4AF37]/30 mb-2">🚚 <AutoText text="Giao Siêu Tốc" /></span>
-              <h3 className="text-white text-xl font-black uppercase italic leading-tight"><AutoText text="Miễn phí vận chuyển" /> <br /> <span className="text-[#D4AF37]"><AutoText text="Toàn quốc" /></span></h3>
-            </div>
+          <div 
+            className="flex-1 lg:h-1/2 bg-gray-900 rounded-2xl overflow-hidden relative shadow-xl group border border-gray-800 cursor-pointer"
+          >
+            {topShops.length > 0 ? (
+              <div className="w-full h-full relative">
+                {topShops.map((shop, idx) => (
+                  <div 
+                    key={shop._id}
+                    onClick={() => navigate(`/shop/${shop._id}`)}
+                    className={`absolute inset-0 transition-all duration-1000 flex flex-col justify-end p-6 ${idx === currentShopSlide ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent"></div>
+                    <img 
+                      src={shop.image ? (shop.image.startsWith('http') ? shop.image : `http://localhost:5000${shop.image}`) : `https://picsum.photos/seed/${shop._id}/600/300`} 
+                      className="absolute inset-0 w-full h-full object-cover opacity-50 mix-blend-overlay group-hover:scale-110 transition-transform duration-1000" 
+                      alt={shop.name}
+                    />
+                    <div className="relative z-10">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-amber-400 text-xs shadow-amber-500/50 drop-shadow-sm font-black uppercase tracking-widest">Top {idx + 1} Rated Shop</span>
+                        <div className="flex items-center bg-black/40 backdrop-blur-md px-2 py-0.5 rounded border border-white/10 text-[10px] font-bold text-amber-500">
+                          ⭐ {shop.rating?.toFixed(1) || '0.0'}
+                        </div>
+                      </div>
+                      <h3 className="text-white text-xl font-black uppercase italic leading-tight group-hover:text-amber-400 transition-colors">
+                        <AutoText text={shop.name} />
+                      </h3>
+                      <div className="mt-4 flex items-center justify-between">
+                         <span className="text-[10px] text-white/60 font-black uppercase tracking-[0.2em]">Khám phá shop</span>
+                         <div className="h-1 w-24 bg-white/10 rounded-full overflow-hidden">
+                           <div 
+                             className="h-full bg-amber-500 transition-all duration-[5000ms] linear"
+                             style={{ width: idx === currentShopSlide ? '100%' : '0%' }}
+                           ></div>
+                         </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="absolute inset-0 bg-gradient-to-tr from-gray-900 to-gray-700 opacity-60 transition group-hover:scale-105 duration-500"></div>
+                <img src="https://picsum.photos/seed/shipping/600/300" className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay group-hover:scale-110 transition-transform duration-1000" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent p-6 flex flex-col justify-end">
+                  <span className="text-[#D4AF37] font-black text-[10px] bg-black/60 w-max px-3 py-1 rounded-full uppercase tracking-widest border border-[#D4AF37]/30 mb-2">🚚 <AutoText text="Top Shop" /></span>
+                  <h3 className="text-white text-xl font-black uppercase italic leading-tight"><AutoText text="Cửa hàng hàng đầu" /> <br /> <span className="text-[#D4AF37]"><AutoText text="Đang tải..." /></span></h3>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </section>
@@ -384,7 +504,7 @@ export default function Home() {
               <div className="w-full aspect-square bg-gray-50 overflow-hidden relative">
                 <img src={product.images && product.images.length > 0 ? (product.images[0].url.startsWith('http') ? product.images[0].url : `http://localhost:5000${product.images[0].url}`) : `https://picsum.photos/seed/${product._id}/400/400`} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700" />
                 <div className="absolute top-1 left-1 bg-black/80 text-[#D4AF37] px-2 py-0.5 rounded-sm text-[9px] font-black flex items-center gap-1 z-30">
-                  <span>★</span> {product.rating ? product.rating.toFixed(1) : 'Chưa có'}
+                  <span>★</span> {product.rating ? product.rating.toFixed(1) : '0.0'}
                 </div>
                 <div className="absolute inset-x-0 bottom-0 top-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 z-20">
                   <button onClick={(e) => { e.stopPropagation(); openProductModal(product); }} className="w-4/5 bg-[#D4AF37] text-gray-900 font-bold py-2 rounded-lg text-[10px] uppercase transition-all hover:bg-white active:scale-95"><AutoText text="XEM CHI TIẾT" /></button>
@@ -400,10 +520,17 @@ export default function Home() {
                         )}
                     </div>
                     <div className="flex justify-between items-center mt-1">
-                      <div className="text-[10px] text-yellow-400">
-                        {product.rating ? '★'.repeat(Math.round(product.rating)) : '☆'.repeat(5)}
+                      <div className="flex items-center gap-1">
+                        <div className="flex text-[10px] text-amber-400">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <span key={star}>{product.rating >= star ? '★' : '☆'}</span>
+                          ))}
+                        </div>
+                        {product.rating > 0 && (
+                          <span className="text-[10px] font-bold text-gray-400">({product.rating.toFixed(1)})</span>
+                        )}
                       </div>
-                      <span className="text-[9px] text-gray-400 uppercase font-bold"><AutoText text="Còn hàng" /> {product.sold || 0}</span>
+                      <span className="text-[9px] text-gray-400 uppercase font-bold"><AutoText text="Đã bán" /> {product.sold || 0}</span>
                     </div>
                 </div>
               </div>
@@ -415,7 +542,7 @@ export default function Home() {
       {/* PRODUCT FEED */}
       <section className="container mx-auto px-4 mt-8 pb-12 w-full">
         <div className="w-full">
-          <div className="bg-white rounded-xl shadow-sm border border-[#D4AF37]/30 mb-6 sticky top-20 z-40 px-6 py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="bg-white rounded-xl shadow-sm border border-[#D4AF37]/30 mb-6 px-6 py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <h2 className="text-[#D4AF37] text-lg font-black uppercase tracking-wider flex items-center gap-2">
               <span className="w-1.5 h-6 bg-[#D4AF37] rounded-full inline-block"></span>
               <AutoText text={searchTerm ? `Kết quả tìm kiếm: ${searchTerm}` : "Gợi ý cho bạn"} />
@@ -464,8 +591,15 @@ export default function Home() {
                         )}
                     </div>
                     <div className="flex justify-between items-center mt-1">
-                      <div className="text-[10px] text-yellow-400">
-                        {product.rating ? '★'.repeat(Math.round(product.rating)) : '☆'.repeat(5)}
+                      <div className="flex items-center gap-1">
+                        <div className="flex text-[10px] text-amber-400">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <span key={star}>{product.rating >= star ? '★' : '☆'}</span>
+                          ))}
+                        </div>
+                        {product.rating > 0 && (
+                          <span className="text-[10px] font-bold text-gray-400">({product.rating.toFixed(1)})</span>
+                        )}
                       </div>
                       <span className="text-[11px] text-gray-600 font-medium"><AutoText text="Đã bán" /> {product.sold || 0}</span>
                     </div>

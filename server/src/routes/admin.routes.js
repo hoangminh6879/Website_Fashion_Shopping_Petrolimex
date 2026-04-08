@@ -5,7 +5,9 @@ import {
   getAllUsers, 
   getAllShops, 
   updateUserRole,
-  updateShopStatus
+  updateShopStatus,
+  lockUserAccount,
+  lockShopAccount
 } from "../controllers/admin.controller.js";
 import { approveSeller } from "../controllers/user.controller.js";
 
@@ -24,8 +26,12 @@ router.put("/users/:id/role", updateUserRole);
 // API duyệt seller (từ chối hoặc duyệt đều có thể thiết kế thêm sau, hiện dùng hàm approveSeller có sẵn)
 router.put("/users/:id/approve-seller", approveSeller);
 
+// API khóa/mở khóa tài khoản admin
+router.put("/users/:id/lock", lockUserAccount);
+
 // Quản lý cửa hàng
 router.get("/shops", getAllShops);
 router.put("/shops/:id/status", updateShopStatus);
+router.put("/shops/:id/lock", lockShopAccount);
 
 export default router;

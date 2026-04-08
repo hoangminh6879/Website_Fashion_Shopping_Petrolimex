@@ -61,10 +61,26 @@ export const getProducts = async (req, res) => {
   try {
     const { shopId, category, search, minPrice, maxPrice, sort } = req.query;
     
-    const filter = {};
+    // Lấy id các cửa hàng hợp lệ (không bị tạm khóa)
+    const today = new Date();
+    const validShops = await Shop.find({
+      $or: [
+        { adminLockUntil: { $exists: false } }, 
+        { adminLockUntil: null }, 
+        { adminLockUntil: { $lt: today } }
+      ]
+    }).select('_id');
+    const validShopIds = validShops.map(s => s._id);
+
+    const filter = { shop: { $in: validShopIds } };
     
-    // Filter by Shop
-    if (shopId) filter.shop = shopId;
+    // Filter by Shop (if provided and valid)
+    if (shopId && validShopIds.some(id => id.toString() === shopId.toString())) {
+       filter.shop = shopId;
+    } else if (shopId) {
+       // Nếu shop bị request khóa thì không hiển thị gì cả
+       return res.json([]);
+    }
     
     // Filter by Category
     if (category) filter.category = category;
@@ -87,9 +103,13 @@ export const getProducts = async (req, res) => {
     if (sort === "price_desc") sortOptions = { price: -1 };
     if (sort === "name_asc") sortOptions = { name: 1 };
     if (sort === "name_desc") sortOptions = { name: -1 };
+    if (sort === "rating") sortOptions = { rating: -1 };
 
     const products = await Product.find(filter)
-      .populate("shop")
+      .populate({
+        path: "shop",
+        populate: { path: "owner", select: "name avatar" }
+      })
       .populate("category")
       .populate("images")
       .sort(sortOptions);
@@ -172,7 +192,10 @@ export const updateFlashSale = async (req, res) => {
 export const getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
-      .populate("shop")
+      .populate({
+        path: "shop",
+        populate: { path: "owner", select: "name avatar" }
+      })
       .populate("category")
       .populate("images");
 
@@ -347,6 +370,28 @@ export const getSellerProducts = async (req, res) => {
       .populate("category")
       .populate("images")
       .sort("-createdAt");
+    res.json(products);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// 🔥 GET TOP RATED PRODUCTS
+export const getTopRatedProducts = async (req, res) => {
+  try {
+    const { shopId, limit = 4 } = req.query;
+    const filter = { isActive: true };
+    if (shopId) filter.shop = shopId;
+
+    const products = await Product.find(filter)
+      .populate({
+        path: "shop",
+        populate: { path: "owner", select: "name avatar" }
+      })
+      .populate("images")
+      .sort({ rating: -1, sold: -1 })
+      .limit(Number(limit));
+
     res.json(products);
   } catch (err) {
     res.status(500).json({ message: err.message });
