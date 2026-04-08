@@ -31,6 +31,8 @@ import chatRoutes from "./src/routes/chat.routes.js";
 import luckyWheelRoutes from "./src/routes/luckyWheel.routes.js";
 import postRoutes from "./src/routes/post.routes.js";
 import commentRoutes from "./src/routes/comment.routes.js";
+import battleRoutes from "./src/routes/battle.route.js";
+import { startBattleWorker } from "./src/utils/battleWorker.js";
 
 import path from "path";
 
@@ -127,7 +129,7 @@ app.use("/api/chat", chatRoutes);
 app.use("/api/lucky-wheel", luckyWheelRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/comments", commentRoutes);
-
+app.use("/api/battles", battleRoutes);
 
 const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
@@ -138,4 +140,5 @@ server.listen(PORT, () => {
     // Start automated background tasks
     startEventWorker();
     startTierResetWorker();
+    startBattleWorker();
 });
