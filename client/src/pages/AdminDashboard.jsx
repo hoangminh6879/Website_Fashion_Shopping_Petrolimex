@@ -41,6 +41,10 @@ export default function AdminDashboard() {
   const [editingPrize, setEditingPrize] = useState(null);
   const [prizeForm, setPrizeForm] = useState({ name: '', discount: 0, couponType: '', expiryDays: 30, probability: 0, quantity: -1, color: '#f59e0b', isActive: true });
   
+  // Battle Management State
+  const [adminBattles, setAdminBattles] = useState([]);
+  const [now, setNow] = useState(new Date());
+
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -75,6 +79,12 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchData(activeTab);
     fetchPendingCount();
+
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
   }, [activeTab]);
 
   const fetchPendingCount = async () => {
@@ -148,6 +158,9 @@ export default function AdminDashboard() {
       } else if (tab === "pendingPosts") {
         const res = await api.get("/posts/pending");
         setPendingPosts(Array.isArray(res.data) ? res.data : []);
+      } else if (tab === "battles") {
+        const res = await api.get("/battles/admin/list");
+        setAdminBattles(Array.isArray(res.data) ? res.data : []);
       }
     } catch (err) {
       if (err.response?.status === 401 || err.response?.status === 403) {
@@ -683,6 +696,9 @@ export default function AdminDashboard() {
               <span>⏳ Duyệt Sản Phẩm</span>
               {pendingProductEvents.length > 0 && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">{pendingProductEvents.length}</span>}
             </button>
+            <button onClick={() => setActiveTab("battles")} className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${activeTab === "battles" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-500 hover:bg-gray-50"}`}>
+              ⚔️ Fashion Battle
+            </button>
           </div>
         </aside>
 
@@ -752,6 +768,85 @@ export default function AdminDashboard() {
                     </div>
                   )}
                </div>
+            </div>
+          )}
+
+          {/* TAB: Fashion Battle Management */}
+          {activeTab === "battles" && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="mb-8 flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-black text-gray-900 uppercase">⚔️ Quản lý Fashion Battle</h2>
+                  <p className="text-gray-400 text-sm">Theo dõi các trận chiến thời trang đang diễn ra trên toàn hệ thống</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-6">
+                {adminBattles.map((battle) => {
+                  const isOngoing = battle.status === "ongoing" && new Date(battle.endTime) > now;
+                  const calculateTimeLeft = (endTime) => {
+                    const diff = +new Date(endTime) - +now;
+                    if (diff <= 0) return "Đã kết thúc";
+                    const h = Math.floor(diff / (1000 * 60 * 60));
+                    const m = Math.floor((diff / (1000 * 60)) % 60);
+                    const s = Math.floor((diff / 1000) % 60);
+                    return `${h}g ${m}p ${s}s`;
+                  };
+
+                  return (
+                    <div key={battle._id} className="bg-white border border-gray-100 rounded-[2rem] p-6 shadow-sm flex flex-col md:flex-row items-center gap-6 group hover:shadow-xl transition-all duration-500">
+                       <div className="flex -space-x-4 mb-4 md:mb-0">
+                          {battle.products?.slice(0, 2).map((p, idx) => (
+                            <div key={idx} className="w-20 h-20 rounded-2xl border-4 border-white shadow-lg overflow-hidden relative z-10 first:z-20">
+                               <img src={p.images?.[0]?.url ? (p.images[0].url.startsWith('http') ? p.images[0].url : `http://localhost:5000${p.images[0].url}`) : 'https://placehold.co/100'} className="w-full h-full object-cover" alt="" />
+                            </div>
+                          ))}
+                       </div>
+
+                       <div className="flex-1 text-center md:text-left">
+                          <h3 className="text-xl font-black text-gray-900 uppercase italic leading-tight mb-1">{battle.name}</h3>
+                          <div className="flex items-center justify-center md:justify-start gap-2 mb-3">
+                             <img src={battle.shop?.image ? (battle.shop.image.startsWith('http') ? battle.shop.image : `http://localhost:5000${battle.shop.image}`) : 'https://placehold.co/50'} className="w-5 h-5 rounded-full border border-amber-500" alt="" />
+                             <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">{battle.shop?.name}</span>
+                          </div>
+                          
+                          <div className="flex flex-wrap justify-center md:justify-start gap-3">
+                             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${isOngoing ? 'bg-green-50 text-green-600 border-green-100' : 'bg-gray-50 text-gray-400 border-gray-100'}`}>
+                                {isOngoing ? '● Đang diễn ra' : 'Đã kết thúc'}
+                             </span>
+                             <span className="px-3 py-1 rounded-full bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-widest border border-red-100">
+                                Giảm {battle.discountPercentage}%
+                             </span>
+                             <span className="px-3 py-1 rounded-full bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-widest border border-blue-100">
+                                {battle.products?.length} Sản phẩm
+                             </span>
+                          </div>
+                       </div>
+
+                       <div className="bg-gray-50 rounded-2xl p-4 min-w-[180px] text-center">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Thời gian còn lại</p>
+                          <p className={`text-lg font-mono font-black ${isOngoing ? 'text-amber-600' : 'text-gray-400'}`}>
+                             {calculateTimeLeft(battle.endTime)}
+                          </p>
+                       </div>
+
+                       <button 
+                         onClick={() => navigate(`/fashion-battle/${battle._id}`)}
+                         className="px-8 py-4 bg-gray-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-amber-500 hover:text-gray-900 transition-all active:scale-95 shadow-lg shadow-gray-900/10"
+                       >
+                         THEO DÕI
+                       </button>
+                    </div>
+                  );
+                })}
+
+                {adminBattles.length === 0 && (
+                  <div className="text-center py-20 bg-gray-50 rounded-[3rem] border-2 border-dashed border-gray-200">
+                     <span className="text-4xl mb-4 block">⚔️</span>
+                     <p className="font-bold text-gray-400 uppercase tracking-widest">Chưa có trận battle nào trong hệ thống</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

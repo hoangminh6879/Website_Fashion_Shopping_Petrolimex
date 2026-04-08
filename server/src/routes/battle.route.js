@@ -4,7 +4,8 @@ import {
   getSellerBattles,
   getOngoingBattles,
   getBattleById,
-  voteBattle
+  voteBattle,
+  getAdminBattles
 } from "../controllers/battle.controller.js";
 import { protect } from "../middlewares/auth.middleware.js";
 import { authorizeRoles } from "../middlewares/role.middleware.js";
@@ -40,5 +41,8 @@ router.post("/:id/vote", protect, voteBattle); // Bất kỳ user nào cũng đ�
 // Seller
 router.post("/", protect, createBattle);
 router.get("/seller/list", protect, getSellerBattles);
+
+// Admin
+router.get("/admin/list", protect, authorizeRoles("admin"), getAdminBattles);
 
 export default router;

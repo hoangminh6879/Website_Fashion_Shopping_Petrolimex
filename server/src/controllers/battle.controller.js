@@ -173,3 +173,18 @@ export const voteBattle = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+export const getAdminBattles = async (req, res) => {
+  try {
+    const battles = await Battle.find({})
+      .populate("shop", "name image")
+      .populate({
+        path: "products",
+        populate: { path: "images", select: "url" }
+      })
+      .sort("-createdAt");
+    res.json(battles);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
