@@ -17,6 +17,18 @@ const luckyWheelPrizeSchema = new mongoose.Schema(
       ref: "Coupon",
       default: null,
     },
+    discount: {
+      type: Number,
+      min: 0,
+    },
+    couponType: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "CouponType",
+    },
+    expiryDays: {
+      type: Number,
+      default: 30,
+    },
     probability: {
       type: Number,
       required: true,
@@ -43,11 +55,10 @@ const luckyWheelPrizeSchema = new mongoose.Schema(
 
 // Middleware kiểm tra trước khi lưu
 luckyWheelPrizeSchema.pre("save", function (next) {
-  if (this.type === "coupon" && !this.couponId) {
-    return next(new Error("Giải thưởng thẻ giảm giá cần có ID của thẻ (couponId)"));
-  }
-  if (this.type === "no_luck") {
-    this.couponId = null; // Chúc bạn may mắn lần sau không cẩn couponId
+  // Đã đơn giản hóa: Admin chỉ cần điền tên và các thông số cần thiết.
+  // Nếu discount > 0 mới cần couponType.
+  if (this.type === "coupon" && this.discount > 0 && !this.couponType) {
+    return next(new Error("Giải thưởng cần có thông tin loại coupon (couponType)"));
   }
   next();
 });

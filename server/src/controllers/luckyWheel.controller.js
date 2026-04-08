@@ -18,19 +18,18 @@ export const getPrizes = async (req, res) => {
 // @access  Private (Admin)
 export const createPrize = async (req, res) => {
   try {
-    const { name, type, couponId, probability, quantity, color, isActive } = req.body;
+    const { name, discount, couponType, expiryDays, probability, quantity, color, isActive } = req.body;
     
-    if (type === 'coupon' && !couponId) {
-        return res.status(400).json({ message: "Vui lòng chọn coupon cho giải thưởng này!" });
-    }
-
     const prize = await LuckyWheelPrize.create({
       name,
-      type,
-      couponId: type === 'coupon' ? couponId : null,
+      type: 'coupon', // Mặc định là coupon
+      couponId: null,
+      discount: Number(discount) || 0,
+      couponType: couponType || null,
+      expiryDays: Number(expiryDays) || 30,
       probability: Number(probability) || 0,
       quantity: quantity !== undefined && quantity !== "" ? Number(quantity) : -1,
-      color,
+      color: color || '#f59e0b',
       isActive: isActive !== undefined ? isActive : true
     });
 
@@ -45,7 +44,7 @@ export const createPrize = async (req, res) => {
 // @access  Private (Admin)
 export const updatePrize = async (req, res) => {
   try {
-    const { name, type, couponId, probability, quantity, color, isActive } = req.body;
+    const { name, discount, couponType, expiryDays, probability, quantity, color, isActive } = req.body;
     const prize = await LuckyWheelPrize.findById(req.params.id);
 
     if (!prize) {
@@ -53,8 +52,11 @@ export const updatePrize = async (req, res) => {
     }
 
     prize.name = name || prize.name;
-    prize.type = type || prize.type;
-    prize.couponId = type === 'coupon' ? (couponId || prize.couponId) : null;
+    prize.type = 'coupon';
+    prize.couponId = null;
+    if (discount !== undefined) prize.discount = Number(discount);
+    prize.couponType = couponType || prize.couponType;
+    if (expiryDays !== undefined) prize.expiryDays = Number(expiryDays);
     if (probability !== undefined) prize.probability = Number(probability);
     if (quantity !== undefined && quantity !== "") prize.quantity = Number(quantity);
     prize.color = color || prize.color;
@@ -91,6 +93,11 @@ export const spinWheel = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     
+    // Chỉ USER mới được quay
+    if (user.role !== 'user') {
+      return res.status(403).json({ message: "Chỉ khách hàng mới có thể tham gia vòng quay này!" });
+    }
+
     // Check 1 spin per day
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -99,7 +106,7 @@ export const spinWheel = async (req, res) => {
       return res.status(400).json({ message: "Bạn đã hết lượt quay hôm nay. Vui lòng quay lại vào ngày mai!" });
     }
 
-    const prizes = await LuckyWheelPrize.find({ isActive: true }).populate("couponId");
+    const prizes = await LuckyWheelPrize.find({ isActive: true }).populate("couponId").populate("couponType");
     if (prizes.length === 0) return res.status(400).json({ message: "Vòng quay đang trống!" });
 
     // Lọc ra các giải còn số lượng
@@ -131,19 +138,42 @@ export const spinWheel = async (req, res) => {
     // Save user's last spin
     user.lastSpinDate = new Date();
     
-    // Add coupon to wallet if won
-    if (wonPrize.type === 'coupon' && wonPrize.couponId) {
-       // Only add if not already in array (optional depending on system rule, let's allow duplicates if possible or check)
-       // Usually we can push it normally. Let's just push it.
-       if (!user.savedCoupons) user.savedCoupons = [];
-       user.savedCoupons.push(wonPrize.couponId._id);
+    let couponCode = null;
+
+    // Add coupon if won
+    if (wonPrize.discount > 0 && wonPrize.couponType) {
+        const Coupon = (await import("../models/Coupon.model.js")).default;
+        
+        // Create a unique user coupon from template
+        const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+        const timestamp = Date.now().toString().slice(-4);
+        couponCode = `LW-${timestamp}-${randomSuffix}`;
+        
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + (wonPrize.expiryDays || 30));
+
+        const newCoupon = await Coupon.create({
+            code: couponCode,
+            discount: wonPrize.discount,
+            couponType: wonPrize.couponType._id,
+            expiryDate,
+            quantity: 1,
+            createdBy: 'admin',
+            userId: user._id, // Private coupon
+            isLuckyWheel: true
+        });
+
+        if (!user.savedCoupons) user.savedCoupons = [];
+        user.savedCoupons.push(newCoupon._id);
     }
 
     await user.save();
 
     res.json({
       message: "Quay thành công",
-      prize: wonPrize
+      prize: wonPrize,
+      isWinner: wonPrize.discount > 0, // Dùng để frontend phân biệt trúng vs xịt
+      couponCode: couponCode 
     });
   } catch (error) {
     res.status(500).json({ message: "Lỗi vòng quay", error: error.message });

@@ -1,19 +1,14 @@
 import express from "express";
-import {
-  getCoupons,
-  createCoupon,
-  deleteCoupon,
-  getAvailableCoupons,
-} from "../controllers/coupon.controller.js";
+import { getCoupons, createCoupon, deleteCoupon, getAvailableCoupons, optionalProtect } from "../controllers/coupon.controller.js";
 import { protect, authorizeRoles } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-router.get("/available", getAvailableCoupons);
+router.get("/available", optionalProtect, getAvailableCoupons);
 
 router
   .route("/")
-  .get(protect, authorizeRoles("admin", "seller"), getCoupons)
+  .get(optionalProtect, authorizeRoles("admin", "seller"), getCoupons)
   .post(protect, authorizeRoles("admin", "seller"), createCoupon);
 
 router

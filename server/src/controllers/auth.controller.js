@@ -105,6 +105,7 @@ export const login = async (req, res) => {
     const token = jwt.sign(
       {
         id: user._id,
+        name: user.name,
         role: user.role, // chuẩn bị cho phân quyền
       },
       process.env.JWT_SECRET,
@@ -168,6 +169,7 @@ export const googleSuccess = async (req, res) => {
     // Tạo JWT Token cho người dùng đăng nhập bằng Google
     const userPayload = {
       id: user._id,
+      name: user.name,
       role: user.role,
     };
 

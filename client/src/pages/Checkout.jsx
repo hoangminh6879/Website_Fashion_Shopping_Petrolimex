@@ -68,8 +68,8 @@ function CouponModal({ coupons, onSelect, onClose, selectedCoupons = [] }) {
                                 <span className="text-2xl">🎟</span>
                             </div>
                             <div>
-                                <h2 className="text-2xl font-black text-gray-900 tracking-tighter uppercase italic">Kho <span className="text-amber-500">Voucher</span></h2>
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mt-1">{coupons.length} ưu đãi đang chờ bạn</p>
+                                <h2 className="text-2xl font-black text-gray-900 tracking-tighter uppercase italic">Kho <span className="text-amber-500">Coupon</span></h2>
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mt-1">{coupons.length} ưu đãi dành cho riêng bạn</p>
                             </div>
                         </div>
                         <button
@@ -122,6 +122,9 @@ function CouponModal({ coupons, onSelect, onClose, selectedCoupons = [] }) {
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2 mb-2">
                                                     <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${meta.tagBg} ${meta.tagText} border border-white/50 shadow-sm`}>
+                                                        {coupon.isLuckyWheel ? '🎁 Vòng Quay' : '🌏 Hệ Thống'}
+                                                    </span>
+                                                    <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-gray-100 text-gray-600 border border-white/50 shadow-sm`}>
                                                         {coupon.couponType?.description || coupon.couponType?.name}
                                                     </span>
                                                 </div>
@@ -301,18 +304,20 @@ export default function Checkout() {
         }
     }, [user]);
 
+    const shopIdsStr = Array.from(new Set(checkoutItems.map(i => i.product?.shop?._id || i.product?.shop).filter(id => !!id))).join(',');
+
     // Fetch available coupons
     useEffect(() => {
         const fetchCoupons = async () => {
             try {
-                const res = await api.get('/coupons/available');
+                const res = await api.get(`/coupons/available${shopIdsStr ? `?shopIds=${shopIdsStr}` : ''}`);
                 setCoupons(res.data);
             } catch (err) {
                 console.error("Error fetching coupons:", err);
             }
         };
         fetchCoupons();
-    }, []);
+    }, [shopIdsStr]);
 
     const formatPrice = (price) =>
         new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
