@@ -33,6 +33,13 @@ export default function AdminDashboard() {
   const [showEventProductsModal, setShowEventProductsModal] = useState(false);
   const [selectedEventForProducts, setSelectedEventForProducts] = useState(null);
   const [eventProducts, setEventProducts] = useState([]);
+  
+  // Lucky Wheel State
+  const [prizes, setPrizes] = useState([]);
+  const [showPrizeModal, setShowPrizeModal] = useState(false);
+  const [editingPrize, setEditingPrize] = useState(null);
+  const [prizeForm, setPrizeForm] = useState({ name: '', type: 'coupon', couponId: '', probability: 0, quantity: -1, color: '#f59e0b', isActive: true });
+  
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -128,6 +135,13 @@ export default function AdminDashboard() {
       } else if (tab === "productEvents") {
         const res = await api.get("/product-events/pending");
         setPendingProductEvents(Array.isArray(res.data) ? res.data : []);
+      } else if (tab === "luckyWheel") {
+        const [prizesRes, couponsRes] = await Promise.all([
+          api.get("/lucky-wheel"),
+          api.get("/coupons")
+        ]);
+        setPrizes(Array.isArray(prizesRes.data) ? prizesRes.data : []);
+        setCoupons(Array.isArray(couponsRes.data) ? couponsRes.data : []);
       }
     } catch (err) {
       if (err.response?.status === 401 || err.response?.status === 403) {
@@ -517,6 +531,47 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleSavePrize = async () => {
+    if (!prizeForm.name || (prizeForm.type === 'coupon' && !prizeForm.couponId)) return Swal.fire('Lỗi', 'Vui lòng điền đầy đủ thông tin bắt buộc', 'warning');
+    const prizeData = {
+        ...prizeForm,
+        couponId: prizeForm.type === 'coupon' ? prizeForm.couponId : null
+    };
+    try {
+      if (editingPrize) {
+        await api.put(`/lucky-wheel/${editingPrize._id}`, prizeData);
+        Swal.fire('Thành công', 'Đã cập nhật', 'success');
+      } else {
+        await api.post('/lucky-wheel', prizeData);
+        Swal.fire('Thành công', 'Đã tạo', 'success');
+      }
+      setShowPrizeModal(false);
+      setEditingPrize(null);
+      setPrizeForm({ name: '', type: 'coupon', couponId: '', probability: 0, quantity: -1, color: '#f59e0b', isActive: true });
+      fetchData('luckyWheel');
+    } catch (err) { Swal.fire('Lỗi', err.response?.data?.message || 'Lỗi lưu giải thưởng', 'error'); }
+  };
+
+  const handleEditPrize = (pz) => {
+    setEditingPrize(pz);
+    setPrizeForm({
+      name: pz.name,
+      type: pz.type,
+      couponId: pz.couponId?._id || pz.couponId || "",
+      probability: pz.probability,
+      quantity: pz.quantity,
+      color: pz.color,
+      isActive: pz.isActive
+    });
+    setShowPrizeModal(true);
+  };
+
+  const handleDeletePrize = async (id) => {
+    if (!confirm('Xóa giải thưởng này?')) return;
+    try { await api.delete(`/lucky-wheel/${id}`); Swal.fire('Thành công', 'Đã xóa', 'success'); fetchData('luckyWheel'); }
+    catch (err) { Swal.fire('Lỗi', err.response?.data?.message || 'Lỗi xóa', 'error'); }
+  };
+
   return (
     <div className="min-h-screen bg-[#FBFBFB] flex flex-col font-sans">
       <header className="bg-white border-b border-gray-100 sticky top-0 z-50 py-4 px-6 text-gray-900 flex justify-between items-center shadow-sm">
@@ -607,6 +662,10 @@ export default function AdminDashboard() {
               🧧 Mã Giảm Giá
             </button>
             <div className="border-t border-gray-100 my-2"></div>
+            <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest px-2 pb-1">Giải Trí</p>
+            <button onClick={() => setActiveTab("luckyWheel")} className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${activeTab === "luckyWheel" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-500 hover:bg-gray-50"}`}>🎡 Vòng Quay (Nhận Coupon)</button>
+
+            <div className="border-t border-gray-100 my-2"></div>
             <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest px-2 pb-1">Quản Lý Sự Kiện</p>
             <button onClick={() => setActiveTab("eventTypes")} className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${activeTab === "eventTypes" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-500 hover:bg-gray-50"}`}>🏷️ Loại Sự Kiện</button>
             <button onClick={() => setActiveTab("events")} className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${activeTab === "events" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-500 hover:bg-gray-50"}`}>🎪 Sự Kiện</button>
@@ -619,6 +678,102 @@ export default function AdminDashboard() {
 
         {/* Main Content Column */}
         <main className="flex-1 bg-white rounded-2xl shadow-2xl shadow-gray-200/50 p-8 border border-gray-100">
+
+          {/* TAB: Vòng quay */}
+          {activeTab === "luckyWheel" && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex justify-between items-center mb-8">
+                <div>
+                  <h2 className="text-2xl font-black text-gray-900">Vòng quay may mắn</h2>
+                  <p className="text-gray-400 text-sm">Quản lý các phần thưởng trên vòng quay</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setEditingPrize(null);
+                    setPrizeForm({ name: '', type: 'coupon', couponId: '', probability: 0, quantity: -1, color: '#f59e0b', isActive: true });
+                    setShowPrizeModal(true);
+                  }}
+                  className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-xl font-bold transition shadow-lg shadow-amber-500/30"
+                >
+                  + Thêm phần thưởng
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                 {prizes.map((pz, idx) => (
+                    <div key={pz._id} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex flex-col gap-3 relative overflow-hidden">
+                       <div className="w-2 h-full absolute top-0 left-0" style={{ backgroundColor: pz.color }}></div>
+                       <div className="pl-4 flex justify-between items-start">
+                          <div>
+                            <span className="text-[10px] uppercase font-black tracking-widest text-gray-400">{pz.type === 'coupon' ? 'Mã Giảm Giá' : 'Không Trúng'}</span>
+                            <h3 className="font-bold text-gray-800 text-lg line-clamp-1">{pz.name}</h3>
+                          </div>
+                          <span className={`px-2 py-1 text-[10px] rounded-full font-bold ${pz.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {pz.isActive ? 'Bật' : 'Tắt'}
+                          </span>
+                       </div>
+                       <div className="pl-4 grid grid-cols-2 gap-2 text-xs font-bold text-gray-600 mt-2">
+                          <div>🎯 Tỉ lệ: <span className="text-amber-500">{pz.probability}%</span></div>
+                          <div>📦 TT: <span className="text-blue-500">{pz.quantity === -1 ? 'Vô hạn' : pz.quantity}</span></div>
+                       </div>
+                       <div className="pl-4 mt-2 flex gap-2">
+                           <button onClick={() => handleEditPrize(pz)} className="flex-1 bg-gray-50 hover:bg-gray-200 text-gray-600 py-2 rounded-lg font-bold transition text-xs">Sửa</button>
+                           <button onClick={() => handleDeletePrize(pz._id)} className="flex-1 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white py-2 rounded-lg font-bold transition text-xs">Xóa</button>
+                       </div>
+                    </div>
+                 ))}
+                 {prizes.length === 0 && <div className="col-span-full text-center text-gray-400 py-10">Chưa có phần thưởng nào</div>}
+              </div>
+
+              {/* MODAL PRIZE */}
+              {showPrizeModal && (
+                <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/80 backdrop-blur p-4">
+                  <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl relative">
+                    <h3 className="text-xl font-black text-gray-900 mb-6 uppercase">{editingPrize ? "Sửa phần thưởng" : "Thêm phần thưởng"}</h3>
+                    <div className="space-y-4">
+                      <div><label className="block text-sm font-bold text-gray-700 mb-2">Tên hiển thị *</label>
+                        <input type="text" value={prizeForm.name} onChange={e => setPrizeForm({ ...prizeForm, name: e.target.value })} className="w-full bg-[#FBFBFB] p-3 rounded-xl border border-gray-100 focus:border-amber-500 outline-none font-bold" /></div>
+                      
+                      <div><label className="block text-sm font-bold text-gray-700 mb-2">Loại giải thưởng *</label>
+                        <select value={prizeForm.type} onChange={e => setPrizeForm({ ...prizeForm, type: e.target.value })} className="w-full bg-[#FBFBFB] p-3 rounded-xl border border-gray-100 focus:border-amber-500 outline-none font-bold">
+                          <option value="coupon">Thẻ Giảm Giá (Coupon)</option>
+                          <option value="no_luck">Không Trúng (Chúc may mắn)</option>
+                        </select></div>
+
+                      {prizeForm.type === 'coupon' && (
+                        <div><label className="block text-sm font-bold text-gray-700 mb-2">Chọn Mã Giảm Giá *</label>
+                          <select value={prizeForm.couponId} onChange={e => setPrizeForm({ ...prizeForm, couponId: e.target.value })} className="w-full bg-[#FBFBFB] p-3 rounded-xl border border-gray-100 focus:border-amber-500 outline-none font-bold">
+                            <option value="">-- Chọn Coupon --</option>
+                            {coupons?.map(c => <option key={c._id} value={c._id}>{c.code} - Giảm {c.discount > 100 ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(c.discount) : c.discount + '%'}</option>)}
+                          </select></div>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div><label className="block text-sm font-bold text-gray-700 mb-2">Tỉ lệ trúng (%) *</label>
+                          <input type="number" min="0" max="100" value={prizeForm.probability} onChange={e => setPrizeForm({ ...prizeForm, probability: e.target.value })} className="w-full bg-[#FBFBFB] p-3 rounded-xl border border-gray-100 focus:border-amber-500 outline-none font-bold" /></div>
+                        <div><label className="block text-sm font-bold text-gray-700 mb-2">Số lượng (-1 là vô hạn)</label>
+                          <input type="number" value={prizeForm.quantity} onChange={e => setPrizeForm({ ...prizeForm, quantity: e.target.value })} className="w-full bg-[#FBFBFB] p-3 rounded-xl border border-gray-100 focus:border-amber-500 outline-none font-bold" /></div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                         <div><label className="block text-sm font-bold text-gray-700 mb-2">Màu ô vòng quay</label>
+                            <input type="color" value={prizeForm.color} onChange={e => setPrizeForm({ ...prizeForm, color: e.target.value })} className="w-full h-12 py-1 rounded-xl border border-gray-100 cursor-pointer" /></div>
+                         <div><label className="block text-sm font-bold text-gray-700 mb-2">Trạng thái</label>
+                            <div className="flex items-center gap-2 mt-3">
+                               <input type="checkbox" checked={prizeForm.isActive} onChange={e => setPrizeForm({...prizeForm, isActive: e.target.checked})} className="w-5 h-5 accent-amber-500" />
+                               <span className="font-bold text-gray-600">Đang hoạt động</span>
+                            </div></div>
+                      </div>
+                    </div>
+                    <div className="flex gap-4 mt-6">
+                      <button onClick={() => setShowPrizeModal(false)} className="flex-1 bg-gray-50 text-gray-500 font-black uppercase py-3 rounded-xl hover:bg-gray-200 transition">Hủy</button>
+                      <button onClick={handleSavePrize} className="flex-1 bg-amber-500 text-gray-900 font-black uppercase py-3 rounded-xl hover:bg-amber-600 shadow-lg shadow-amber-500/30 transition">Lưu Lại</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* TAB: Tổng quan */}
           {activeTab === "overview" && (

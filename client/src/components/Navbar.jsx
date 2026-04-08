@@ -95,6 +95,9 @@ export default function Navbar() {
             <Link to="/" className="flex items-center gap-1.5 hover:text-amber-500 transition font-black text-gray-300">
               🏠 <span>Trang Chủ</span>
             </Link>
+            <Link to="/lucky-wheel" className="flex items-center gap-1.5 text-yellow-400 hover:text-yellow-300 transition font-black animate-pulse">
+              🎡 <span>Vòng Quay Mắn</span>
+            </Link>
           </div>
 
           {/* RIGHT: Thông báo, Hỗ trợ, Ngôn ngữ, User */}
@@ -157,6 +160,9 @@ export default function Navbar() {
                     )}
                     {user.role === 'user' && (
                       <Link to="/followed-shops" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50">{t('followed_shops')}</Link>
+                    )}
+                    {user.role === 'user' && (
+                      <Link to="/my-vouchers" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50">Kho Voucher</Link>
                     )}
                     {user.role === 'seller' && (
                       <Link to="/seller/dashboard" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50 text-amber-600">{t('manage_shop')}</Link>

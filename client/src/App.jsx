@@ -12,6 +12,8 @@ import FollowedShops from "./pages/FollowedShops";
 import Wishlist from "./pages/Wishlist";
 import FlashSalePage from "./pages/FlashSalePage";
 import EventDetail from "./pages/EventDetail"; // 🔥 thêm
+import LuckyWheel from "./pages/LuckyWheel"; // 🔥 thêm
+import MyVouchers from "./pages/MyVouchers";
 import Notifications from "./pages/Notifications";
 import LoginSuccess from "./pages/LoginSuccess";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -75,6 +77,14 @@ function App() {
           }
         />
         <Route
+          path="/my-vouchers"
+          element={
+            <ProtectedRoute allowedRoles={['user']}>
+              <MyVouchers />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/order-history"
           element={
             <ProtectedRoute allowedRoles={['user']}>
@@ -109,6 +119,7 @@ function App() {
         <Route path="/shop/:id" element={<ShopDetail />} />
         <Route path="/event/:id" element={<EventDetail />} />
         <Route path="/flash-sale" element={<FlashSalePage />} />
+        <Route path="/lucky-wheel" element={<LuckyWheel />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
       </Routes>
