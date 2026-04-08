@@ -61,10 +61,26 @@ export const getProducts = async (req, res) => {
   try {
     const { shopId, category, search, minPrice, maxPrice, sort } = req.query;
     
-    const filter = {};
+    // Lấy id các cửa hàng hợp lệ (không bị tạm khóa)
+    const today = new Date();
+    const validShops = await Shop.find({
+      $or: [
+        { adminLockUntil: { $exists: false } }, 
+        { adminLockUntil: null }, 
+        { adminLockUntil: { $lt: today } }
+      ]
+    }).select('_id');
+    const validShopIds = validShops.map(s => s._id);
+
+    const filter = { shop: { $in: validShopIds } };
     
-    // Filter by Shop
-    if (shopId) filter.shop = shopId;
+    // Filter by Shop (if provided and valid)
+    if (shopId && validShopIds.some(id => id.toString() === shopId.toString())) {
+       filter.shop = shopId;
+    } else if (shopId) {
+       // Nếu shop bị request khóa thì không hiển thị gì cả
+       return res.json([]);
+    }
     
     // Filter by Category
     if (category) filter.category = category;

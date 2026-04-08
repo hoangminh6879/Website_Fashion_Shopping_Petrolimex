@@ -349,28 +349,53 @@ export default function Checkout() {
         detectCouponKind(coupon) === 'percent'
         , [detectCouponKind]);
 
-    const getOrderDiscount = useCallback(() => {
-        if (!selectedCoupons || selectedCoupons.length === 0) return 0;
-        const subtotal = getCheckoutTotal();
+    const getTierDiscountRates = useCallback(() => {
+        const tier = user?.customerTier || "thường";
+        let shippingDiscountRate = 0;
+        let orderDiscountRate = 0;
         
+        switch (tier) {
+            case "đồng": shippingDiscountRate = 0.05; break;
+            case "bạc": shippingDiscountRate = 0.10; break;
+            case "vàng": shippingDiscountRate = 0.10; orderDiscountRate = 0.05; break;
+            case "bạch kim": shippingDiscountRate = 0.15; orderDiscountRate = 0.10; break;
+            case "kim cương": shippingDiscountRate = 0.20; orderDiscountRate = 0.20; break;
+        }
+        return { shippingDiscountRate, orderDiscountRate };
+    }, [user?.customerTier]);
+
+    const getOrderDiscount = useCallback(() => {
+        const subtotal = getCheckoutTotal();
         let totalDiscount = 0;
-        selectedCoupons.forEach(coupon => {
-            if (isFreeship(coupon)) return; // freeship doesn't reduce price
-            const value = coupon.discount || 0;
-            if (isPercent(coupon)) {
-                 totalDiscount += (subtotal * value) / 100;
-            } else {
-                 totalDiscount += value; // FIXED
-            }
-        });
-        return totalDiscount;
-    }, [selectedCoupons, getCheckoutTotal, isFreeship, isPercent]);
+        
+        if (selectedCoupons && selectedCoupons.length > 0) {
+            selectedCoupons.forEach(coupon => {
+                if (isFreeship(coupon)) return;
+                const value = coupon.discount || 0;
+                if (isPercent(coupon)) {
+                     totalDiscount += (subtotal * value) / 100;
+                } else {
+                     totalDiscount += value;
+                }
+            });
+        }
+        
+        const { orderDiscountRate } = getTierDiscountRates();
+        if (orderDiscountRate > 0) {
+             totalDiscount += (subtotal * orderDiscountRate);
+        }
+        
+        return Math.floor(totalDiscount);
+    }, [selectedCoupons, getCheckoutTotal, isFreeship, isPercent, getTierDiscountRates]);
 
     const getShippingAfterDiscount = useCallback(() => {
         const hasFreeship = selectedCoupons.some(c => isFreeship(c));
         if (hasFreeship) return 0;
-        return shippingFee;
-    }, [isFreeship, selectedCoupons, shippingFee]);
+        
+        const { shippingDiscountRate } = getTierDiscountRates();
+        const result = shippingFee - (shippingFee * shippingDiscountRate);
+        return Math.floor(result > 0 ? result : 0);
+    }, [isFreeship, selectedCoupons, shippingFee, getTierDiscountRates]);
 
     // Calculate shipping from server when coords change
     const handleMapPick = useCallback(async (latlng) => {
@@ -439,33 +464,37 @@ export default function Checkout() {
         }
 
         const kind = detectCouponKind(coupon);
-        const hasFreeship = selectedCoupons.some(c => detectCouponKind(c) === 'freeship');
-        const hasDiscount = selectedCoupons.some(c => detectCouponKind(c) !== 'freeship');
+        
+        // Kiểm tra xem việc thêm coupon mới có gây ra xung đột loại không (% vs Giá tiền)
+        const hasPercent = selectedCoupons.some(c => detectCouponKind(c) === 'percent');
+        const hasFixed = selectedCoupons.some(c => detectCouponKind(c) === 'fixed');
 
+        if ((kind === 'percent' && hasFixed) || (kind === 'fixed' && hasPercent)) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Không thể kết hợp!',
+                text: 'Hệ thống không cho phép áp dụng đồng thời mã giảm giá theo % và mã giảm giá theo giá tiền cố định.',
+                confirmButtonColor: '#111827'
+            });
+            return;
+        }
+
+        // Nếu đã chọn 2 mã, tiến hành thay thế mã cùng loại hoặc mã cũ nhất
         if (selectedCoupons.length >= 2) {
-             // Rule: If already 2, replace the one of same kind or first one
-             if (kind === 'freeship') {
-                 setSelectedCoupons(prev => [coupon, ...prev.filter(c => detectCouponKind(c) !== 'freeship')]);
+             const sameKindIdx = selectedCoupons.findIndex(c => detectCouponKind(c) === kind);
+             if (sameKindIdx > -1) {
+                 const newSelected = [...selectedCoupons];
+                 newSelected[sameKindIdx] = coupon;
+                 setSelectedCoupons(newSelected);
              } else {
-                 setSelectedCoupons(prev => [...prev.filter(c => detectCouponKind(c) === 'freeship'), coupon]);
+                 // Nếu khác loại (ví dụ chọn mã thứ 3), thay thế mã đầu tiên
+                 setSelectedCoupons(prev => [prev[1], coupon]);
              }
              return;
         }
 
-        if (selectedCoupons.length === 1) {
-            const firstKind = detectCouponKind(selectedCoupons[0]);
-            if (kind === 'freeship' && firstKind !== 'freeship') {
-                setSelectedCoupons(prev => [...prev, coupon]);
-            } else if (kind !== 'freeship' && firstKind === 'freeship') {
-                setSelectedCoupons(prev => [...prev, coupon]);
-            } else {
-                // Rule: (Freeship + Discount) or (Any 1). 
-                // If same kind (Discount + Discount), replace.
-                setSelectedCoupons([coupon]);
-            }
-        } else {
-            setSelectedCoupons([coupon]);
-        }
+        // Nếu chưa đủ 2 mã, cho phép thêm thoải mái (vì đã qua check xung đột loại ở trên)
+        setSelectedCoupons(prev => [...prev, coupon]);
     };
 
     const handleSubmit = async (e) => {

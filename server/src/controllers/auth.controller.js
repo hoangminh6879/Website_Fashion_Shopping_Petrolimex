@@ -57,7 +57,15 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: "Email không tồn tại" });
     }
 
-    // 1.1 Kiểm tra nếu tài khoản đang bị khóa
+    // 1.1 Kiểm tra xem bị Admin cấm không
+    if (user.adminLockUntil && user.adminLockUntil > Date.now()) {
+      const remainingDays = Math.ceil((user.adminLockUntil - Date.now()) / (1000 * 60 * 60 * 24));
+      return res.status(403).json({ 
+        message: `Tài khoản của bạn đã bị khóa bởi Quản trị viên trong ${remainingDays} ngày tới. Lý do: ${user.adminLockReason || 'Vi phạm chính sách'}` 
+      });
+    }
+
+    // 1.2 Kiểm tra nếu tài khoản đang bị khóa (brute force)
     if (user.lockUntil && user.lockUntil > Date.now()) {
       const remainingTime = Math.ceil((user.lockUntil - Date.now()) / (1000 * 60 * 60)); // Tính giờ còn lại
       return res.status(403).json({ 
