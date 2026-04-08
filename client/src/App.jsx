@@ -23,6 +23,8 @@ import OrderHistory from "./pages/OrderHistory";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ChatFloating from "./components/Chat/ChatFloating";
 import SocialFeed from "./pages/SocialFeed";
+import FashionBattle from "./pages/FashionBattle";
+import BattleDetail from "./pages/BattleDetail";
 
 
 function App() {
@@ -122,6 +124,8 @@ function App() {
         <Route path="/flash-sale" element={<FlashSalePage />} />
         <Route path="/social-feed" element={<SocialFeed />} />
         <Route path="/lucky-wheel" element={<LuckyWheel />} />
+        <Route path="/fashion-battle" element={<FashionBattle />} />
+        <Route path="/fashion-battle/:id" element={<BattleDetail />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
       </Routes>

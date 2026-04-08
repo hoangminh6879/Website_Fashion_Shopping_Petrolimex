@@ -10,6 +10,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import * as XLSX from 'xlsx';
 import ChatWindow from '../components/Chat/ChatWindow';
 import { useSocket } from '../context/SocketContext';
+import SellerBattle from '../components/SellerBattle';
 
 // Fix Leaflet default marker icon
 delete L.Icon.Default.prototype._getIconUrl;
@@ -824,6 +825,14 @@ export default function SellerDashboard() {
                 🏬 Đánh giá Shop
               </button>
             </li>
+            <li>
+              <button
+                onClick={() => setActiveTab('battles')}
+                className={`w-full text-left px-4 py-3 rounded-md transition ${activeTab === 'battles' ? 'bg-amber-500 text-gray-900 font-bold' : 'hover:bg-gray-800'}`}
+              >
+                ⚔️ Fashion Battle
+              </button>
+            </li>
           </ul>
         </div>
       </div>
@@ -843,6 +852,7 @@ export default function SellerDashboard() {
             {activeTab === 'events' && 'Sự Kiện Khuyến Mãi'}
             {activeTab === 'shopReviews' && 'Đánh giá Cửa hàng'}
             {activeTab === 'statistics' && 'Thống kê Doanh thu'}
+            {activeTab === 'battles' && 'Quản lý Fashion Battle'}
           </h1>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 mr-4">
@@ -876,6 +886,8 @@ export default function SellerDashboard() {
               <p className="text-amber-700">Bạn cần thiết lập thông tin Shop trước khi đăng sản phẩm.</p>
             </div>
           )}
+          
+          {activeTab === 'battles' && <SellerBattle shop={shop} />}
 
           {activeTab === 'reviews' && (
             <div className="space-y-6 animate-fadeIn">
