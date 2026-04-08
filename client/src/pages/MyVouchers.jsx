@@ -15,7 +15,7 @@ export default function MyVouchers() {
 
   const fetchCoupons = async () => {
     try {
-      const res = await api.get('/users/my-coupons');
+      const res = await api.get('/coupons/available');
       setCoupons(res.data);
     } catch (err) {
       console.error("Error fetching coupons:", err);
@@ -43,8 +43,8 @@ export default function MyVouchers() {
           <div className="space-y-10">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-50 pb-8">
               <div>
-                <h3 className="text-3xl font-black italic uppercase tracking-tighter text-gray-900">Kho <span className="text-amber-500">Voucher</span></h3>
-                <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest mt-1">Các mã giảm giá bạn đang sở hữu</p>
+                <h3 className="text-3xl font-black italic uppercase tracking-tighter text-gray-900">Kho <span className="text-amber-500">Coupon</span></h3>
+                <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest mt-1">Các mã giảm giá bạn đang sở hữu và có thể dùng</p>
               </div>
               <Link to="/" className="px-8 py-4 bg-gray-900 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-amber-500 hover:text-gray-900 transition-all shadow-xl">
                  ĐI MUA SẮM NGAY
@@ -55,8 +55,8 @@ export default function MyVouchers() {
               {coupons.length === 0 ? (
                 <div className="col-span-1 lg:col-span-2 text-center p-12 bg-gray-50 rounded-[2rem] border-2 border-dashed border-gray-200 w-full">
                   <span className="text-5xl mb-4 block opacity-50">🎟️</span>
-                  <h4 className="text-lg font-bold text-gray-900 mb-2">Kho Voucher Trống</h4>
-                  <p className="text-sm text-gray-500">Bạn chưa có mã giảm giá nào. Hãy thử tham gia Vòng quay may mắn nhé!</p>
+                  <h4 className="text-lg font-bold text-gray-900 mb-2">Kho Coupon Trống</h4>
+                  <p className="text-sm text-gray-500">Hiện không có mã giảm giá nào khả dụng. Hãy thử tham gia Vòng quay may mắn nhé!</p>
                   <div className="mt-8">
                      <Link to="/lucky-wheel" className="inline-block px-8 py-4 bg-amber-500 text-gray-900 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-amber-600 transition-all shadow-xl shadow-amber-500/20">
                         Đến Vòng Quay Ngay

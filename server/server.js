@@ -29,6 +29,8 @@ import http from "http";
 import { initSocket } from "./src/utils/socket.js";
 import chatRoutes from "./src/routes/chat.routes.js";
 import luckyWheelRoutes from "./src/routes/luckyWheel.routes.js";
+import postRoutes from "./src/routes/post.routes.js";
+import commentRoutes from "./src/routes/comment.routes.js";
 
 import path from "path";
 
@@ -123,6 +125,8 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/shipping", shippingRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/lucky-wheel", luckyWheelRoutes);
+app.use("/api/posts", postRoutes);
+app.use("/api/comments", commentRoutes);
 
 
 const PORT = process.env.PORT || 5000;

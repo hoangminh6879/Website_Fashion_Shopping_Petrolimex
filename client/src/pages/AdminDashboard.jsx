@@ -34,11 +34,12 @@ export default function AdminDashboard() {
   const [selectedEventForProducts, setSelectedEventForProducts] = useState(null);
   const [eventProducts, setEventProducts] = useState([]);
   
-  // Lucky Wheel State
+  // Post Management State
+  const [pendingPosts, setPendingPosts] = useState([]);
   const [prizes, setPrizes] = useState([]);
   const [showPrizeModal, setShowPrizeModal] = useState(false);
   const [editingPrize, setEditingPrize] = useState(null);
-  const [prizeForm, setPrizeForm] = useState({ name: '', type: 'coupon', couponId: '', probability: 0, quantity: -1, color: '#f59e0b', isActive: true });
+  const [prizeForm, setPrizeForm] = useState({ name: '', discount: 0, couponType: '', expiryDays: 30, probability: 0, quantity: -1, color: '#f59e0b', isActive: true });
   
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -136,12 +137,17 @@ export default function AdminDashboard() {
         const res = await api.get("/product-events/pending");
         setPendingProductEvents(Array.isArray(res.data) ? res.data : []);
       } else if (tab === "luckyWheel") {
-        const [prizesRes, couponsRes] = await Promise.all([
+        const [prizesRes, couponsRes, typesRes] = await Promise.all([
           api.get("/lucky-wheel"),
-          api.get("/coupons")
+          api.get("/coupons"),
+          api.get("/coupon-types")
         ]);
         setPrizes(Array.isArray(prizesRes.data) ? prizesRes.data : []);
         setCoupons(Array.isArray(couponsRes.data) ? couponsRes.data : []);
+        setCouponTypes(Array.isArray(typesRes.data) ? typesRes.data : []);
+      } else if (tab === "pendingPosts") {
+        const res = await api.get("/posts/pending");
+        setPendingPosts(Array.isArray(res.data) ? res.data : []);
       }
     } catch (err) {
       if (err.response?.status === 401 || err.response?.status === 403) {
@@ -532,11 +538,10 @@ export default function AdminDashboard() {
   };
 
   const handleSavePrize = async () => {
-    if (!prizeForm.name || (prizeForm.type === 'coupon' && !prizeForm.couponId)) return Swal.fire('Lỗi', 'Vui lòng điền đầy đủ thông tin bắt buộc', 'warning');
-    const prizeData = {
-        ...prizeForm,
-        couponId: prizeForm.type === 'coupon' ? prizeForm.couponId : null
-    };
+    if (!prizeForm.name) return Swal.fire('Lỗi', 'Vui lòng điền Tên hiển thị', 'warning');
+    if (prizeForm.discount > 0 && !prizeForm.couponType) return Swal.fire('Lỗi', 'Vui lòng chọn Loại Coupon cho phần thưởng có giá trị giảm giá', 'warning');
+
+    const prizeData = { ...prizeForm };
     try {
       if (editingPrize) {
         await api.put(`/lucky-wheel/${editingPrize._id}`, prizeData);
@@ -547,7 +552,7 @@ export default function AdminDashboard() {
       }
       setShowPrizeModal(false);
       setEditingPrize(null);
-      setPrizeForm({ name: '', type: 'coupon', couponId: '', probability: 0, quantity: -1, color: '#f59e0b', isActive: true });
+      setPrizeForm({ name: '', discount: 0, couponType: '', expiryDays: 30, probability: 0, quantity: -1, color: '#f59e0b', isActive: true });
       fetchData('luckyWheel');
     } catch (err) { Swal.fire('Lỗi', err.response?.data?.message || 'Lỗi lưu giải thưởng', 'error'); }
   };
@@ -556,8 +561,9 @@ export default function AdminDashboard() {
     setEditingPrize(pz);
     setPrizeForm({
       name: pz.name,
-      type: pz.type,
-      couponId: pz.couponId?._id || pz.couponId || "",
+      discount: pz.discount || 0,
+      couponType: pz.couponType?._id || pz.couponType || "",
+      expiryDays: pz.expiryDays || 30,
       probability: pz.probability,
       quantity: pz.quantity,
       color: pz.color,
@@ -664,6 +670,10 @@ export default function AdminDashboard() {
             <div className="border-t border-gray-100 my-2"></div>
             <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest px-2 pb-1">Giải Trí</p>
             <button onClick={() => setActiveTab("luckyWheel")} className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${activeTab === "luckyWheel" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-500 hover:bg-gray-50"}`}>🎡 Vòng Quay (Nhận Coupon)</button>
+            <button onClick={() => setActiveTab("pendingPosts")} className={`text-left px-5 py-3 rounded-xl font-bold transition-all flex justify-between items-center ${activeTab === "pendingPosts" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-500 hover:bg-gray-50"}`}>
+               <span>📸 Duyệt bài viết</span>
+               {pendingPosts.length > 0 && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">{pendingPosts.length}</span>}
+            </button>
 
             <div className="border-t border-gray-100 my-2"></div>
             <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest px-2 pb-1">Quản Lý Sự Kiện</p>
@@ -678,6 +688,72 @@ export default function AdminDashboard() {
 
         {/* Main Content Column */}
         <main className="flex-1 bg-white rounded-2xl shadow-2xl shadow-gray-200/50 p-8 border border-gray-100">
+          
+          {/* TAB: Post Management */}
+          {activeTab === "pendingPosts" && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+               <div className="mb-8">
+                  <h2 className="text-2xl font-black text-gray-900 uppercase">Phê duyệt bài viết</h2>
+                  <p className="text-gray-400 text-sm">Xem và duyệt các bài viết mới từ người dùng</p>
+               </div>
+
+               <div className="grid grid-cols-1 gap-6">
+                  {pendingPosts.map((post) => (
+                    <div key={post._id} className="bg-white border border-gray-100 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row gap-6">
+                       <div className="w-full md:w-48 aspect-square rounded-2xl overflow-hidden bg-gray-50 flex-shrink-0">
+                          {post.images && post.images.length > 0 ? (
+                            <img src={post.images[0].startsWith('http') ? post.images[0] : `http://localhost:5000${post.images[0]}`} className="w-full h-full object-cover" alt="post" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-200 text-3xl">🖼️</div>
+                          )}
+                       </div>
+                       <div className="flex-1 flex flex-col justify-between">
+                          <div>
+                             <div className="flex items-center gap-2 mb-3">
+                                <img src={post.user?.avatar ? (post.user.avatar.startsWith('http') ? post.user.avatar : `http://localhost:5000${post.user.avatar}`) : `https://ui-avatars.com/api/?name=${post.user?.name}&background=f59e0b&color=fff`} className="w-6 h-6 rounded-full" alt="avatar" />
+                                <span className="font-bold text-gray-900 text-sm">{post.user?.name}</span>
+                                <span className="text-[10px] text-gray-400 font-bold uppercase ml-auto">{new Date(post.createdAt).toLocaleString()}</span>
+                             </div>
+                             <p className="text-gray-600 text-sm italic">"{post.content}"</p>
+                          </div>
+                          
+                          <div className="flex gap-3 mt-6">
+                             <button 
+                               onClick={async () => {
+                                 try {
+                                   await api.put(`/posts/${post._id}/status`, { status: 'approved' });
+                                   Swal.fire('Thành công', 'Đã duyệt bài viết', 'success');
+                                   fetchData('pendingPosts');
+                                 } catch(err) { Swal.fire('Lỗi', 'Không thể duyệt', 'error'); }
+                               }}
+                               className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl font-bold transition shadow-lg shadow-amber-500/20"
+                             >
+                               Duyệt bài
+                             </button>
+                             <button 
+                               onClick={async () => {
+                                 try {
+                                   await api.put(`/posts/${post._id}/status`, { status: 'rejected' });
+                                   Swal.fire('Đã từ chối', 'Bài viết đã bị loại bỏ', 'info');
+                                   fetchData('pendingPosts');
+                                 } catch(err) { Swal.fire('Lỗi', 'Không thể từ chối', 'error'); }
+                               }}
+                               className="flex-1 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white py-3 rounded-xl font-bold transition border border-red-100"
+                             >
+                               Từ chối
+                             </button>
+                          </div>
+                       </div>
+                    </div>
+                  ))}
+                  {pendingPosts.length === 0 && (
+                    <div className="text-center py-20 text-gray-400 font-bold uppercase tracking-widest text-sm">
+                        🎉 Tuyệt vời! Không có bài viết nào đang chờ duyệt
+                    </div>
+                  )}
+               </div>
+            </div>
+          )}
 
           {/* TAB: Vòng quay */}
           {activeTab === "luckyWheel" && (
@@ -689,14 +765,21 @@ export default function AdminDashboard() {
                 </div>
                 <button
                   onClick={() => {
-                    setEditingPrize(null);
-                    setPrizeForm({ name: '', type: 'coupon', couponId: '', probability: 0, quantity: -1, color: '#f59e0b', isActive: true });
+                    setPrizeForm({ name: '', type: 'coupon', couponId: '', discount: 0, couponType: '', expiryDays: 30, probability: 0, quantity: -1, color: '#f59e0b', isActive: true });
                     setShowPrizeModal(true);
                   }}
                   className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-xl font-bold transition shadow-lg shadow-amber-500/30"
                 >
                   + Thêm phần thưởng
                 </button>
+              </div>
+
+              {/* Help Text */}
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6">
+                <p className="text-xs font-bold text-amber-700 flex items-center gap-2">
+                  <span>💡</span> 
+                  <span>Mẹo: Bạn có thể chọn một Coupon có sẵn hoặc tự định nghĩa thông tin Coupon mới (Hệ thống sẽ tự tạo mã cho khách hàng khi trúng).</span>
+                </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -730,23 +813,66 @@ export default function AdminDashboard() {
                 <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/80 backdrop-blur p-4">
                   <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl relative">
                     <h3 className="text-xl font-black text-gray-900 mb-6 uppercase">{editingPrize ? "Sửa phần thưởng" : "Thêm phần thưởng"}</h3>
-                    <div className="space-y-4">
-                      <div><label className="block text-sm font-bold text-gray-700 mb-2">Tên hiển thị *</label>
-                        <input type="text" value={prizeForm.name} onChange={e => setPrizeForm({ ...prizeForm, name: e.target.value })} className="w-full bg-[#FBFBFB] p-3 rounded-xl border border-gray-100 focus:border-amber-500 outline-none font-bold" /></div>
+                    <div className="space-y-5">
+                      <div>
+                        <label className="block text-xs font-black uppercase text-gray-400 tracking-widest mb-2 ml-1">Tên hiển thị *</label>
+                        <input 
+                          type="text" 
+                          value={prizeForm.name} 
+                          onChange={e => setPrizeForm({ ...prizeForm, name: e.target.value })} 
+                          placeholder="VD: Voucher 50K hoặc Chúc may mắn"
+                          className="w-full bg-gray-50 p-3.5 rounded-2xl border border-gray-100 focus:border-amber-500 focus:bg-white outline-none font-bold transition-all" 
+                        />
+                      </div>
                       
-                      <div><label className="block text-sm font-bold text-gray-700 mb-2">Loại giải thưởng *</label>
-                        <select value={prizeForm.type} onChange={e => setPrizeForm({ ...prizeForm, type: e.target.value })} className="w-full bg-[#FBFBFB] p-3 rounded-xl border border-gray-100 focus:border-amber-500 outline-none font-bold">
-                          <option value="coupon">Thẻ Giảm Giá (Coupon)</option>
-                          <option value="no_luck">Không Trúng (Chúc may mắn)</option>
-                        </select></div>
+                      <div className="p-5 bg-amber-50/50 rounded-3xl border border-amber-100/50 space-y-4">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-amber-600 text-lg">🎟️</span>
+                          <h4 className="text-[11px] font-black uppercase text-amber-900 tracking-widest">Cấu hình Phần thưởng</h4>
+                        </div>
 
-                      {prizeForm.type === 'coupon' && (
-                        <div><label className="block text-sm font-bold text-gray-700 mb-2">Chọn Mã Giảm Giá *</label>
-                          <select value={prizeForm.couponId} onChange={e => setPrizeForm({ ...prizeForm, couponId: e.target.value })} className="w-full bg-[#FBFBFB] p-3 rounded-xl border border-gray-100 focus:border-amber-500 outline-none font-bold">
-                            <option value="">-- Chọn Coupon --</option>
-                            {coupons?.map(c => <option key={c._id} value={c._id}>{c.code} - Giảm {c.discount > 100 ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(c.discount) : c.discount + '%'}</option>)}
-                          </select></div>
-                      )}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="relative">
+                            <label className="block text-[10px] font-bold text-amber-700 uppercase ml-1 mb-1.5">Loại Coupon</label>
+                            <div className="relative group">
+                              <select 
+                                value={prizeForm.couponType} 
+                                onChange={e => setPrizeForm({ ...prizeForm, couponType: e.target.value })} 
+                                className="w-full bg-white p-3 pr-10 rounded-xl border border-amber-200 focus:border-amber-500 outline-none font-bold text-sm shadow-sm appearance-none transition-all cursor-pointer"
+                              >
+                                <option value="">-- Chọn Loại --</option>
+                                {couponTypes?.map(ct => <option key={ct._id} value={ct._id}>{ct.name}</option>)}
+                              </select>
+                              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-amber-500 group-hover:scale-110 transition-transform">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </div>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-amber-700 uppercase ml-1 mb-1.5">Giá trị giảm</label>
+                            <input 
+                              type="number" 
+                              value={prizeForm.discount} 
+                              onChange={e => setPrizeForm({ ...prizeForm, discount: e.target.value })} 
+                              placeholder="VD: 10 hoặc 50000"
+                              className="w-full bg-white p-3 rounded-xl border border-amber-200 focus:border-amber-500 outline-none font-bold text-sm shadow-sm" 
+                            />
+                            <p className="text-[9px] text-amber-600/70 mt-1 ml-1">* Nhập 0 nếu là giải không trúng</p>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-[10px] font-bold text-amber-700 uppercase ml-1 mb-1.5">Số ngày hết hạn</label>
+                          <input 
+                            type="number" 
+                            value={prizeForm.expiryDays} 
+                            onChange={e => setPrizeForm({ ...prizeForm, expiryDays: e.target.value })} 
+                            className="w-full bg-white p-3 rounded-xl border border-amber-200 focus:border-amber-500 outline-none font-bold text-sm shadow-sm" 
+                          />
+                        </div>
+                      </div>
 
                       <div className="grid grid-cols-2 gap-4">
                         <div><label className="block text-sm font-bold text-gray-700 mb-2">Tỉ lệ trúng (%) *</label>

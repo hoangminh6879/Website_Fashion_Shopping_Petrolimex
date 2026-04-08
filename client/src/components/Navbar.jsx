@@ -95,9 +95,6 @@ export default function Navbar() {
             <Link to="/" className="flex items-center gap-1.5 hover:text-amber-500 transition font-black text-gray-300">
               🏠 <span>Trang Chủ</span>
             </Link>
-            <Link to="/lucky-wheel" className="flex items-center gap-1.5 text-yellow-400 hover:text-yellow-300 transition font-black animate-pulse">
-              🎡 <span>Vòng Quay Mắn</span>
-            </Link>
           </div>
 
           {/* RIGHT: Thông báo, Hỗ trợ, Ngôn ngữ, User */}
@@ -162,7 +159,7 @@ export default function Navbar() {
                       <Link to="/followed-shops" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50">{t('followed_shops')}</Link>
                     )}
                     {user.role === 'user' && (
-                      <Link to="/my-vouchers" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50">Kho Voucher</Link>
+                      <Link to="/my-vouchers" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50">Kho Coupon</Link>
                     )}
                     {user.role === 'seller' && (
                       <Link to="/seller/dashboard" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50 text-amber-600">{t('manage_shop')}</Link>
@@ -276,26 +273,35 @@ export default function Navbar() {
         </div>
 
         {/* Wishlist & Cart Icons */}
-        {userRole === 'user' && (
+        {user && (
           <div className="flex items-center gap-4">
-            <Link to="/wishlist" className="relative cursor-pointer hover:text-red-500 transition p-2 block group/icon">
+            <Link to="/social-feed" className="relative cursor-pointer hover:text-amber-500 transition p-2 block group/icon" title="Nhật ký Styles">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              {wishlist && wishlist.length > 0 && (
-                <span className="absolute top-0 -right-1 bg-red-500 text-white border-2 border-gray-900 text-[10px] font-extrabold px-1.5 py-0 rounded-full group-hover/icon:scale-110 transition-transform">
-                  {wishlist.length}
-                </span>
-              )}
             </Link>
-            <Link to="/cart" className="relative cursor-pointer hover:text-amber-500 transition p-2 block group/icon">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.35 5.4a1 1 0 00.97 1.25h11.76a1 1 0 00.97-1.25L17 13M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17" />
-              </svg>
-              <span className="absolute top-0 -right-1 bg-amber-500 text-gray-900 border-2 border-gray-900 text-[10px] font-extrabold px-1.5 py-0 rounded-full group-hover/icon:scale-110 transition-transform">
-                {getCartCount()}
-              </span>
-            </Link>
+            {userRole === 'user' && (
+              <>
+                <Link to="/wishlist" className="relative cursor-pointer hover:text-red-500 transition p-2 block group/icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                  {wishlist && wishlist.length > 0 && (
+                    <span className="absolute top-0 -right-1 bg-red-500 text-white border-2 border-gray-900 text-[10px] font-extrabold px-1.5 py-0 rounded-full group-hover/icon:scale-110 transition-transform">
+                      {wishlist.length}
+                    </span>
+                  )}
+                </Link>
+                <Link to="/cart" className="relative cursor-pointer hover:text-amber-500 transition p-2 block group/icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.35 5.4a1 1 0 00.97 1.25h11.76a1 1 0 00.97-1.25L17 13M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17" />
+                  </svg>
+                  <span className="absolute top-0 -right-1 bg-amber-500 text-gray-900 border-2 border-gray-900 text-[10px] font-extrabold px-1.5 py-0 rounded-full group-hover/icon:scale-110 transition-transform">
+                    {getCartCount()}
+                  </span>
+                </Link>
+              </>
+            )}
           </div>
         )}
       </div>
