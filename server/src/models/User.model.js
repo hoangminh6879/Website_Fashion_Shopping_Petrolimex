@@ -98,6 +98,20 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    
+    // Lưu lại thời gian quay vòng quay may mắn gần nhất
+    lastSpinDate: {
+      type: Date,
+      default: null,
+    },
+    
+    // Kho Voucher cá nhân
+    savedCoupons: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Coupon",
+      }
+    ]
   },
   { timestamps: true }
 );
