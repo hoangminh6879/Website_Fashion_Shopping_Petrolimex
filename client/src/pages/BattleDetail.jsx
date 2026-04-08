@@ -11,10 +11,17 @@ export default function BattleDetail() {
   const [battle, setBattle] = useState(null);
   const [loading, setLoading] = useState(true);
   const [votingId, setVotingId] = useState(null);
+  const [now, setNow] = useState(new Date());
 
   useEffect(() => {
     fetchBattle();
     window.scrollTo(0, 0);
+
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
   }, [id]);
 
   const fetchBattle = async () => {
@@ -61,12 +68,24 @@ export default function BattleDetail() {
     );
   }
 
-  const isOngoing = battle.status === 'ongoing' && new Date(battle.endTime) > new Date();
+  const isOngoing = battle.status === 'ongoing' && new Date(battle.endTime) > now;
+  
+  const calculateTimeLeft = (endTime) => {
+    const difference = +new Date(endTime) - +now;
+    if (difference > 0) {
+      const totalSeconds = Math.floor(difference / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      return `${hours}h ${minutes}m ${seconds}s`;
+    }
+    return '0h 0m 0s';
+  };
 
   return (
     <>
       <Navbar />
-      <div className="bg-[#1a1a1a] min-h-screen text-white pt-24 pb-20 font-sans relative">
+      <div className="bg-[#1a1a1a] min-h-screen text-white pt-40 md:pt-48 pb-20 font-sans relative">
         <div className="container mx-auto px-4 max-w-6xl">
           {/* Header */}
           <div className="text-center mb-12 relative z-10">
@@ -86,8 +105,10 @@ export default function BattleDetail() {
                </div>
                <div className="w-px h-10 bg-gray-800"></div>
                <div>
-                  <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Tổng lượt vote</p>
-                  <p className="text-2xl font-black text-amber-500">{battle.totalVotes}</p>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Kết thúc sau</p>
+                  <p className={`text-xl font-mono font-bold ${isOngoing ? 'text-amber-500' : 'text-gray-500'}`}>
+                    {isOngoing ? calculateTimeLeft(battle.endTime) : 'Đã kết thúc'}
+                  </p>
                </div>
                <div className="w-px h-10 bg-gray-800"></div>
                <div>
@@ -165,12 +186,14 @@ export default function BattleDetail() {
 
                     <button
                       onClick={() => handleVote(product._id)}
-                      disabled={!isOngoing || battle.hasVoted || votingId === product._id}
+                      disabled={!isOngoing || battle.hasVoted || votingId === product._id || userRole !== 'user'}
                       className={`w-full py-4 rounded-xl font-black uppercase tracking-widest transition-all duration-300
-                        ${(!isOngoing || battle.hasVoted) ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' 
+                        ${(!isOngoing || battle.hasVoted || userRole !== 'user') ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' 
                         : 'bg-white text-gray-900 hover:bg-amber-500 hover:text-white shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_20px_rgba(245,158,11,0.5)] active:scale-95'}`}
                     >
-                      {votingId === product._id ? 'Đang gửi...' : (battle.hasVoted ? 'Đã Bình Chọn' : 'Bình Chọn')}
+                      {votingId === product._id ? 'Đang gửi...' 
+                        : (userRole !== 'user' ? 'Chỉ dành cho Người Mua' 
+                        : (battle.hasVoted ? 'Đã Bình Chọn' : 'Bình Chọn'))}
                     </button>
                     
                     <div className="mt-4 text-center">

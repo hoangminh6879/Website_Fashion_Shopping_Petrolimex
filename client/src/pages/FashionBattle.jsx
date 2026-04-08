@@ -6,10 +6,17 @@ import Navbar from '../components/Navbar';
 export default function FashionBattle() {
   const [battles, setBattles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState(new Date());
 
   useEffect(() => {
     fetchOngoingBattles();
     window.scrollTo(0, 0);
+
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
   }, []);
 
   const fetchOngoingBattles = async () => {
@@ -24,11 +31,17 @@ export default function FashionBattle() {
   };
 
   const calculateTimeLeft = (endTime) => {
-    const difference = +new Date(endTime) - +new Date();
+    const difference = +new Date(endTime) - +now;
     if (difference > 0) {
+      const totalSeconds = Math.floor(difference / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      
       return {
-        hours: Math.floor((difference / (1000 * 60 * 60)) % 24) + Math.floor(difference / (1000 * 60 * 60 * 24)) * 24,
-        minutes: Math.floor((difference / 1000 / 60) % 60),
+        hours: hours,
+        minutes: minutes,
+        seconds: seconds
       };
     }
     return null;
@@ -37,7 +50,7 @@ export default function FashionBattle() {
   return (
     <>
       <Navbar />
-      <div className="bg-[#1a1a1a] min-h-screen text-white pt-24 pb-12 font-sans relative overflow-hidden">
+      <div className="bg-[#1a1a1a] min-h-screen text-white pt-40 md:pt-48 pb-12 font-sans relative overflow-hidden">
         {/* Background glow effects */}
         <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-amber-500/20 rounded-full blur-[100px] pointer-events-none"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-500/20 rounded-full blur-[100px] pointer-events-none"></div>
@@ -87,7 +100,7 @@ export default function FashionBattle() {
                          <p className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">Kết thúc sau</p>
                          {timeLeft ? (
                             <p className="text-xl font-mono font-bold text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.3)]">
-                              {timeLeft.hours}h {timeLeft.minutes}m
+                              {timeLeft.hours}h {timeLeft.minutes}m {timeLeft.seconds}s
                             </p>
                          ) : (
                             <p className="text-xl font-bold text-gray-500">Đã kết thúc</p>
