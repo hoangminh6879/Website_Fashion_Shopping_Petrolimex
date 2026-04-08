@@ -38,12 +38,12 @@ export default function AdminDashboard() {
 
   const getStatusConfig = (status) => {
     switch (status) {
-      case 'pending': return { label: t('status_pending'), color: '#f59e0b', bg: 'bg-amber-100', text: 'text-amber-700' };
-      case 'paid': return { label: t('status_paid'), color: '#3b82f6', bg: 'bg-blue-100', text: 'text-blue-700' };
-      case 'shipped': return { label: t('status_shipped'), color: '#8b5cf6', bg: 'bg-purple-100', text: 'text-purple-700' };
-      case 'completed': return { label: t('status_completed'), color: '#10b981', bg: 'bg-emerald-100', text: 'text-emerald-700' };
-      case 'cancelled': return { label: t('status_cancelled'), color: '#ef4444', bg: 'bg-red-100', text: 'text-red-700' };
-      default: return { label: status, color: '#6b7280', bg: 'bg-gray-100', text: 'text-gray-700' };
+      case 'pending': return { label: t('status_pending'), color: '#f59e0b', bg: 'bg-amber-500/20', text: 'text-amber-400' };
+      case 'paid': return { label: t('status_paid'), color: '#3b82f6', bg: 'bg-blue-500/20', text: 'text-blue-400' };
+      case 'shipped': return { label: t('status_shipped'), color: '#8b5cf6', bg: 'bg-purple-500/20', text: 'text-purple-400' };
+      case 'completed': return { label: t('status_completed'), color: '#10b981', bg: 'bg-emerald-500/20', text: 'text-emerald-400' };
+      case 'cancelled': return { label: t('status_cancelled'), color: '#ef4444', bg: 'bg-red-500/20', text: 'text-red-400' };
+      default: return { label: status, color: '#94a3b8', bg: 'bg-gray-50', text: 'text-gray-400' };
     }
   };
 
@@ -191,6 +191,90 @@ export default function AdminDashboard() {
       fetchData("users"); // reload
     } catch (err) {
       Swal.fire("Lỗi", err.response?.data?.message || "Lỗi đổi quyền", "error");
+    }
+  };
+
+  const handleLockUser = async (userId, isCurrentlyLocked) => {
+    if (isCurrentlyLocked) {
+      if (confirm("Mở khóa cho người dùng này?")) {
+        try {
+          await api.put(`/admin/users/${userId}/lock`, { lockDays: 0 });
+          Swal.fire("Thành công", "Đã mở khóa tài khoản", "success");
+          fetchData("users");
+        } catch (err) {
+          Swal.fire("Lỗi", err.response?.data?.message || "Lỗi khóa tài khoản", "error");
+        }
+      }
+    } else {
+      const { value: formValues } = await Swal.fire({
+        title: 'Khóa tài khoản',
+        html:
+          '<input id="swal-input1" type="number" class="swal2-input" placeholder="Số ngày khóa">' +
+          '<input id="swal-input2" class="swal2-input" placeholder="Lý do khóa">',
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Khóa',
+        cancelButtonText: 'Hủy',
+        preConfirm: () => {
+          return [
+            document.getElementById('swal-input1').value,
+            document.getElementById('swal-input2').value
+          ]
+        }
+      });
+      if (formValues) {
+        const [lockDays, reason] = formValues;
+        if (!lockDays || lockDays <= 0) return Swal.fire("Lỗi", "Số ngày không hợp lệ", "error");
+        try {
+          await api.put(`/admin/users/${userId}/lock`, { lockDays: parseInt(lockDays), reason });
+          Swal.fire("Thành công", "Đã khóa người dùng", "success");
+          fetchData("users");
+        } catch (err) {
+          Swal.fire("Lỗi", err.response?.data?.message || "Lỗi khóa tài khoản", "error");
+        }
+      }
+    }
+  };
+
+  const handleLockShop = async (shopId, isCurrentlyLocked) => {
+    if (isCurrentlyLocked) {
+      if (confirm("Mở khóa kênh bán hàng này?")) {
+        try {
+          await api.put(`/admin/shops/${shopId}/lock`, { lockDays: 0 });
+          Swal.fire("Thành công", "Đã mở khóa Shop", "success");
+          fetchData("shops");
+        } catch (err) {
+          Swal.fire("Lỗi", err.response?.data?.message || "Lỗi mở khóa", "error");
+        }
+      }
+    } else {
+      const { value: formValues } = await Swal.fire({
+        title: 'Khóa kênh bán hàng',
+        html:
+          '<input id="swal-input1" type="number" class="swal2-input" placeholder="Số ngày khóa">' +
+          '<input id="swal-input2" class="swal2-input" placeholder="Lý do khóa">',
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Khóa',
+        cancelButtonText: 'Hủy',
+        preConfirm: () => {
+          return [
+            document.getElementById('swal-input1').value,
+            document.getElementById('swal-input2').value
+          ]
+        }
+      });
+      if (formValues) {
+        const [lockDays, reason] = formValues;
+        if (!lockDays || lockDays <= 0) return Swal.fire("Lỗi", "Số ngày không hợp lệ", "error");
+        try {
+          await api.put(`/admin/shops/${shopId}/lock`, { lockDays: parseInt(lockDays), reason });
+          Swal.fire("Thành công", "Đã vô hiệu hóa Shop tạm thời", "success");
+          fetchData("shops");
+        } catch (err) {
+          Swal.fire("Lỗi", err.response?.data?.message || "Lỗi thao tác", "error");
+        }
+      }
     }
   };
 
@@ -434,23 +518,23 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
-      <header className="bg-gradient-to-r from-gray-900 via-black to-gray-900 border-b border-amber-900/50 sticky top-0 z-50 py-4 px-6 text-white flex justify-between items-center shadow-lg">
+    <div className="min-h-screen bg-[#FBFBFB] flex flex-col font-sans">
+      <header className="bg-white border-b border-gray-100 sticky top-0 z-50 py-4 px-6 text-gray-900 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-amber-600">
+          <div className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-amber-600">
             ADMIN PANEL
           </div>
         </div>
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate("/")}
-            className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg font-semibold transition"
+            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold transition"
           >
             Trang chủ
           </button>
           <button
             onClick={handleLogout}
-            className="bg-red-500/20 hover:bg-red-500 text-white px-4 py-2 rounded-lg font-bold transition border border-red-500/50"
+            className="bg-red-50 hover:bg-red-500 text-red-600 hover:text-white px-4 py-2 rounded-lg font-bold transition border border-red-100"
           >
             Đăng xuất
           </button>
@@ -460,31 +544,31 @@ export default function AdminDashboard() {
       <div className="flex-1 container mx-auto px-4 py-8 flex flex-col md:flex-row gap-8">
         {/* Sidebar */}
         <aside className="w-full md:w-64 flex-shrink-0">
-          <div className="bg-white rounded-2xl shadow-xl shadow-gray-200/50 p-4 border border-gray-100 flex flex-col gap-2 sticky top-24">
+          <div className="bg-white rounded-2xl shadow-2xl shadow-gray-200/50 p-4 border border-gray-100 flex flex-col gap-2 sticky top-24">
             <button
               onClick={() => setActiveTab("overview")}
-              className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${activeTab === "overview" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-600 hover:bg-gray-100"
-                }`}
+              className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${activeTab === "overview" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-500 hover:bg-gray-50"
+                  }`}
             >
               📊 Tổng quan
             </button>
             <button
               onClick={() => setActiveTab("revenue")}
-              className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${activeTab === "revenue" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-600 hover:bg-gray-100"
+              className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${activeTab === "revenue" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-500 hover:bg-gray-50"
                 }`}
             >
               💰 Quản lý doanh thu
             </button>
             <button
               onClick={() => setActiveTab("users")}
-              className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${activeTab === "users" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-600 hover:bg-gray-100"
+              className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${activeTab === "users" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-500 hover:bg-gray-50"
                 }`}
             >
               👥 Người dùng
             </button>
             <button
               onClick={() => setActiveTab("upgrade_requests")}
-              className={`text-left px-5 py-3 rounded-xl font-bold transition-all flex justify-between items-center ${activeTab === "upgrade_requests" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-600 hover:bg-gray-100"
+              className={`text-left px-5 py-3 rounded-xl font-bold transition-all flex justify-between items-center ${activeTab === "upgrade_requests" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-500 hover:bg-gray-50"
                 }`}
             >
               <span>⭐ Yêu cầu nâng cấp</span>
@@ -496,45 +580,45 @@ export default function AdminDashboard() {
             </button>
             <button
               onClick={() => setActiveTab("shops")}
-              className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${activeTab === "shops" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-600 hover:bg-gray-100"
+              className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${activeTab === "shops" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-500 hover:bg-gray-50"
                 }`}
             >
               🏪 Cửa hàng
             </button>
             <button
               onClick={() => setActiveTab("categories")}
-              className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${activeTab === "categories" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-600 hover:bg-gray-100"
+              className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${activeTab === "categories" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-500 hover:bg-gray-50"
                 }`}
             >
               🏷️ Danh mục
             </button>
             <button
               onClick={() => setActiveTab("couponTypes")}
-              className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${activeTab === "couponTypes" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-600 hover:bg-gray-100"
+              className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${activeTab === "couponTypes" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-500 hover:bg-gray-50"
                 }`}
             >
               🎟️ Loại Coupon
             </button>
             <button
               onClick={() => setActiveTab("coupons")}
-              className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${activeTab === "coupons" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-600 hover:bg-gray-100"
+              className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${activeTab === "coupons" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-500 hover:bg-gray-50"
                 }`}
             >
               🧧 Mã Giảm Giá
             </button>
             <div className="border-t border-gray-100 my-2"></div>
             <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest px-2 pb-1">Quản Lý Sự Kiện</p>
-            <button onClick={() => setActiveTab("eventTypes")} className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${activeTab === "eventTypes" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-600 hover:bg-gray-100"}`}>🏷️ Loại Sự Kiện</button>
-            <button onClick={() => setActiveTab("events")} className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${activeTab === "events" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-600 hover:bg-gray-100"}`}>🎪 Sự Kiện</button>
-            <button onClick={() => setActiveTab("productEvents")} className={`text-left px-5 py-3 rounded-xl font-bold transition-all flex justify-between items-center ${activeTab === "productEvents" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-600 hover:bg-gray-100"}`}>
+            <button onClick={() => setActiveTab("eventTypes")} className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${activeTab === "eventTypes" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-500 hover:bg-gray-50"}`}>🏷️ Loại Sự Kiện</button>
+            <button onClick={() => setActiveTab("events")} className={`text-left px-5 py-3 rounded-xl font-bold transition-all ${activeTab === "events" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-500 hover:bg-gray-50"}`}>🎪 Sự Kiện</button>
+            <button onClick={() => setActiveTab("productEvents")} className={`text-left px-5 py-3 rounded-xl font-bold transition-all flex justify-between items-center ${activeTab === "productEvents" ? "bg-amber-500 text-white shadow-md shadow-amber-500/30" : "text-gray-500 hover:bg-gray-50"}`}>
               <span>⏳ Duyệt Sản Phẩm</span>
               {pendingProductEvents.length > 0 && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">{pendingProductEvents.length}</span>}
             </button>
           </div>
         </aside>
 
-        {/* Cột hiển thị dữ liệu chính */}
-        <main className="flex-1 bg-white rounded-2xl shadow-xl shadow-gray-200/50 p-6 border border-gray-100">
+        {/* Main Content Column */}
+        <main className="flex-1 bg-white rounded-2xl shadow-2xl shadow-gray-200/50 p-8 border border-gray-100">
 
           {/* TAB: Tổng quan */}
           {activeTab === "overview" && (
@@ -582,7 +666,7 @@ export default function AdminDashboard() {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="bg-white p-6 rounded-2xl border border-gray-50 shadow-sm">
                   <h3 className="text-lg font-black text-gray-900 mb-6 uppercase tracking-tight">Doanh thu 6 tháng gần nhất</h3>
                   <div className="h-[300px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
@@ -606,7 +690,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="bg-white p-6 rounded-2xl border border-gray-50 shadow-sm">
                   <h3 className="text-lg font-black text-gray-900 mb-6 uppercase tracking-tight">Trạng thái đơn hàng</h3>
                   <div className="h-[300px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
@@ -637,9 +721,9 @@ export default function AdminDashboard() {
               </div>
 
               <h3 className="text-lg font-black text-gray-900 mb-4 uppercase italic tracking-tighter">Đơn hàng mới nhất</h3>
-              <div className="overflow-x-auto rounded-xl border border-gray-100 shadow-sm">
+              <div className="overflow-x-auto rounded-xl border border-gray-50 shadow-sm">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-gray-50 text-gray-400 font-black uppercase tracking-widest">
+                  <thead className="bg-[#FBFBFB] text-gray-500 font-black uppercase tracking-widest">
                     <tr>
                       <th className="px-6 py-3">Khách hàng</th>
                       <th className="px-6 py-3">Tổng tiền</th>
@@ -651,9 +735,9 @@ export default function AdminDashboard() {
                     {stats.latestOrders?.map(order => {
                       const config = getStatusConfig(order.status);
                       return (
-                        <tr key={order._id} className="hover:bg-gray-50 transition">
-                          <td className="px-6 py-4 font-bold">{order.user?.name}</td>
-                          <td className="px-6 py-4 font-mono font-bold text-amber-600">
+                        <tr key={order._id} className="hover:bg-gray-50/50 transition border-b border-gray-50/50">
+                          <td className="px-6 py-4 font-bold text-gray-900">{order.user?.name}</td>
+                          <td className="px-6 py-4 font-mono font-black text-amber-500">
                             {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.totalPrice)}
                           </td>
                           <td className="px-6 py-4">
@@ -661,7 +745,7 @@ export default function AdminDashboard() {
                               {config.label}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-gray-400">
+                          <td className="px-6 py-4 text-gray-500">
                             {new Date(order.createdAt).toLocaleDateString('vi-VN')}
                           </td>
                         </tr>
@@ -679,7 +763,7 @@ export default function AdminDashboard() {
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                 <div>
                   <h2 className="text-2xl font-black text-gray-900">Quản lý doanh thu</h2>
-                  <p className="text-gray-500 text-sm">Phân tích chi tiết doanh thu và sản phẩm bán được</p>
+                  <p className="text-gray-400 text-sm">Phân tích chi tiết doanh thu và sản phẩm bán được</p>
                 </div>
                 <button
                   onClick={() => exportToExcel(stats.shopRevenue || [], 'BaoCaoDoanhThu_Shops')}
@@ -720,7 +804,7 @@ export default function AdminDashboard() {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
-                <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-xl shadow-gray-200/50">
+                <div className="bg-white p-8 rounded-3xl border border-gray-50 shadow-xl shadow-gray-200/50">
                   <div className="flex justify-between items-center mb-8">
                     <h3 className="text-xl font-black text-gray-900 uppercase">Doanh thu theo cửa hàng (Top 10)</h3>
                   </div>
@@ -728,7 +812,7 @@ export default function AdminDashboard() {
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={stats.shopRevenue || []} layout="vertical" margin={{ left: 50, right: 30 }}>
                         <XAxis type="number" hide />
-                        <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#1f2937', fontWeight: 700, fontSize: 13 }} width={120} />
+                        <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontWeight: 700, fontSize: 13 }} width={120} />
                         <Tooltip
                           cursor={{ fill: 'transparent' }}
                           contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }}
@@ -739,7 +823,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-xl shadow-gray-200/50">
+                <div className="bg-white p-8 rounded-3xl border border-gray-50 shadow-xl shadow-gray-200/50">
                   <div className="flex justify-between items-center mb-8">
                     <h3 className="text-xl font-black text-gray-900 uppercase">Sản phẩm Bán vs Hoàn (Top 10)</h3>
                   </div>
@@ -760,14 +844,14 @@ export default function AdminDashboard() {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="bg-white p-6 rounded-2xl border border-gray-50 shadow-sm">
                   <h3 className="text-lg font-black text-gray-900 mb-6 flex items-center gap-2">
                     <span className="p-2 bg-blue-100 rounded-lg text-blue-600">📦</span> Bảng xếp hạng bán chạy
                   </h3>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left">
                       <thead>
-                        <tr className="text-[10px] text-gray-400 font-black uppercase tracking-widest border-b border-gray-50">
+                        <tr className="text-[10px] text-slate-500 font-black uppercase tracking-widest border-b border-gray-50">
                           <th className="pb-4">Tên Shop</th>
                           <th className="pb-4 text-center">Số lượng</th>
                           <th className="pb-4 text-right">Doanh thu</th>
@@ -778,11 +862,11 @@ export default function AdminDashboard() {
                           <tr key={shop._id} className="group">
                             <td className="py-4">
                               <div className="flex items-center gap-3">
-                                <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-500">{i + 1}</span>
-                                <span className="font-bold text-gray-800 group-hover:text-amber-600 transition">{shop.name}</span>
+                                <span className="w-6 h-6 rounded-full bg-gray-50 flex items-center justify-center text-[10px] font-bold text-gray-400">{i + 1}</span>
+                                <span className="font-bold text-slate-200 group-hover:text-amber-600 transition">{shop.name}</span>
                               </div>
                             </td>
-                            <td className="py-4 text-center font-bold text-gray-500">{shop.soldCount}</td>
+                            <td className="py-4 text-center font-bold text-gray-400">{shop.soldCount}</td>
                             <td className="py-4 text-right font-black text-amber-600">
                               {new Intl.NumberFormat('vi-VN').format(shop.revenue)}
                             </td>
@@ -793,7 +877,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="bg-white p-6 rounded-2xl border border-gray-50 shadow-sm">
                   <div className="flex justify-between items-center mb-6">
                     <h3 className="text-lg font-black text-gray-900 flex items-center gap-2">
                       <span className="p-2 bg-emerald-100 rounded-lg text-emerald-600">📈</span> Thống kê tăng trưởng
@@ -810,8 +894,8 @@ export default function AdminDashboard() {
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
-                  <div className="mt-4 p-4 bg-gray-50 rounded-xl">
-                    <p className="text-xs text-gray-500 leading-relaxed font-medium">
+                  <div className="mt-4 p-4 bg-[#FBFBFB] rounded-xl">
+                    <p className="text-xs text-gray-400 leading-relaxed font-medium">
                       Dựa trên dữ liệu 6 tháng gần nhất, hệ thống ghi nhận mức độ tương tác và doanh số có sự biến động ổn định.
                     </p>
                   </div>
@@ -824,9 +908,9 @@ export default function AdminDashboard() {
           {activeTab === "users" && (
             <div>
               <h2 className="text-2xl font-black text-gray-900 mb-6">Quản lý người dùng</h2>
-              <div className="overflow-x-auto rounded-xl border border-gray-200">
+              <div className="overflow-x-auto rounded-xl border border-gray-100">
                 <table className="w-full text-left bg-white text-sm">
-                  <thead className="bg-gray-50 text-gray-500 font-bold uppercase">
+                  <thead className="bg-[#FBFBFB] text-gray-400 font-bold uppercase">
                     <tr>
                       <th className="px-6 py-4">Tên</th>
                       <th className="px-6 py-4">Email</th>
@@ -835,11 +919,11 @@ export default function AdminDashboard() {
                       <th className="px-6 py-4 text-center">Hành động</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-gray-50">
                     {users.filter(u => !(u.sellerRequest?.status === 'pending' && u.role !== 'seller')).map(u => (
-                      <tr key={u._id} className="hover:bg-gray-50 transition">
+                      <tr key={u._id} className="hover:bg-gray-50/50 transition">
                         <td className="px-6 py-4 font-semibold text-gray-900">{u.name}</td>
-                        <td className="px-6 py-4 text-gray-600">{u.email}</td>
+                        <td className="px-6 py-4 text-gray-500">{u.email}</td>
                         <td className="px-6 py-4">
                           <span className={`px-3 py-1 rounded-full text-xs font-bold ${u.role === 'admin' ? 'bg-red-100 text-red-700' :
                             u.role === 'seller' ? 'bg-amber-100 text-amber-700' :
@@ -848,7 +932,7 @@ export default function AdminDashboard() {
                             {u.role.toUpperCase()}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-gray-600">
+                        <td className="px-6 py-4">
                           {u.sellerRequest?.status === 'rejected' ? (
                             <span className="text-red-500 font-medium select-none">Từng bị từ chối</span>
                           ) : (
@@ -858,23 +942,31 @@ export default function AdminDashboard() {
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-center gap-2">
                             {u.role !== 'admin' && (
-                              <button
-                                onClick={() => {
-                                  if (confirm("Chắc chắn cấp quyền Admin thay vì User/Seller?")) {
-                                    handleChangeRole(u._id, 'admin')
-                                  }
-                                }}
-                                className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1 rounded border border-red-200 text-xs font-bold transition"
-                              >
-                                Cấp Admin
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => {
+                                    if (confirm("Chắc chắn cấp quyền Admin thay vì User/Seller?")) {
+                                      handleChangeRole(u._id, 'admin')
+                                    }
+                                  }}
+                                  className="bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-1 rounded border border-blue-200 text-xs font-bold transition"
+                                >
+                                  Cấp Admin
+                                </button>
+                                <button
+                                  onClick={() => handleLockUser(u._id, u.adminLockUntil && new Date(u.adminLockUntil) > new Date())}
+                                  className={`${u.adminLockUntil && new Date(u.adminLockUntil) > new Date() ? 'bg-green-50 text-green-600 hover:bg-green-100 border-green-200' : 'bg-red-50 text-red-600 hover:bg-red-100 border-red-200'} px-3 py-1 rounded border text-xs font-bold transition flex items-center justify-center`}
+                                >
+                                  {u.adminLockUntil && new Date(u.adminLockUntil) > new Date() ? 'Mở Khóa' : 'Khóa'}
+                                </button>
+                              </>
                             )}
                           </div>
                         </td>
                       </tr>
                     ))}
                     {users.filter(u => !(u.sellerRequest?.status === 'pending' && u.role !== 'seller')).length === 0 && (
-                      <tr><td colSpan="5" className="text-center py-8 text-gray-400">Không có người dùng nào.</td></tr>
+                      <tr><td colSpan="5" className="text-center py-8 text-slate-500">Không có người dùng nào.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -886,9 +978,9 @@ export default function AdminDashboard() {
           {activeTab === "upgrade_requests" && (
             <div>
               <h2 className="text-2xl font-black text-gray-900 mb-6 flex items-center gap-2">Yêu cầu nâng cấp Seller</h2>
-              <div className="overflow-x-auto rounded-xl border border-gray-200">
+              <div className="overflow-x-auto rounded-xl border border-gray-100">
                 <table className="w-full text-left bg-white text-sm">
-                  <thead className="bg-gray-50 text-gray-500 font-bold uppercase">
+                  <thead className="bg-[#FBFBFB] text-gray-400 font-bold uppercase">
                     <tr>
                       <th className="px-6 py-4">Người dùng</th>
                       <th className="px-6 py-4">Lý do mở shop</th>
@@ -896,19 +988,19 @@ export default function AdminDashboard() {
                       <th className="px-6 py-4 text-center">Hành động</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-gray-50">
                     {users.filter(u => u.sellerRequest?.status === 'pending' && u.role !== 'seller').map(u => (
                       <tr key={u._id} className="hover:bg-amber-50/50 transition border-l-4 border-l-amber-500">
                         <td className="px-6 py-4">
                           <div className="font-bold text-gray-900">{u.name}</div>
-                          <div className="text-xs text-gray-500">{u.email}</div>
+                          <div className="text-xs text-gray-400">{u.email}</div>
                         </td>
-                        <td className="px-6 py-4 text-gray-600 italic whitespace-normal max-w-sm">
+                        <td className="px-6 py-4 text-gray-500 italic whitespace-normal max-w-sm">
                           "{u.sellerRequest.reason}"
                         </td>
                         <td className="px-6 py-4 text-center">
                           <a href={`http://localhost:5000${u.sellerRequest.proofImage}`} target="_blank" rel="noreferrer" className="inline-block hover:scale-105 transition">
-                            <img src={`http://localhost:5000${u.sellerRequest.proofImage}`} className="w-16 h-16 object-cover rounded-lg border border-gray-200 shadow-sm inline-block" alt="minh chứng" />
+                            <img src={`http://localhost:5000${u.sellerRequest.proofImage}`} className="w-16 h-16 object-cover rounded-lg border border-gray-100 shadow-sm inline-block" alt="minh chứng" />
                           </a>
                         </td>
                         <td className="px-6 py-4">
@@ -930,7 +1022,7 @@ export default function AdminDashboard() {
                       </tr>
                     ))}
                     {users.filter(u => u.sellerRequest?.status === 'pending' && u.role !== 'seller').length === 0 && (
-                      <tr><td colSpan="4" className="text-center py-12 text-gray-400 font-medium">✨ Hiện không có yêu cầu nâng cấp nào đang chờ xử lý.</td></tr>
+                      <tr><td colSpan="4" className="text-center py-12 text-slate-500 font-medium">✨ Hiện không có yêu cầu nâng cấp nào đang chờ xử lý.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -944,15 +1036,15 @@ export default function AdminDashboard() {
               <h2 className="text-2xl font-black text-gray-900 mb-6">Quản lý cửa hàng</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {Array.isArray(shops) && shops.map(shop => (
-                  <div key={shop._id} className="border border-gray-100 rounded-2xl p-4 flex gap-4 shadow-sm hover:shadow-md transition">
+                  <div key={shop._id} className="border border-gray-50 rounded-2xl p-4 flex gap-4 shadow-sm hover:shadow-md transition">
                     <img
                       src={`http://localhost:5000${shop.image}`}
                       onError={(e) => e.target.src = "https://picsum.photos/150"}
-                      className="w-24 h-24 object-cover rounded-xl border border-gray-200"
+                      className="w-24 h-24 object-cover rounded-xl border border-gray-100"
                     />
                     <div className="flex flex-col justify-center flex-1">
                       <h3 className="font-bold text-lg text-gray-900 line-clamp-1">{shop.name}</h3>
-                      <p className="text-gray-500 text-sm mt-1">
+                      <p className="text-gray-400 text-sm mt-1">
                         Chủ: <span className="font-semibold">{shop.owner?.name || "Không rõ"}</span>
                       </p>
 
@@ -981,12 +1073,22 @@ export default function AdminDashboard() {
                             </button>
                           </div>
                         )}
+                        {shop.status === 'active' && (
+                          <div className="flex items-center gap-2 ml-auto">
+                            <button
+                                onClick={() => handleLockShop(shop._id, shop.adminLockUntil && new Date(shop.adminLockUntil) > new Date())}
+                                className={`${shop.adminLockUntil && new Date(shop.adminLockUntil) > new Date() ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-red-500 hover:bg-red-600'} text-white px-3 py-1 text-xs font-bold rounded shadow transition`}
+                              >
+                                {shop.adminLockUntil && new Date(shop.adminLockUntil) > new Date() ? 'Mở Khóa' : 'Khóa'}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
                 ))}
                 {shops.length === 0 && (
-                  <div className="col-span-full text-center py-12 text-gray-400">Không có cửa hàng nào được tạo.</div>
+                  <div className="col-span-full text-center py-12 text-slate-500">Không có cửa hàng nào được tạo.</div>
                 )}
               </div>
             </div>
@@ -1005,9 +1107,9 @@ export default function AdminDashboard() {
                 </button>
               </div>
 
-              <div className="overflow-x-auto rounded-xl border border-gray-200">
+              <div className="overflow-x-auto rounded-xl border border-gray-100">
                 <table className="w-full text-left bg-white text-sm">
-                  <thead className="bg-gray-50 text-gray-500 font-bold uppercase">
+                  <thead className="bg-[#FBFBFB] text-gray-400 font-bold uppercase">
                     <tr>
                       <th className="px-6 py-4">Ảnh</th>
                       <th className="px-6 py-4">Tên danh mục</th>
@@ -1016,19 +1118,19 @@ export default function AdminDashboard() {
                       <th className="px-6 py-4 text-center">Hành động</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-gray-50">
                     {Array.isArray(categories) && categories.map(cat => (
-                      <tr key={cat._id} className="hover:bg-gray-50 transition">
+                      <tr key={cat._id} className="hover:bg-gray-50/50 transition">
                         <td className="px-6 py-4">
                           <img
                             src={cat.image ? `http://localhost:5000${cat.image}` : "https://picsum.photos/50"}
                             alt={cat.name}
-                            className="w-12 h-12 object-cover rounded-lg border border-gray-200"
+                            className="w-12 h-12 object-cover rounded-lg border border-gray-100"
                           />
                         </td>
                         <td className="px-6 py-4 font-bold text-gray-900">{cat.name}</td>
-                        <td className="px-6 py-4 text-gray-500 font-mono text-xs">{cat.slug}</td>
-                        <td className="px-6 py-4 text-gray-500">
+                        <td className="px-6 py-4 text-gray-400 font-mono text-xs">{cat.slug}</td>
+                        <td className="px-6 py-4 text-gray-400">
                           {cat.parent ? cat.parent.name : <span className="text-amber-600 font-semibold border border-amber-200 bg-amber-50 px-2 py-0.5 rounded text-xs">Gốc</span>}
                         </td>
                         <td className="px-6 py-4">
@@ -1055,7 +1157,7 @@ export default function AdminDashboard() {
                       </tr>
                     ))}
                     {categories.length === 0 && (
-                      <tr><td colSpan="4" className="text-center py-8 text-gray-400">Không có danh mục nào.</td></tr>
+                      <tr><td colSpan="4" className="text-center py-8 text-slate-500">Không có danh mục nào.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -1076,20 +1178,20 @@ export default function AdminDashboard() {
                 </button>
               </div>
 
-              <div className="overflow-x-auto rounded-xl border border-gray-200">
+              <div className="overflow-x-auto rounded-xl border border-gray-100">
                 <table className="w-full text-left bg-white text-sm">
-                  <thead className="bg-gray-50 text-gray-500 font-bold uppercase">
+                  <thead className="bg-[#FBFBFB] text-gray-400 font-bold uppercase">
                     <tr>
                       <th className="px-6 py-4">Tên loại</th>
                       <th className="px-6 py-4">Mô tả</th>
                       <th className="px-6 py-4 text-center">Hành động</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-gray-50">
                     {Array.isArray(couponTypes) && couponTypes.map(type => (
-                      <tr key={type._id} className="hover:bg-gray-50 transition">
+                      <tr key={type._id} className="hover:bg-gray-50/50 transition">
                         <td className="px-6 py-4 font-bold text-gray-900">{type.name}</td>
-                        <td className="px-6 py-4 text-gray-500">{type.description}</td>
+                        <td className="px-6 py-4 text-gray-400">{type.description}</td>
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-center gap-2">
                             <button
@@ -1109,7 +1211,7 @@ export default function AdminDashboard() {
                       </tr>
                     ))}
                     {couponTypes.length === 0 && (
-                      <tr><td colSpan="3" className="text-center py-8 text-gray-400">Không có loại coupon nào.</td></tr>
+                      <tr><td colSpan="3" className="text-center py-8 text-slate-500">Không có loại coupon nào.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -1130,9 +1232,9 @@ export default function AdminDashboard() {
                 </button>
               </div>
 
-              <div className="overflow-x-auto rounded-xl border border-gray-200">
+              <div className="overflow-x-auto rounded-xl border border-gray-100">
                 <table className="w-full text-left bg-white text-sm">
-                  <thead className="bg-gray-50 text-gray-500 font-bold uppercase">
+                  <thead className="bg-[#FBFBFB] text-gray-400 font-bold uppercase">
                     <tr>
                       <th className="px-6 py-4">Mã</th>
                       <th className="px-6 py-4">Loại</th>
@@ -1144,18 +1246,18 @@ export default function AdminDashboard() {
                       <th className="px-6 py-4 text-center">Hành động</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-gray-50">
                     {Array.isArray(coupons) && coupons.map(cp => (
-                      <tr key={cp._id} className="hover:bg-gray-50 transition">
-                        <td className="px-6 py-4 font-bold text-amber-600">{cp.code}</td>
-                        <td className="px-6 py-4">{cp.couponType?.name || "N/A"}</td>
-                        <td className="px-6 py-4 font-bold">{cp.discount?.toLocaleString() || 0}</td>
-                        <td className="px-6 py-4 font-bold text-blue-600">{cp.quantity || 0}</td>
-                        <td className="px-6 py-4 font-bold text-green-600">{cp.usedCount || 0}</td>
+                      <tr key={cp._id} className="hover:bg-gray-50/50 transition">
+                        <td className="px-6 py-4 font-bold text-amber-500">{cp.code}</td>
+                        <td className="px-6 py-4 text-gray-500 uppercase text-xs font-black italic">{cp.couponType?.name || "N/A"}</td>
+                        <td className="px-6 py-4 font-black text-gray-900">{cp.discount?.toLocaleString() || 0}</td>
+                        <td className="px-6 py-4 font-black text-blue-400">{cp.quantity || 0}</td>
+                        <td className="px-6 py-4 font-black text-emerald-400">{cp.usedCount || 0}</td>
                         <td className="px-6 py-4 uppercase text-xs font-bold">
                           {cp.createdBy === 'admin' ? <span className="text-red-600">Admin</span> : <span className="text-amber-600">Shop: {cp.shop?.name || "N/A"}</span>}
                         </td>
-                        <td className="px-6 py-4 text-gray-500">
+                        <td className="px-6 py-4 text-gray-400">
                           {cp.expiryDate ? new Date(cp.expiryDate).toLocaleString("vi-VN") : "N/A"}
                         </td>
                         <td className="px-6 py-4">
@@ -1171,7 +1273,7 @@ export default function AdminDashboard() {
                       </tr>
                     ))}
                     {coupons.length === 0 && (
-                      <tr><td colSpan="6" className="text-center py-8 text-gray-400">Không có mã giảm giá nào.</td></tr>
+                      <tr><td colSpan="6" className="text-center py-8 text-slate-500">Không có mã giảm giá nào.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -1188,17 +1290,17 @@ export default function AdminDashboard() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {eventTypes.map(et => (
-                  <div key={et._id} className="border border-gray-100 rounded-2xl p-5 flex items-center gap-4 shadow-sm hover:shadow-md transition">
-                    <div className="text-4xl w-14 h-14 flex items-center justify-center rounded-2xl bg-gray-50 border border-gray-100">{et.icon}</div>
+                  <div key={et._id} className="border border-gray-50 rounded-2xl p-5 flex items-center gap-4 shadow-sm hover:shadow-md transition">
+                    <div className="text-4xl w-14 h-14 flex items-center justify-center rounded-2xl bg-[#FBFBFB] border border-gray-50">{et.icon}</div>
                     <div className="flex-1">
                       <div className="font-black text-gray-900 uppercase tracking-tight">{et.label}</div>
-                      <div className="text-xs text-gray-400 font-mono">{et.name}</div>
-                      <div className="text-xs text-gray-500 mt-1">{et.description}</div>
+                      <div className="text-xs text-slate-500 font-mono">{et.name}</div>
+                      <div className="text-xs text-gray-400 mt-1">{et.description}</div>
                     </div>
                     <button onClick={() => handleDeleteEventType(et._id)} className="text-red-400 hover:text-red-600 text-xs font-bold transition">Xóa</button>
                   </div>
                 ))}
-                {eventTypes.length === 0 && <p className="col-span-full text-center py-10 text-gray-400">Chưa có loại sự kiện nào.</p>}
+                {eventTypes.length === 0 && <p className="col-span-full text-center py-10 text-slate-500">Chưa có loại sự kiện nào.</p>}
               </div>
             </div>
           )}
@@ -1215,16 +1317,16 @@ export default function AdminDashboard() {
                   const now = new Date();
                   const isOngoing = ev.status === 'active' && new Date(ev.startDate) <= now && new Date(ev.endDate) >= now;
                   return (
-                    <div key={ev._id} className={`border rounded-2xl p-6 flex flex-col md:flex-row gap-4 items-start md:items-center shadow-sm transition hover:shadow-md ${isOngoing ? 'border-amber-400 bg-amber-50/30' : 'border-gray-100 bg-white'}`}>
+                    <div key={ev._id} className={`border rounded-2xl p-6 flex flex-col md:flex-row gap-4 items-start md:items-center shadow-sm transition hover:shadow-md ${isOngoing ? 'border-amber-400 bg-amber-50/30' : 'border-gray-50 bg-white'}`}>
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
                           <span className="text-2xl">{ev.eventType?.icon || '🎪'}</span>
                           <div>
                             <h3 className="font-black text-gray-900 uppercase tracking-tight">{ev.name}</h3>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ev.status === 'active' ? 'bg-green-100 text-green-700' : ev.status === 'draft' ? 'bg-gray-100 text-gray-500' : ev.status === 'ended' ? 'bg-red-100 text-red-500' : 'bg-blue-100 text-blue-600'}`}>{ev.status.toUpperCase()}{isOngoing ? ' (Đang diễn ra)' : ''}</span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ev.status === 'active' ? 'bg-green-100 text-green-700' : ev.status === 'draft' ? 'bg-gray-50 text-gray-400' : ev.status === 'ended' ? 'bg-red-100 text-red-500' : 'bg-blue-100 text-blue-600'}`}>{ev.status.toUpperCase()}{isOngoing ? ' (Đang diễn ra)' : ''}</span>
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
+                        <div className="grid grid-cols-2 gap-2 text-xs text-gray-400">
                           <span>🕐 Bắt đầu: <b>{new Date(ev.startDate).toLocaleString('vi-VN')}</b></span>
                           <span>🕔 Kết thúc: <b>{new Date(ev.endDate).toLocaleString('vi-VN')}</b></span>
                           <span>🛍️ Sản phẩm tham gia: <b>{ev.totalProductCount || 0}</b></span>
@@ -1235,7 +1337,7 @@ export default function AdminDashboard() {
                         {ev.status === 'draft' && <button onClick={() => handleActivateEvent(ev._id, 'active')} className="bg-green-500 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-green-600 transition">Kích hoạt</button>}
                         {ev.status === 'active' && <button onClick={() => handleActivateEvent(ev._id, 'paused')} className="bg-blue-500 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-blue-600 transition">Tạm dừng</button>}
                         {ev.status === 'paused' && <button onClick={() => handleActivateEvent(ev._id, 'active')} className="bg-green-500 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-green-600 transition">Tiếp tục</button>}
-                        <button onClick={() => handleEditEvent(ev)} className="bg-gray-100 text-gray-700 text-xs font-bold px-4 py-2 rounded-xl border border-gray-200 hover:bg-gray-200 transition">Sửa</button>
+                        <button onClick={() => handleEditEvent(ev)} className="bg-gray-50 text-gray-700 text-xs font-bold px-4 py-2 rounded-xl border border-gray-100 hover:bg-gray-200 transition">Sửa</button>
                         <button
                           onClick={() => {
                             setSelectedEventForProducts(ev);
@@ -1251,7 +1353,7 @@ export default function AdminDashboard() {
                     </div>
                   );
                 })}
-                {events.length === 0 && <p className="text-center py-12 text-gray-400">Chưa có sự kiện nào. Hãy tạo sự kiện đầu tiên!</p>}
+                {events.length === 0 && <p className="text-center py-12 text-slate-500">Chưa có sự kiện nào. Hãy tạo sự kiện đầu tiên!</p>}
               </div>
             </div>
           )}
@@ -1260,9 +1362,9 @@ export default function AdminDashboard() {
           {activeTab === "productEvents" && (
             <div>
               <h2 className="text-2xl font-black text-gray-900 mb-6">Duyệt Sản Phẩm Vào Sự Kiện <span className="text-red-500 text-lg">({pendingProductEvents.length} chờ duyệt)</span></h2>
-              <div className="overflow-x-auto rounded-xl border border-gray-200">
+              <div className="overflow-x-auto rounded-xl border border-gray-100">
                 <table className="w-full text-left bg-white text-sm">
-                  <thead className="bg-gray-50 text-gray-500 font-bold uppercase">
+                  <thead className="bg-[#FBFBFB] text-gray-400 font-bold uppercase">
                     <tr>
                       <th className="px-4 py-3">Sản phẩm</th>
                       <th className="px-4 py-3">Shop</th>
@@ -1273,12 +1375,12 @@ export default function AdminDashboard() {
                       <th className="px-4 py-3 text-center">Hành động</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-gray-50">
                     {pendingProductEvents.map(pe => (
                       <tr key={pe._id} className="hover:bg-amber-50/30 transition">
                         <td className="px-4 py-3 font-semibold text-gray-900">{pe.product?.name}</td>
-                        <td className="px-4 py-3 text-gray-600">{pe.shop?.name}</td>
-                        <td className="px-4 py-3 text-gray-600">{pe.event?.name}</td>
+                        <td className="px-4 py-3 text-gray-500">{pe.shop?.name}</td>
+                        <td className="px-4 py-3 text-gray-500">{pe.event?.name}</td>
                         <td className="px-4 py-3 font-bold text-amber-600">{pe.eventPrice?.toLocaleString()}đ</td>
                         <td className="px-4 py-3">{pe.eventStock}</td>
                         <td className="px-4 py-3 text-red-500 font-bold">{pe.discountPercentage}%</td>
@@ -1290,7 +1392,7 @@ export default function AdminDashboard() {
                         </td>
                       </tr>
                     ))}
-                    {pendingProductEvents.length === 0 && <tr><td colSpan="7" className="text-center py-10 text-gray-400">Không có đăng ký nào đang chờ duyệt.</td></tr>}
+                    {pendingProductEvents.length === 0 && <tr><td colSpan="7" className="text-center py-10 text-slate-500">Không có đăng ký nào đang chờ duyệt.</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -1316,7 +1418,7 @@ export default function AdminDashboard() {
                   value={categoryName}
                   onChange={(e) => setCategoryName(e.target.value)}
                   placeholder="Nhập tên danh mục (vd: Áo thun)"
-                  className="w-full bg-gray-50 p-4 rounded-xl border border-gray-200 focus:border-amber-500 focus:bg-white outline-none transition font-bold"
+                  className="w-full bg-[#FBFBFB] p-4 rounded-xl border border-gray-100 focus:border-amber-500 focus:bg-white outline-none transition font-bold"
                 />
               </div>
 
@@ -1327,7 +1429,7 @@ export default function AdminDashboard() {
                     <img
                       src={categoryImagePreview}
                       alt="Preview"
-                      className="w-full h-32 object-cover rounded-xl border border-gray-200"
+                      className="w-full h-32 object-cover rounded-xl border border-gray-100"
                     />
                   )}
                   <input
@@ -1340,7 +1442,7 @@ export default function AdminDashboard() {
                         setCategoryImagePreview(URL.createObjectURL(file));
                       }
                     }}
-                    className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
+                    className="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
                   />
                 </div>
               </div>
@@ -1349,7 +1451,7 @@ export default function AdminDashboard() {
             <div className="flex gap-4 mt-8">
               <button
                 onClick={() => { setShowCategoryModal(false); setEditingCategory(null); setCategoryName(""); }}
-                className="flex-1 bg-gray-100 text-gray-600 font-black uppercase py-4 rounded-xl hover:bg-gray-200 transition"
+                className="flex-1 bg-gray-50 text-gray-500 font-black uppercase py-4 rounded-xl hover:bg-gray-200 transition"
               >
                 Hủy
               </button>
@@ -1380,7 +1482,7 @@ export default function AdminDashboard() {
                   value={couponTypeName}
                   onChange={(e) => setCouponTypeName(e.target.value)}
                   placeholder="Nhập tên loại"
-                  className="w-full bg-gray-50 p-4 rounded-xl border border-gray-200 focus:border-amber-500 focus:bg-white outline-none transition font-bold"
+                  className="w-full bg-[#FBFBFB] p-4 rounded-xl border border-gray-100 focus:border-amber-500 focus:bg-white outline-none transition font-bold"
                 />
               </div>
               <div>
@@ -1389,7 +1491,7 @@ export default function AdminDashboard() {
                   value={couponTypeDesc}
                   onChange={(e) => setCouponTypeDesc(e.target.value)}
                   placeholder="Mô tả loại coupon"
-                  className="w-full bg-gray-50 p-4 rounded-xl border border-gray-200 focus:border-amber-500 focus:bg-white outline-none transition font-medium"
+                  className="w-full bg-[#FBFBFB] p-4 rounded-xl border border-gray-100 focus:border-amber-500 focus:bg-white outline-none transition font-medium"
                 />
               </div>
             </div>
@@ -1397,7 +1499,7 @@ export default function AdminDashboard() {
             <div className="flex gap-4 mt-8">
               <button
                 onClick={() => { setShowCouponTypeModal(false); setEditingCouponType(null); }}
-                className="flex-1 bg-gray-100 text-gray-600 font-black uppercase py-4 rounded-xl hover:bg-gray-200 transition"
+                className="flex-1 bg-gray-50 text-gray-500 font-black uppercase py-4 rounded-xl hover:bg-gray-200 transition"
               >
                 Hủy
               </button>
@@ -1426,7 +1528,7 @@ export default function AdminDashboard() {
                   value={newCoupon.code}
                   onChange={(e) => setNewCoupon({ ...newCoupon, code: e.target.value.toUpperCase() })}
                   placeholder="VD: GIAMGIA10"
-                  className="w-full bg-gray-50 p-4 rounded-xl border border-gray-200 focus:border-amber-500 focus:bg-white outline-none transition font-bold"
+                  className="w-full bg-[#FBFBFB] p-4 rounded-xl border border-gray-100 focus:border-amber-500 focus:bg-white outline-none transition font-bold"
                 />
               </div>
               <div>
@@ -1434,7 +1536,7 @@ export default function AdminDashboard() {
                 <select
                   value={newCoupon.couponType}
                   onChange={(e) => setNewCoupon({ ...newCoupon, couponType: e.target.value })}
-                  className="w-full bg-gray-50 p-4 rounded-xl border border-gray-200 focus:border-amber-500 focus:bg-white outline-none transition font-bold"
+                  className="w-full bg-[#FBFBFB] p-4 rounded-xl border border-gray-100 focus:border-amber-500 focus:bg-white outline-none transition font-bold"
                 >
                   <option value="">-- Chọn loại --</option>
                   {Array.isArray(couponTypes) && couponTypes.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
@@ -1447,7 +1549,7 @@ export default function AdminDashboard() {
                   value={newCoupon.discount}
                   onChange={(e) => setNewCoupon({ ...newCoupon, discount: e.target.value })}
                   placeholder="Số tiền hoặc %"
-                  className="w-full bg-gray-50 p-4 rounded-xl border border-gray-200 focus:border-amber-500 focus:bg-white outline-none transition font-bold"
+                  className="w-full bg-[#FBFBFB] p-4 rounded-xl border border-gray-100 focus:border-amber-500 focus:bg-white outline-none transition font-bold"
                 />
               </div>
               <div>
@@ -1458,7 +1560,7 @@ export default function AdminDashboard() {
                   value={newCoupon.quantity}
                   onChange={(e) => setNewCoupon({ ...newCoupon, quantity: e.target.value })}
                   placeholder="VD: 100"
-                  className="w-full bg-gray-50 p-4 rounded-xl border border-gray-200 focus:border-amber-500 focus:bg-white outline-none transition font-bold"
+                  className="w-full bg-[#FBFBFB] p-4 rounded-xl border border-gray-100 focus:border-amber-500 focus:bg-white outline-none transition font-bold"
                 />
               </div>
               <div>
@@ -1467,7 +1569,7 @@ export default function AdminDashboard() {
                   type="date"
                   value={newCoupon.expiryDate}
                   onChange={(e) => setNewCoupon({ ...newCoupon, expiryDate: e.target.value })}
-                  className="w-full bg-gray-50 p-4 rounded-xl border border-gray-200 focus:border-amber-500 focus:bg-white outline-none transition font-bold"
+                  className="w-full bg-[#FBFBFB] p-4 rounded-xl border border-gray-100 focus:border-amber-500 focus:bg-white outline-none transition font-bold"
                 />
               </div>
             </div>
@@ -1475,7 +1577,7 @@ export default function AdminDashboard() {
             <div className="flex gap-4 mt-8">
               <button
                 onClick={() => setShowCouponModal(false)}
-                className="flex-1 bg-gray-100 text-gray-600 font-black uppercase py-4 rounded-xl hover:bg-gray-200 transition"
+                className="flex-1 bg-gray-50 text-gray-500 font-black uppercase py-4 rounded-xl hover:bg-gray-200 transition"
               >
                 Hủy
               </button>
@@ -1496,20 +1598,20 @@ export default function AdminDashboard() {
             <h3 className="text-xl font-black text-gray-900 mb-6 uppercase">Thêm Loại Sự Kiện Mới</h3>
             <div className="space-y-4">
               <div><label className="block text-sm font-bold text-gray-700 mb-2">Tên mã (VD: FLASH_SALE) *</label>
-                <input type="text" value={eventTypeForm.name} onChange={e => setEventTypeForm({ ...eventTypeForm, name: e.target.value.toUpperCase() })} placeholder="FLASH_SALE" className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold" /></div>
+                <input type="text" value={eventTypeForm.name} onChange={e => setEventTypeForm({ ...eventTypeForm, name: e.target.value.toUpperCase() })} placeholder="FLASH_SALE" className="w-full bg-[#FBFBFB] p-3 rounded-xl border border-gray-100 focus:border-amber-500 outline-none font-bold" /></div>
               <div><label className="block text-sm font-bold text-gray-700 mb-2">Tên hiển thị *</label>
-                <input type="text" value={eventTypeForm.label} onChange={e => setEventTypeForm({ ...eventTypeForm, label: e.target.value })} placeholder="Flash Sale" className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold" /></div>
+                <input type="text" value={eventTypeForm.label} onChange={e => setEventTypeForm({ ...eventTypeForm, label: e.target.value })} placeholder="Flash Sale" className="w-full bg-[#FBFBFB] p-3 rounded-xl border border-gray-100 focus:border-amber-500 outline-none font-bold" /></div>
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-sm font-bold text-gray-700 mb-2">Icon (emoji)</label>
-                  <input type="text" value={eventTypeForm.icon} onChange={e => setEventTypeForm({ ...eventTypeForm, icon: e.target.value })} className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold text-xl" /></div>
+                  <input type="text" value={eventTypeForm.icon} onChange={e => setEventTypeForm({ ...eventTypeForm, icon: e.target.value })} className="w-full bg-[#FBFBFB] p-3 rounded-xl border border-gray-100 focus:border-amber-500 outline-none font-bold text-xl" /></div>
                 <div><label className="block text-sm font-bold text-gray-700 mb-2">Màu chủ đạo</label>
-                  <input type="color" value={eventTypeForm.color} onChange={e => setEventTypeForm({ ...eventTypeForm, color: e.target.value })} className="w-full h-12 rounded-xl border border-gray-200 cursor-pointer" /></div>
+                  <input type="color" value={eventTypeForm.color} onChange={e => setEventTypeForm({ ...eventTypeForm, color: e.target.value })} className="w-full h-12 rounded-xl border border-gray-100 cursor-pointer" /></div>
               </div>
               <div><label className="block text-sm font-bold text-gray-700 mb-2">Mô tả</label>
-                <textarea value={eventTypeForm.description} onChange={e => setEventTypeForm({ ...eventTypeForm, description: e.target.value })} className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-medium" rows="2" /></div>
+                <textarea value={eventTypeForm.description} onChange={e => setEventTypeForm({ ...eventTypeForm, description: e.target.value })} className="w-full bg-[#FBFBFB] p-3 rounded-xl border border-gray-100 focus:border-amber-500 outline-none font-medium" rows="2" /></div>
             </div>
             <div className="flex gap-4 mt-6">
-              <button onClick={() => setShowEventTypeModal(false)} className="flex-1 bg-gray-100 text-gray-600 font-black uppercase py-3 rounded-xl hover:bg-gray-200 transition">Hủy</button>
+              <button onClick={() => setShowEventTypeModal(false)} className="flex-1 bg-gray-50 text-gray-500 font-black uppercase py-3 rounded-xl hover:bg-gray-200 transition">Hủy</button>
               <button onClick={handleSaveEventType} className="flex-1 bg-amber-500 text-gray-900 font-black uppercase py-3 rounded-xl hover:bg-amber-600 shadow-lg shadow-amber-500/30 transition">Tạo ngay</button>
             </div>
           </div>
@@ -1523,22 +1625,22 @@ export default function AdminDashboard() {
             <h3 className="text-xl font-black text-gray-900 mb-6 uppercase">{editingEvent ? "Chỉnh sửa sự kiện" : "Tạo sự kiện mới"}</h3>
             <div className="space-y-4">
               <div><label className="block text-sm font-bold text-gray-700 mb-2">Tên sự kiện *</label>
-                <input type="text" value={eventForm.name} onChange={e => setEventForm({ ...eventForm, name: e.target.value })} className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold" /></div>
+                <input type="text" value={eventForm.name} onChange={e => setEventForm({ ...eventForm, name: e.target.value })} className="w-full bg-[#FBFBFB] p-3 rounded-xl border border-gray-100 focus:border-amber-500 outline-none font-bold" /></div>
               <div><label className="block text-sm font-bold text-gray-700 mb-2">Loại sự kiện *</label>
-                <select value={eventForm.eventType} onChange={e => setEventForm({ ...eventForm, eventType: e.target.value })} className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold">
+                <select value={eventForm.eventType} onChange={e => setEventForm({ ...eventForm, eventType: e.target.value })} className="w-full bg-[#FBFBFB] p-3 rounded-xl border border-gray-100 focus:border-amber-500 outline-none font-bold">
                   <option value="">-- Chọn loại --</option>
                   {eventTypes.map(et => <option key={et._id} value={et._id}>{et.icon} {et.label}</option>)}
                 </select></div>
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-sm font-bold text-gray-700 mb-2">📅 Ngày bắt đầu *</label>
-                  <input type="date" value={eventForm.startDate} onChange={e => setEventForm({ ...eventForm, startDate: e.target.value })} className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold" /></div>
+                  <input type="date" value={eventForm.startDate} onChange={e => setEventForm({ ...eventForm, startDate: e.target.value })} className="w-full bg-[#FBFBFB] p-3 rounded-xl border border-gray-100 focus:border-amber-500 outline-none font-bold" /></div>
                 <div><label className="block text-sm font-bold text-gray-700 mb-2">📅 Ngày kết thúc *</label>
-                  <input type="date" value={eventForm.endDate} onChange={e => setEventForm({ ...eventForm, endDate: e.target.value })} className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold" /></div>
+                  <input type="date" value={eventForm.endDate} onChange={e => setEventForm({ ...eventForm, endDate: e.target.value })} className="w-full bg-[#FBFBFB] p-3 rounded-xl border border-gray-100 focus:border-amber-500 outline-none font-bold" /></div>
               </div>
               <div><label className="block text-sm font-bold text-gray-700 mb-2">% Giảm giá chung (0 = không áp dụng)</label>
-                <input type="number" min="0" max="100" value={eventForm.discountPercentage} onChange={e => setEventForm({ ...eventForm, discountPercentage: e.target.value })} className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-bold" /></div>
+                <input type="number" min="0" max="100" value={eventForm.discountPercentage} onChange={e => setEventForm({ ...eventForm, discountPercentage: e.target.value })} className="w-full bg-[#FBFBFB] p-3 rounded-xl border border-gray-100 focus:border-amber-500 outline-none font-bold" /></div>
               <div><label className="block text-sm font-bold text-gray-700 mb-2">Mô tả</label>
-                <textarea value={eventForm.description} onChange={e => setEventForm({ ...eventForm, description: e.target.value })} className="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 focus:border-amber-500 outline-none font-medium" rows="2" /></div>
+                <textarea value={eventForm.description} onChange={e => setEventForm({ ...eventForm, description: e.target.value })} className="w-full bg-[#FBFBFB] p-3 rounded-xl border border-gray-100 focus:border-amber-500 outline-none font-medium" rows="2" /></div>
 
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">Thumbnail Sự Kiện</label>
@@ -1550,7 +1652,7 @@ export default function AdminDashboard() {
               </div>
             </div>
             <div className="flex gap-4 mt-8">
-              <button onClick={() => { setShowEventModal(false); setEditingEvent(null); }} className="flex-1 bg-gray-100 text-gray-500 font-bold py-3 rounded-xl uppercase hover:bg-gray-200 transition">Hủy</button>
+              <button onClick={() => { setShowEventModal(false); setEditingEvent(null); }} className="flex-1 bg-gray-50 text-gray-400 font-bold py-3 rounded-xl uppercase hover:bg-gray-200 transition">Hủy</button>
               <button onClick={handleSaveEvent} className="flex-1 bg-amber-500 text-white font-bold py-3 rounded-xl uppercase hover:bg-amber-600 transition shadow-lg shadow-amber-500/30">
                 {editingEvent ? "Lưu thay đổi" : "Tạo sự kiện"}
               </button>
@@ -1562,18 +1664,18 @@ export default function AdminDashboard() {
       {/* MODAL QUẢN LÝ SẢN PHẨM TRONG SỰ KIỆN */}
       {showEventProductsModal && selectedEventForProducts && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-gray-900/60 backdrop-blur-md p-4 animate-fadeIn">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-5xl shadow-2xl relative max-h-[90vh] flex flex-col border border-gray-100 overflow-hidden">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-5xl shadow-2xl relative max-h-[90vh] flex flex-col border border-gray-50 overflow-hidden">
             {/* Modal Header */}
-            <div className="p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+            <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
               <div>
                 <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tight italic">
                   Sản phẩm trong: <span className="text-amber-500">{selectedEventForProducts.name}</span>
                 </h3>
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Danh sách sản phẩm tham gia sự kiện này</p>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Danh sách sản phẩm tham gia sự kiện này</p>
               </div>
               <button
                 onClick={() => setShowEventProductsModal(false)}
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-gray-200 text-gray-400 hover:text-gray-900 hover:border-gray-900 transition-all active:scale-95 shadow-sm"
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-white border border-gray-100 text-slate-500 hover:text-gray-900 hover:border-gray-900 transition-all active:scale-95 shadow-sm"
               >
                 ×
               </button>
@@ -1581,10 +1683,10 @@ export default function AdminDashboard() {
 
             {/* Modal Content - Table */}
             <div className="flex-1 overflow-y-auto p-8">
-              <div className="bg-white rounded-[2rem] border border-gray-100 overflow-hidden shadow-sm">
+              <div className="bg-white rounded-[2rem] border border-gray-50 overflow-hidden shadow-sm">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-gray-50/80 text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] border-b border-gray-100">
+                    <tr className="bg-gray-50/80 text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] border-b border-gray-50">
                       <th className="px-6 py-4">Sản phẩm</th>
                       <th className="px-6 py-4">Cửa hàng</th>
                       <th className="px-6 py-4 text-center">Giá SK</th>
@@ -1597,7 +1699,7 @@ export default function AdminDashboard() {
                       <tr key={pe._id} className="group hover:bg-amber-50/20 transition-all duration-300">
                         <td className="px-6 py-5">
                           <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 rounded-2xl overflow-hidden border border-gray-100 shadow-sm bg-gray-50 flex-shrink-0">
+                            <div className="w-14 h-14 rounded-2xl overflow-hidden border border-gray-50 shadow-sm bg-[#FBFBFB] flex-shrink-0">
                               <img
                                 src={pe.product?.images?.[0]?.url
                                   ? (pe.product.images[0].url.startsWith('http') ? pe.product.images[0].url : `http://localhost:5000${pe.product.images[0].url}`)
@@ -1609,7 +1711,7 @@ export default function AdminDashboard() {
                             </div>
                             <div className="flex flex-col">
                               <span className="font-black text-gray-900 text-sm line-clamp-1 italic">{pe.product?.name}</span>
-                              <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">ID: {pe.product?._id?.slice(-6)}</span>
+                              <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">ID: {pe.product?._id?.slice(-6)}</span>
                             </div>
                           </div>
                         </td>
@@ -1625,7 +1727,7 @@ export default function AdminDashboard() {
                               ? (Math.round(pe.originalPrice * (1 - selectedEventForProducts.discountPercentage / 100))).toLocaleString()
                               : pe.eventPrice?.toLocaleString()}đ
                           </div>
-                          <div className="text-[9px] text-gray-400 line-through mt-1">Gốc: {pe.originalPrice?.toLocaleString()}đ</div>
+                          <div className="text-[9px] text-slate-500 line-through mt-1">Gốc: {pe.originalPrice?.toLocaleString()}đ</div>
                         </td>
                         <td className="px-6 py-5 text-center">
                           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${pe.status === 'approved' ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'}`}>
@@ -1648,7 +1750,7 @@ export default function AdminDashboard() {
                         <td colSpan="5" className="px-6 py-24 text-center">
                           <div className="flex flex-col items-center gap-4 opacity-20 transform -rotate-2">
                             <span className="text-6xl grayscale">🏷️</span>
-                            <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.3em]">Không có sản phẩm nào tham gia</p>
+                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em]">Không có sản phẩm nào tham gia</p>
                           </div>
                         </td>
                       </tr>
@@ -1659,7 +1761,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-8 bg-gray-50 border-t border-gray-100 flex justify-end">
+            <div className="p-8 bg-[#FBFBFB] border-t border-gray-50 flex justify-end">
               <button
                 onClick={() => setShowEventProductsModal(false)}
                 className="px-12 py-4 bg-gray-900 text-white font-black uppercase tracking-[0.2em] text-[10px] rounded-2xl hover:bg-amber-500 hover:text-gray-900 transition-all shadow-xl shadow-gray-200 hover:shadow-amber-500/30 active:scale-95"

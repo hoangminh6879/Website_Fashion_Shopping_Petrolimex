@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API = "https://website-fashion-shopping-petrolimex.onrender.com";
+const API = "http://localhost:5000/api/auth";
 
 export const registerUser = (data) => {
   return axios.post(`${API}/register`, data);

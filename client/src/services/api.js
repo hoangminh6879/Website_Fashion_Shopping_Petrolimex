@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://website-fashion-shopping-petrolimex.onrender.com",
+  baseURL: "http://localhost:5000/api",
 });
 
 // Thêm token vào header

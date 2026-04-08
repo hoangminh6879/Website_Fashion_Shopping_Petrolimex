@@ -200,7 +200,10 @@ export const getMyOrders = async (req, res) => {
         const populatedOrders = await Promise.all(orders.map(async (order) => {
             const items = await OrderItem.find({ order: order._id }).populate({
                 path: "product",
-                populate: { path: "shop", select: "name owner" }
+                populate: [
+                    { path: "shop", select: "name owner" },
+                    { path: "images" }
+                ]
             });
             return { ...order._doc, items };
         }));
@@ -220,7 +223,10 @@ export const getOrderById = async (req, res) => {
 
         const items = await OrderItem.find({ order: order._id }).populate({
             path: "product",
-            populate: { path: "shop", select: "name owner" }
+            populate: [
+                { path: "shop", select: "name owner" },
+                { path: "images" }
+            ]
         });
         res.json({ ...order._doc, items });
     } catch (error) {
@@ -468,7 +474,12 @@ export const getSellerOrders = async (req, res) => {
 
         // 3. Tìm tất cả OrderItem liên quan đến các sản phẩm này
         // (Sử dụng ID sản phẩm để tìm Item)
-        const myOrderItems = await OrderItem.find({ product: { $in: myProductIds } }).lean();
+        const myOrderItems = await OrderItem.find({ product: { $in: myProductIds } })
+            .populate({
+                path: 'product',
+                populate: { path: 'images' }
+            })
+            .lean();
 
 
         if (myOrderItems.length === 0) {
@@ -559,6 +570,29 @@ export const confirmReceipt = async (req, res) => {
         order.status = 'completed';
         order.completedAt = new Date();
         await order.save();
+
+        // Tính điểm thưởng cho User
+        const points = Math.floor(order.totalPrice / 1000);
+        const user = await User.findById(req.user.id);
+        if (user) {
+            user.loyaltyPoints = (user.loyaltyPoints || 0) + points;
+            
+            // Đánh giá lại hạng
+            if (user.loyaltyPoints >= 5000) {
+                user.customerTier = "kim cương";
+            } else if (user.loyaltyPoints >= 4000) {
+                user.customerTier = "bạch kim";
+            } else if (user.loyaltyPoints >= 3000) {
+                user.customerTier = "vàng";
+            } else if (user.loyaltyPoints >= 2000) {
+                user.customerTier = "bạc";
+            } else if (user.loyaltyPoints >= 1000) {
+                user.customerTier = "đồng";
+            } else {
+                user.customerTier = "thường";
+            }
+            await user.save();
+        }
 
         // Thông báo cho Seller(s) sở hữu các sản phẩm trong đơn này
         try {

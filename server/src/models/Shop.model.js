@@ -13,6 +13,8 @@ const shopSchema = new mongoose.Schema(
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     status: { type: String, enum: ["pending", "active", "rejected"], default: "pending" },
     rating: { type: Number, default: 0 },
+    adminLockUntil: { type: Date },
+    adminLockReason: { type: String, default: "" },
   },
   { timestamps: true }
 );
