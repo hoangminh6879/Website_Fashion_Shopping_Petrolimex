@@ -25,6 +25,7 @@ import ChatFloating from "./components/Chat/ChatFloating";
 import SocialFeed from "./pages/SocialFeed";
 import FashionBattle from "./pages/FashionBattle";
 import BattleDetail from "./pages/BattleDetail";
+import TryOnDemo from "./pages/TryOnDemo";
 
 
 function App() {
@@ -126,6 +127,7 @@ function App() {
         <Route path="/lucky-wheel" element={<LuckyWheel />} />
         <Route path="/fashion-battle" element={<FashionBattle />} />
         <Route path="/fashion-battle/:id" element={<BattleDetail />} />
+        <Route path="/try-on" element={<TryOnDemo />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
       </Routes>

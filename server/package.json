@@ -21,7 +21,7 @@
     "nodemailer": "^8.0.3",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
-    "qs": "^6.15.0",
+    "qs": "^6.15.1",
     "react-leaflet": "^5.0.0",
     "recharts": "^3.8.1",
     "socket.io": "^4.8.3",

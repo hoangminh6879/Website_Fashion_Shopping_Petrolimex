@@ -17,6 +17,7 @@ npm run dev
 Cái 2: --> Chạy trang web
 cd client
 npm install
+npm install @mediapipe/face_mesh @mediapipe/camera_utils @mediapipe/drawing_utils
 npm run dev
 
 LƯU Ý QUANG TRỌNG !!!!!!!
