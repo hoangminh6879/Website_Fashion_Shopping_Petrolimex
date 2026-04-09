@@ -650,7 +650,7 @@ export default function Home() {
           <div>
             <h4 className="text-gray-900 font-bold mb-4 uppercase text-xs"><AutoText text="Theo Dõi Chúng Tôi" /></h4>
             <ul className="space-y-2 text-[13px]">
-              <li><a href="#" className="hover:text-[#D4AF37]">📘 Facebook</a></li>
+              <li><a href="" className="hover:text-[#D4AF37]">📘 Facebook</a></li>
               <li><a href="#" className="hover:text-[#D4AF37]">📸 Instagram</a></li>
               <li><a href="#" className="hover:text-[#D4AF37]">💼 LinkedIn</a></li>
             </ul>

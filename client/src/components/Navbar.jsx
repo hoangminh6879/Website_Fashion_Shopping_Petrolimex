@@ -40,7 +40,7 @@ export default function Navbar() {
 
   useEffect(() => {
     api.get('/categories').then(res => setCategories(res.data)).catch(console.error);
-    
+
     // Close dropdowns on outside click
     const handleClickOutside = (e) => {
       if (!e.target.closest('.notification-container')) {
@@ -90,17 +90,21 @@ export default function Navbar() {
       <div className="border-b border-gray-800/50 py-1.5 bg-black/30">
         <div className="container mx-auto px-4 flex justify-between items-center text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
 
-          {/* LEFT: Trang Chủ */}
+          {/* LEFT: Trang Chủ & Thử Đồ Ảo */}
           <div className="flex gap-6 items-center">
             <Link to="/" className="flex items-center gap-1.5 hover:text-amber-500 transition font-black text-gray-300">
               🏠 <span>Trang Chủ</span>
+            </Link>
+            <div className="h-3 w-px bg-gray-700/50"></div>
+            <Link to="/try-on" className="flex items-center gap-1.5 hover:text-blue-400 transition font-black text-blue-500 animate-pulse">
+              ✨ <span>Phòng Thử Đồ AI</span>
             </Link>
           </div>
 
           {/* RIGHT: Thông báo, Hỗ trợ, Ngôn ngữ, User */}
           <div className="flex gap-6 items-center">
             <div className="relative notification-container">
-              <button 
+              <button
                 onClick={() => setShowNotifications(!showNotifications)}
                 className="flex items-center gap-1 hover:text-amber-500 transition relative outline-none"
               >
@@ -115,7 +119,7 @@ export default function Navbar() {
                 <NotificationDropdown onClose={() => setShowNotifications(false)} />
               )}
             </div>
-            <button 
+            <button
               onClick={handleContactAdmin}
               className="flex items-center gap-1 hover:text-amber-500 transition cursor-pointer"
             >
@@ -167,6 +171,9 @@ export default function Navbar() {
                     {user.role === 'admin' && (
                       <Link to="/admin/dashboard" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50 text-amber-600">Quản lý Website</Link>
                     )}
+                    <Link to="/try-on" className="block px-4 py-2 hover:bg-amber-50 hover:text-amber-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50 text-indigo-600 flex items-center gap-2">
+                      ✨ PHÒNG THỬ ĐỒ AI
+                    </Link>
                     <button onClick={handleLogout} className="w-full text-left block px-4 py-2 hover:bg-red-50 hover:text-red-600 transition text-[11px] font-black uppercase tracking-widest border-t border-gray-50">{t('logout')}</button>
                   </div>
                 </div>
