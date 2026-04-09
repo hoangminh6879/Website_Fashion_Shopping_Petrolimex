@@ -396,22 +396,33 @@ export default function ProductModal({ product: productInfo, isOpen, onClose, pr
                     🛒 {t('only_for_customers')}
                   </div>
                 ) : (
-                  <div className="flex gap-4">
+                  <div className="flex flex-col gap-3">
                     <button
-                      onClick={() => handleAddToCart(false)}
-                      disabled={addingToCart || currentStock <= 0}
-                      className={`flex-[1.2] flex items-center justify-center gap-3 py-4 border-2 border-amber-500 font-black rounded-2xl transition-all uppercase tracking-widest text-[10px] ${addingToCart || currentStock <= 0 ? 'opacity-50 cursor-not-allowed bg-gray-50 border-gray-200 text-gray-400' : 'text-amber-600 bg-amber-50/50 hover:bg-amber-500 hover:text-white active:scale-95 shadow-lg shadow-amber-500/5'}`}
+                        onClick={() => {
+                          onClose();
+                          navigate('/try-on', { state: { productImageUrl: variantImage || (selectedProduct.images && selectedProduct.images.length > 0 ? selectedProduct.images[0].url : null) } });
+                        }}
+                        className="w-full bg-black text-[#D4AF37] border border-[#D4AF37]/30 hover:bg-gray-900 hover:border-[#D4AF37] px-4 py-3.5 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all shadow-lg flex justify-center items-center gap-2 group"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.35 5.4a1 1 0 00.97 1.25h11.76a1 1 0 00.97-1.25L17 13M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17" /></svg>
-                      {addingToCart ? t('adding') : t('add_to_cart')}
+                        <span className="text-sm group-hover:scale-110 transition-transform">✨</span> Thử Đồ Bằng Trí Tuệ Nhân Tạo (AI)
                     </button>
-                    <button
-                      onClick={() => handleAddToCart(true)}
-                      disabled={addingToCart || currentStock <= 0}
-                      className={`flex-1 py-4 font-black rounded-2xl transition-all shadow-xl uppercase tracking-widest text-[10px] ${addingToCart || currentStock <= 0 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-amber-500 to-amber-600 text-gray-900 hover:shadow-amber-500/30 active:scale-95'}`}
-                    >
-                      {t('buy_now')}
-                    </button>
+                    <div className="flex gap-4">
+                      <button
+                        onClick={() => handleAddToCart(false)}
+                        disabled={addingToCart || currentStock <= 0}
+                        className={`flex-[1.2] flex items-center justify-center gap-3 py-4 border-2 border-amber-500 font-black rounded-2xl transition-all uppercase tracking-widest text-[10px] ${addingToCart || currentStock <= 0 ? 'opacity-50 cursor-not-allowed bg-gray-50 border-gray-200 text-gray-400' : 'text-amber-600 bg-amber-50/50 hover:bg-amber-500 hover:text-white active:scale-95 shadow-lg shadow-amber-500/5'}`}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.35 5.4a1 1 0 00.97 1.25h11.76a1 1 0 00.97-1.25L17 13M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17" /></svg>
+                        {addingToCart ? t('adding') : t('add_to_cart')}
+                      </button>
+                      <button
+                        onClick={() => handleAddToCart(true)}
+                        disabled={addingToCart || currentStock <= 0}
+                        className={`flex-1 py-4 font-black rounded-2xl transition-all shadow-xl uppercase tracking-widest text-[10px] ${addingToCart || currentStock <= 0 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-amber-500 to-amber-600 text-gray-900 hover:shadow-amber-500/30 active:scale-95'}`}
+                      >
+                        {t('buy_now')}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

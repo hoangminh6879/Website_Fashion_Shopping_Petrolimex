@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 const getFaceMesh = () => {
     return window.FaceMesh || (window.facemesh && window.facemesh.FaceMesh);
@@ -15,6 +15,7 @@ const VirtualTryOn = () => {
     const [scale, setScale] = useState(3.0);
     const [rotation, setRotation] = useState(0);
     const [removeBgEnabled, setRemoveBgEnabled] = useState(false);
+    const [hasAccessory, setHasAccessory] = useState(false);
 
     const canvasRef = useRef(null);
     const imageRef = useRef(null);
@@ -22,6 +23,46 @@ const VirtualTryOn = () => {
     const accessoryRef = useRef(null);
     const processedAccessoryRef = useRef(null);
     const lastResultsRef = useRef(null);
+    const location = useLocation();
+
+    useEffect(() => {
+        const initProductImage = async () => {
+            if (location.state?.productImageUrl) {
+                try {
+                    const url = location.state.productImageUrl.startsWith('http') 
+                        ? location.state.productImageUrl 
+                        : `http://localhost:5000${location.state.productImageUrl}`;
+                    
+                    const response = await fetch(url);
+                    const blob = await response.blob();
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        accessoryRef.current = e.target.result;
+                        setRemoveBgEnabled(true); // Default enable BG removal for product images from store
+                        if (!removeBgEnabled) { 
+                             // Wait, processAccessory uses removeBgEnabled state, which might not update immediately.
+                             // Let's call processAccessory, but first set the state. In React, state updates are async, 
+                             // so processAccessory might read the old state.
+                        }
+                    };
+                    // Instead of relying on processAccessory with stale state, we process directly or let it rely on the current state.
+                    // For now, let's keep it simple.
+                    reader.onload = (e) => {
+                        accessoryRef.current = e.target.result;
+                        // Forcing base64 loading
+                        setRemoveBgEnabled(false); 
+                        processAccessory(e.target.result);
+                        setHasAccessory(true);
+                    };
+                    reader.readAsDataURL(blob);
+                } catch (err) {
+                    console.error("Lỗi khi process ảnh từ detail:", err);
+                }
+            }
+        };
+        
+        initProductImage();
+    }, [location.state]);
 
     useEffect(() => {
         const FaceMeshClass = getFaceMesh();
@@ -138,6 +179,7 @@ const VirtualTryOn = () => {
                 else {
                     accessoryRef.current = event.target.result;
                     processAccessory(event.target.result);
+                    setHasAccessory(true);
                 }
             };
             reader.readAsDataURL(file);
@@ -161,83 +203,124 @@ const VirtualTryOn = () => {
     };
 
     return (
-        <div className="flex flex-col items-center p-8 bg-white rounded-[3rem] shadow-2xl max-w-7xl mx-auto border border-gray-100 mb-20 font-sans">
-
-            {/* Top Bar with Home Link */}
-            <div className="w-full flex justify-between items-center mb-8 border-b border-slate-50 pb-6">
-                <Link to="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 transition-all group">
-                    <span className="bg-slate-100 p-2 rounded-full group-hover:bg-indigo-50 transition-all">🏠</span>
+        <div className="flex flex-col w-full font-sans relative">
+            <div className="w-full flex justify-between items-center mb-10 border-b border-white/10 pb-6 relative z-10">
+                <Link to="/" className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#D4AF37] transition-all group">
+                    <span className="w-8 h-8 flex items-center justify-center bg-white/5 border border-white/10 rounded-full group-hover:bg-[#D4AF37]/10 group-hover:border-[#D4AF37]/50 transition-all">🏠</span>
                     Về Trang Chủ
                 </Link>
-                <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter italic">
-                    AI <span className="text-indigo-600">STUDIO</span>
-                </h2>
-                <div className="w-24"></div> {/* Spacer */}
+                <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">System Online</span>
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 w-full mb-8">
-                <div className="lg:col-span-4 space-y-6">
-                    <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 flex flex-col gap-4 shadow-inner">
-                        <div className="flex flex-col">
-                            <label className="mb-2 text-[9px] font-black uppercase text-slate-400 tracking-widest">1. Ảnh chân dung</label>
-                            <input type="file" onChange={(e) => handleFileUpload(e, 'user')} className="text-xs border-2 border-dashed border-slate-200 p-3 rounded-2xl bg-white hover:border-indigo-400 transition-all cursor-pointer" />
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full relative z-10">
+                
+                {/* LEFT CONTROL PANEL */}
+                <div className="lg:col-span-4 space-y-6 flex flex-col">
+                    {/* Upload Boxes */}
+                    <div className="bg-gray-900/40 backdrop-blur-3xl p-6 rounded-[2rem] border border-white/5 flex flex-col gap-5 shadow-inner relative overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none"></div>
+                        <div className="flex flex-col relative z-10">
+                            <label className="mb-2 text-[10px] font-black uppercase text-[#D4AF37] tracking-[0.2em] flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]"></span> Ảnh của bạn
+                            </label>
+                            <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-700/50 rounded-2xl cursor-pointer hover:bg-white/5 hover:border-[#D4AF37]/50 transition-all bg-black/20 group">
+                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                    <span className="text-2xl mb-1 group-hover:scale-110 transition-transform">👤</span>
+                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Tải ảnh chân dung</p>
+                                </div>
+                                <input type="file" onChange={(e) => handleFileUpload(e, 'user')} className="hidden" />
+                            </label>
                         </div>
-                        <div className="flex flex-col">
-                            <label className="mb-2 text-[9px] font-black uppercase text-slate-400 tracking-widest">2. Ảnh phụ kiện</label>
-                            <input type="file" onChange={(e) => handleFileUpload(e, 'accessory')} className="text-xs border-2 border-dashed border-slate-200 p-3 rounded-2xl bg-white hover:border-emerald-400 transition-all cursor-pointer" />
+                        
+                        <div className="flex flex-col relative z-10">
+                            <label className="mb-2 text-[10px] font-black uppercase text-[#D4AF37] tracking-[0.2em] flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]"></span> Sản phẩm
+                            </label>
+                            <label className={`flex flex-col items-center justify-center w-full h-24 border-2 border-dashed ${hasAccessory ? 'border-[#D4AF37]/50 bg-[#D4AF37]/5' : 'border-gray-700/50 bg-black/20'} rounded-2xl cursor-pointer hover:bg-white/5 hover:border-[#D4AF37]/50 transition-all group`}>
+                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                    <span className="text-2xl mb-1 group-hover:scale-110 transition-transform">👕</span>
+                                    <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${hasAccessory ? 'text-[#D4AF37] animate-pulse' : 'text-gray-400'}`}>{hasAccessory ? 'Ảnh Đã Được Nạp' : 'Tải ảnh trang phục'}</p>
+                                </div>
+                                <input type="file" onChange={(e) => handleFileUpload(e, 'accessory')} className="hidden" />
+                            </label>
                         </div>
                     </div>
 
-                    {accessoryRef.current && (
-                        <div className="p-8 bg-slate-900 text-white rounded-[2.5rem] space-y-8 shadow-2xl border-b-[8px] border-indigo-500">
-                            <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Manual Control</span>
-                                <button onClick={() => { setRemoveBgEnabled(!removeBgEnabled); processAccessory(accessoryRef.current); }} className={`px-4 py-1.5 rounded-full text-[8px] font-bold uppercase transition-all ${removeBgEnabled ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-white/10 text-white'}`}>Xóa nền AI</button>
+                    {/* Manual Controls */}
+                    {hasAccessory && (
+                        <div className="p-6 bg-gray-900/40 backdrop-blur-3xl rounded-[2rem] space-y-6 shadow-2xl border border-white/5 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-[#D4AF37]/5 blur-3xl rounded-full"></div>
+                            <div className="flex items-center justify-between border-b border-white/5 pb-4 relative z-10">
+                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white flex items-center gap-2">
+                                    <span className="text-[#D4AF37]">⚙️</span> Tinh chỉnh
+                                </span>
+                                <button onClick={() => { setRemoveBgEnabled(!removeBgEnabled); processAccessory(accessoryRef.current); }} 
+                                    className={`px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all ${removeBgEnabled ? 'bg-[#D4AF37] border-[#D4AF37] text-black shadow-[0_0_15px_rgba(212,175,55,0.4)]' : 'bg-transparent border-gray-700 text-gray-400 hover:text-white hover:border-gray-500'}`}>
+                                    Tách nền AI
+                                </button>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-6">
-                                <div className="space-y-2">
-                                    <div className="flex justify-between text-[8px] font-bold text-gray-500 uppercase"><span>Lên / Xuống</span><span>{offsetY}px</span></div>
-                                    <input type="range" min="-400" max="400" value={offsetY} onChange={(e) => setOffsetY(parseInt(e.target.value))} className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
+                            <div className="grid grid-cols-1 gap-5 relative z-10">
+                                <div className="space-y-3">
+                                    <div className="flex justify-between text-[9px] font-bold text-gray-400 uppercase tracking-widest"><span>Lên / Xuống</span><span className="text-[#D4AF37]">{offsetY}</span></div>
+                                    <input type="range" min="-400" max="400" value={offsetY} onChange={(e) => setOffsetY(parseInt(e.target.value))} className="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-[#D4AF37]" />
                                 </div>
-                                <div className="space-y-2">
-                                    <div className="flex justify-between text-[8px] font-bold text-gray-500 uppercase"><span>Trái / Phải</span><span>{offsetX}px</span></div>
-                                    <input type="range" min="-200" max="200" value={offsetX} onChange={(e) => setOffsetX(parseInt(e.target.value))} className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+                                <div className="space-y-3">
+                                    <div className="flex justify-between text-[9px] font-bold text-gray-400 uppercase tracking-widest"><span>Trái / Phải</span><span className="text-[#D4AF37]">{offsetX}</span></div>
+                                    <input type="range" min="-200" max="200" value={offsetX} onChange={(e) => setOffsetX(parseInt(e.target.value))} className="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-[#D4AF37]" />
                                 </div>
-                                <div className="space-y-2">
-                                    <div className="flex justify-between text-[8px] font-bold text-gray-500 uppercase"><span>Xoay Phụ Kiện</span><span>{rotation}°</span></div>
-                                    <input type="range" min="-180" max="180" value={rotation} onChange={(e) => setRotation(parseInt(e.target.value))} className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                                <div className="space-y-3">
+                                    <div className="flex justify-between text-[9px] font-bold text-gray-400 uppercase tracking-widest"><span>Xoay Góc</span><span className="text-[#D4AF37]">{rotation}°</span></div>
+                                    <input type="range" min="-180" max="180" value={rotation} onChange={(e) => setRotation(parseInt(e.target.value))} className="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-[#D4AF37]" />
                                 </div>
-                                <div className="space-y-2">
-                                    <div className="flex justify-between text-[8px] font-bold text-gray-500 uppercase"><span>Kích cỡ (Scale)</span><span>{scale.toFixed(1)}x</span></div>
-                                    <input type="range" min="0.5" max="10" step="0.1" value={scale} onChange={(e) => setScale(parseFloat(e.target.value))} className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500" />
+                                <div className="space-y-3">
+                                    <div className="flex justify-between text-[9px] font-bold text-gray-400 uppercase tracking-widest"><span>Kích Cỡ</span><span className="text-[#D4AF37]">{scale.toFixed(1)}x</span></div>
+                                    <input type="range" min="0.5" max="10" step="0.1" value={scale} onChange={(e) => setScale(parseFloat(e.target.value))} className="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-[#D4AF37]" />
                                 </div>
                             </div>
                         </div>
                     )}
                 </div>
 
-                <div className="lg:col-span-8 flex flex-col items-center gap-6">
-                    <div className="relative w-full border-8 border-white shadow-2xl rounded-[3.5rem] overflow-hidden min-h-[600px] flex items-center justify-center bg-slate-100 shadow-inner">
+                {/* RIGHT CANVAS PANEL */}
+                <div className="lg:col-span-8 flex flex-col gap-6">
+                    <div className="relative w-full aspect-[3/4] md:aspect-auto md:h-full min-h-[500px] border border-white/10 shadow-2xl rounded-[3rem] overflow-hidden flex items-center justify-center bg-zinc-950">
+                        {/* Frame decoration */}
+                        <div className="absolute inset-4 border border-white/5 rounded-[2.5rem] pointer-events-none z-20"></div>
+                        
                         {loading && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/10 z-50 backdrop-blur-md">
-                                <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-50 backdrop-blur-sm">
+                                <div className="w-16 h-16 border-4 border-[#D4AF37] border-t-transparent rounded-full animate-spin shadow-[0_0_20px_rgba(212,175,55,0.5)]"></div>
+                                <p className="mt-4 text-[#D4AF37] font-black uppercase tracking-widest text-[10px] animate-pulse">Đang xử lý hình ảnh...</p>
                             </div>
                         )}
                         <img ref={imageRef} src={selectedImage} alt="User" className="hidden" onLoad={processImage} />
-                        {!selectedImage && <p className="text-slate-300 font-black uppercase tracking-[0.4em] text-xs">Waiting for your photo</p>}
-                        <canvas ref={canvasRef} className="max-w-full h-auto shadow-2xl" />
+                        {!selectedImage && (
+                            <div className="flex flex-col items-center justify-center text-center p-8">
+                                <div className="w-24 h-24 rounded-full border border-[#D4AF37]/30 flex items-center justify-center mb-6 bg-[#D4AF37]/5">
+                                    <span className="text-4xl filter grayscale opacity-50">📷</span>
+                                </div>
+                                <p className="text-gray-500 font-bold uppercase tracking-[0.3em] text-[10px]">Phòng Thử Đồ Đã Sẵn Sàng</p>
+                                <p className="text-gray-700 text-[11px] mt-2 font-medium">Vui lòng tải ảnh của bạn lên để bắt đầu trải nghiệm</p>
+                            </div>
+                        )}
+                        <canvas ref={canvasRef} className="max-w-[95%] max-h-[95%] object-contain relative z-10 drop-shadow-2xl rounded-2xl" />
                     </div>
 
                     {/* Download Button */}
-                    {selectedImage && (
-                        <button
-                            onClick={handleDownload}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-5 rounded-full font-black uppercase text-xs tracking-[0.2em] shadow-2xl transition-all transform hover:-translate-y-1 active:scale-95 flex items-center gap-3"
-                        >
-                            <span className="text-lg">💾</span> Tải ảnh về máy ngay
-                        </button>
-                    )}
+                    <div className="flex justify-end">
+                        {selectedImage && (
+                            <button
+                                onClick={handleDownload}
+                                className="bg-white text-black hover:bg-[#D4AF37] px-8 py-4 rounded-[1.5rem] font-black uppercase text-[10px] tracking-[0.2em] transition-all transform hover:-translate-y-1 active:scale-95 flex items-center gap-3 shadow-[0_10px_20px_rgba(255,255,255,0.1)] hover:shadow-[0_10px_30px_rgba(212,175,55,0.3)] w-full md:w-auto justify-center group"
+                            >
+                                <span className="text-base group-hover:scale-110 transition-transform">📥</span> Lưu ảnh thành quả
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
