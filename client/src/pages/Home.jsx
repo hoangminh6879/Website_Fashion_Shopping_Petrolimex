@@ -44,6 +44,8 @@ export default function Home() {
   const [selectedRating, setSelectedRating] = useState(ratingParam);
   const [filterPromotion, setFilterPromotion] = useState({ flashSale: false, event: false });
   const [sort, setSort] = useState("newest");
+  const [showAllCategories, setShowAllCategories] = useState(false);
+  const CATEGORIES_PER_ROW = 8; // số danh mục hiển thị mặc định (1 hàng)
 
   useEffect(() => {
     setSelectedCategory(categoryParam);
@@ -225,8 +227,8 @@ export default function Home() {
       <Navbar />
 
       {/* BANNER SECTION (DYNAMIC CAROUSEL) */}
-      <section className="container mx-auto px-4 mt-8 flex flex-col lg:flex-row gap-4">
-        <div className="w-full lg:w-2/3 h-[250px] md:h-[400px] bg-gray-900 rounded-2xl relative overflow-hidden shadow-2xl border border-gray-800">
+      <section className="container mx-auto px-2 mt-4 flex flex-col lg:flex-row gap-3">
+        <div className="w-full lg:w-2/3 h-[320px] md:h-[480px] bg-gray-900 rounded-2xl relative overflow-hidden shadow-2xl border border-gray-800">
           {ongoingEvents.length > 0 ? (
             <div className="relative w-full h-full group">
               {ongoingEvents.map((ev, idx) => (
@@ -406,34 +408,54 @@ export default function Home() {
       {/* CATEGORIES SECTION */}
       <section className="container mx-auto px-4 mt-8">
         <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white">
-            <h2 className="uppercase text-gray-800 font-bold tracking-wide text-lg flex items-center gap-2">
-              <span className="w-1.5 h-6 bg-[#D4AF37] rounded-full inline-block"></span>
+          <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white">
+            <h2 className="uppercase text-gray-800 font-bold tracking-wide text-base flex items-center gap-2">
+              <span className="w-1.5 h-5 bg-[#D4AF37] rounded-full inline-block"></span>
               <AutoText text="Danh Mục Sản Phẩm" />
             </h2>
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">A → Z</span>
+              {categories.length > CATEGORIES_PER_ROW && (
+                <button
+                  onClick={() => setShowAllCategories(prev => !prev)}
+                  className="flex items-center gap-1 text-[11px] font-bold text-[#D4AF37] hover:text-[#B8860B] transition-colors uppercase tracking-wider"
+                >
+                  {showAllCategories ? (
+                    <><span>Thu gọn</span><span className="text-xs">▲</span></>
+                  ) : (
+                    <><span>Xem tất cả ({categories.length})</span><span className="text-xs">▼</span></>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
-          <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-6 border-l border-t border-gray-100">
+          <div className="flex border-l border-t border-gray-100">
+            {/* Tất cả button */}
             <button
               onClick={() => setSelectedCategory(null)}
-              className={`flex flex-col items-center gap-3 p-5 border-r border-b border-gray-100 transition-all duration-300 group ${!selectedCategory ? 'bg-gray-50 border-b-2 border-b-[#D4AF37]' : 'hover:bg-gray-50'}`}
+              className={`flex-1 flex flex-col items-center justify-center gap-1.5 px-2 py-3 border-r border-b border-gray-100 transition-all duration-200 group ${!selectedCategory ? 'bg-[#D4AF37]/5 border-b-2 border-b-[#D4AF37]' : 'hover:bg-gray-50'}`}
             >
-              <div className={`w-[85px] h-[85px] rounded-full overflow-hidden bg-gray-100 flex items-center justify-center border-2 transition-all ${!selectedCategory ? 'border-[#D4AF37]' : 'border-transparent group-hover:border-[#D4AF37]'}`}>
-                <span className="text-2xl">🛍️</span>
+              <div className={`w-9 h-9 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center border flex-shrink-0 transition-all ${!selectedCategory ? 'border-[#D4AF37]' : 'border-gray-200 group-hover:border-[#D4AF37]'}`}>
+                <span className="text-base">🛍️</span>
               </div>
-              <span className={`text-sm text-center font-bold uppercase tracking-tighter transition-colors ${!selectedCategory ? 'text-[#D4AF37]' : 'text-gray-700 group-hover:text-[#D4AF37]'}`}><AutoText text="Tất Cả" /></span>
+              <span className={`text-[11px] font-bold uppercase tracking-tight leading-tight text-center transition-colors ${!selectedCategory ? 'text-[#D4AF37]' : 'text-gray-600 group-hover:text-[#D4AF37]'}`}><AutoText text="Tất Cả" /></span>
             </button>
-            {categories.map((cat) => (
+            {/* Sắp xếp A-Z, giới hạn 1 hàng nếu chưa mở rộng */}
+            {([...categories]
+              .sort((a, b) => a.name.localeCompare(b.name, 'vi'))
+              .slice(0, showAllCategories ? undefined : CATEGORIES_PER_ROW)
+            ).map((cat) => (
               <button
                 key={cat._id}
                 onClick={() => setSelectedCategory(cat._id)}
-                className={`flex flex-col items-center gap-3 p-5 border-r border-b border-gray-100 transition-all duration-300 group ${selectedCategory === cat._id ? 'bg-gray-50 border-b-2 border-b-[#D4AF37]' : 'hover:bg-gray-50'}`}
+                className={`flex-1 flex flex-col items-center justify-center gap-1.5 px-2 py-3 border-r border-b border-gray-100 transition-all duration-200 group ${selectedCategory === cat._id ? 'bg-[#D4AF37]/5 border-b-2 border-b-[#D4AF37]' : 'hover:bg-gray-50'}`}
               >
-                <div className={`w-[85px] h-[85px] rounded-full overflow-hidden bg-gray-50 border-2 transition-all ${selectedCategory === cat._id ? 'border-[#D4AF37]' : 'border-transparent group-hover:border-[#D4AF37]'} p-0.5`}>
+                <div className={`w-9 h-9 rounded-full overflow-hidden bg-gray-50 border flex-shrink-0 transition-all ${selectedCategory === cat._id ? 'border-[#D4AF37]' : 'border-gray-200 group-hover:border-[#D4AF37]'} p-0.5`}>
                   <div className="w-full h-full rounded-full overflow-hidden">
-                    <img src={cat.image ? `http://localhost:5000${cat.image}` : `https://picsum.photos/seed/${cat._id}/150/150`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={cat.name} />
+                    <img src={cat.image ? `http://localhost:5000${cat.image}` : `https://picsum.photos/seed/${cat._id}/80/80`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={cat.name} />
                   </div>
                 </div>
-                <span className={`text-sm text-center font-medium line-clamp-2 leading-tight h-10 transition-colors ${selectedCategory === cat._id ? 'text-[#D4AF37]' : 'text-gray-700 group-hover:text-[#D4AF37]'}`}><AutoText text={cat.name} /></span>
+                <span className={`text-[11px] font-medium line-clamp-1 leading-tight transition-colors text-center ${selectedCategory === cat._id ? 'text-[#D4AF37] font-bold' : 'text-gray-600 group-hover:text-[#D4AF37]'}`}><AutoText text={cat.name} /></span>
               </button>
             ))}
           </div>
